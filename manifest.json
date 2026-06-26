@@ -1,7 +1,7 @@
 {
-    "name": "Template by UwU Apps",
-    "short_name": "UwU Template",
-    "description": "A simple template app; view live template at a glance!",
+    "name": "Link Fixer by UwU Apps",
+    "short_name": "uwuFix",
+    "description": "Clean URLs, remove trackers, and fix embeds!",
     "icons": [{
             "src": "templateicon1-192.png",
             "type": "image/png",
@@ -26,13 +26,24 @@
             "form_factor": "wide"
         }
     ],
+    "shortcuts": [{
+        "name": "Clean a URL",
+        "short_name": "Clean",
+        "description": "Open uwuFix and clean a URL",
+        "url": "/",
+        "icons": [{
+            "src": "/templateicon1-192.png",
+            "sizes": "192x192"
+        }]
+    }],
+
     "start_url": "/",
     "theme_color": "#cfc",
     "background_color": "#cfc",
     "display": "standalone",
     "display_override": ["fullscreen", "minimal-ui", "window-controls-overlay"],
     "orientation": "any",
-    "id": "template",
+    "id": "uwufix",
     "dir": "ltr",
     "scope": "/",
     "lang": "en",

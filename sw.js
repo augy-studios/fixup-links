@@ -1,105 +1,55 @@
-const CACHE = "template-offline-v1";
-
+/* uwuFix Service Worker */
+const CACHE = 'uwufix-v1';
 const ASSETS = [
-  "/",
-  "/index.html",
-  "/style.css",
-  "/script.js",
-  "/templateicon1-192.png",
-  "/templateicon1-512.png",
-  "/favicon.ico",
-  "/manifest.json"
+  '/',
+  '/index.html',
+  '/style.css',
+  '/script.js',
+  '/manifest.json',
+  '/templateicon1-192.png',
+  '/templateicon1-512.png',
+  'https://fonts.googleapis.com/css2?family=Jua&display=swap',
 ];
 
-/* -- Install: cache shell -- */
-
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE)
-    .then(cache => cache.addAll(ASSETS))
-    .then(() => self.skipWaiting())
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS.filter(a => !a.startsWith('http'))))
   );
+  self.skipWaiting();
 });
 
-/* -- Activate: clean old caches -- */
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-    .then(keys =>
-      Promise.all(
-        keys
-        .filter(k => k !== CACHE)
-        .map(k => caches.delete(k))
-      )
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     )
-    .then(() => self.clients.claim())
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+
+  // Network-first for Google Fonts
+  if (url.hostname.includes('fonts.g')) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-first for local assets
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(res => {
+        if (res.ok && url.origin === self.location.origin) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match('/index.html'));
+    })
   );
 });
-
-/* -- Fetch: strategy per route -- */
-
-self.addEventListener('fetch', event => {
-  const {
-    request
-  } = event;
-  const url = new URL(request.url);
-
-  // API - network-first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-
-  // Google Fonts - cache-first (immutable)
-  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // static assets - cache-first
-  event.respondWith(cacheFirst(request));
-});
-
-/* -- Strategies -- */
-
-async function networkFirst(request) {
-  try {
-    const response = await fetch(request);
-    return response;
-  } catch {
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'You appear to be offline.'
-      }), {
-        status: 503,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-      }
-    );
-  }
-}
-
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(CACHE);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch {
-    // offline - fallback for navigation
-    if (request.mode === 'navigate') {
-      return caches.match('/index.html');
-    }
-    return new Response('Offline', {
-      status: 503
-    });
-  }
-}
