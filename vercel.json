@@ -1,0 +1,10 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "version": 2,
+    "cleanUrls": true,
+    "regions": ["sin1"],
+    "rewrites": [{
+        "source": "/",
+        "destination": "/"
+    }]
+}

@@ -1,0 +1,42 @@
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  font-family: "Jua", sans-serif;
+
+  /* Chrome and Opera */
+  user-select: none;
+
+  /* Safari */
+  -webkit-user-select: none;
+
+  /* Konqueror HTML */
+  -khtml-user-select: none;
+
+  /* Firefox */
+  -moz-user-select: none;
+
+  /* Internet Explorer/Edge */
+  -ms-user-select: none;
+}
+
+:link {
+  color: #6f6;
+}
+
+:visited {
+  color: #66f;
+}
+
+:root {
+  --brand: #99ff99;
+  --bg: #f7faf8;
+  --card: #ffffff;
+  --ink: #0f1721;
+  --muted: #667085;
+  --ring: rgba(153, 255, 153, 0.5);
+  --ok: #16a34a;
+  --warn: #ea580c;
+  --busy: #b91c1c;
+}
+

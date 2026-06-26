@@ -1,0 +1,44 @@
+{
+    "name": "Template by UwU Apps",
+    "short_name": "UwU Template",
+    "description": "A simple template app; view live template at a glance!",
+    "icons": [{
+            "src": "templateicon1-192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "templateicon1-512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ],
+    "screenshots": [{
+            "src": "/images/screenshot_1.png",
+            "type": "image/png",
+            "sizes": "1080x2340",
+            "form_factor": "narrow"
+        },
+        {
+            "src": "/images/screenshot_2.png",
+            "type": "image/png",
+            "sizes": "1920x1080",
+            "form_factor": "wide"
+        }
+    ],
+    "start_url": "/",
+    "theme_color": "#cfc",
+    "background_color": "#cfc",
+    "display": "standalone",
+    "display_override": ["fullscreen", "minimal-ui", "window-controls-overlay"],
+    "orientation": "any",
+    "id": "template",
+    "dir": "ltr",
+    "scope": "/",
+    "lang": "en",
+    "categories": [
+        "entertainment",
+        "lifestyle",
+        "utilities"
+    ]
+}
