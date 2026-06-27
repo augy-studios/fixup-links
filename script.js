@@ -343,6 +343,13 @@ function addToHistory(original, cleaned, platform) {
     return history;
 }
 
+function removeFromHistory(id) {
+    let history = loadHistory();
+    history = history.filter(h => h.id !== id);
+    saveHistory(history);
+    return history;
+}
+
 function clearHistory() {
     localStorage.removeItem(HISTORY_KEY);
 }
@@ -459,24 +466,41 @@ function renderHistoryList() {
         item.setAttribute('aria-label', `Load: ${entry.cleaned}`);
 
         item.innerHTML = `
-      <div class="history-item-original-label">Original</div>
-      <div class="history-item-original">${escapeHtml(entry.original)}</div>
-      <div class="history-item-cleaned">${escapeHtml(entry.cleaned)}</div>
-      <div class="history-item-meta">
-        <span class="history-item-date">${formatRelativeDate(entry.date)}</span>
-        <span class="history-item-platform">${escapeHtml(entry.platform)}</span>
+      <div class="history-item-content">
+        <div class="history-item-original-label">Original</div>
+        <div class="history-item-original">${escapeHtml(entry.original)}</div>
+        <div class="history-item-cleaned">${escapeHtml(entry.cleaned)}</div>
+        <div class="history-item-meta">
+          <span class="history-item-date">${formatRelativeDate(entry.date)}</span>
+          <span class="history-item-platform">${escapeHtml(entry.platform)}</span>
+        </div>
       </div>
+      <button class="history-item-delete" aria-label="Delete entry">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+        </svg>
+      </button>
     `;
 
-        item.addEventListener('click', () => {
+        item.querySelector('.history-item-content').addEventListener('click', () => {
             document.getElementById('urlInput').value = entry.original;
             closeModal('historyModal');
             document.getElementById('urlInput').focus();
             showToast('URL loaded from history');
         });
 
+        item.querySelector('.history-item-delete').addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFromHistory(entry.id);
+            renderHistoryList();
+            showToast('Entry deleted');
+        });
+
         item.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') item.click();
+            if (e.key === 'Enter' || e.key === ' ') item.querySelector('.history-item-content').click();
         });
 
         list.appendChild(item);
