@@ -664,10 +664,10 @@ body {
   text-decoration: underline;
 }
 
-.footer-note {
-  margin-top: 4px;
-  font-size: 0.78rem;
-  opacity: 0.7;
+.footer-heart {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
 }
 
 /* ===== MODAL ===== */
