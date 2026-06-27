@@ -3,12 +3,12 @@
     "short_name": "uwuFix",
     "description": "Clean URLs, remove trackers, and fix embeds!",
     "icons": [{
-            "src": "templateicon1-192.png",
+            "src": "UFX-192.png",
             "type": "image/png",
             "sizes": "192x192"
         },
         {
-            "src": "templateicon1-512.png",
+            "src": "UFX-512.png",
             "type": "image/png",
             "sizes": "512x512"
         }
@@ -32,7 +32,7 @@
         "description": "Open uwuFix and clean a URL",
         "url": "/",
         "icons": [{
-            "src": "/templateicon1-192.png",
+            "src": "/UFX-192.png",
             "sizes": "192x192"
         }]
     }],

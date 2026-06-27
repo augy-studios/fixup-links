@@ -1,12 +1,12 @@
-const CACHE = 'uwufix-v6';
+const CACHE = 'uwufix-v7';
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/script.js',
   '/manifest.json',
-  '/templateicon1-192.png',
-  '/templateicon1-512.png',
+  '/UFX-192.png',
+  '/UFX-512.png',
   'https://fonts.googleapis.com/css2?family=Jua&display=swap',
 ];
 
