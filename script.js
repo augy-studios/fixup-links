@@ -145,6 +145,14 @@ const EMBED_CONVERTERS = [{
         },
     },
     {
+        name: 'Discord',
+        match: h => h === 'canary.discord.com' || h === 'ptb.discord.com',
+        convert: url => {
+            url.hostname = 'discord.com';
+            return url;
+        },
+    },
+    {
         name: 'Threads',
         match: h => h === 'threads.net' || h === 'www.threads.net',
         convert: url => {
