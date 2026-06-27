@@ -14,7 +14,7 @@ const UNIVERSAL_TRACKERS = new Set([
     'utm_id', 'utm_reader', 'utm_name', 'utm_social', 'utm_social-type',
     // Click IDs
     'fbclid', 'gclid', 'gclsrc', 'msclkid', 'dclid', 'yclid', 'twclid', 'mc_eid',
-    'igshid', 'li_fat_id', 'ttclid', 'ScCid', 's_cid', 'SNKRHSP',
+    'igshid', 'igsh', 'li_fat_id', 'ttclid', 'ScCid', 's_cid', 'SNKRHSP',
     // General
     'ref', 'ref_src', 'ref_url', 'referral', 'source', 'srsltid',
     'icid', 'cid', 'eid', 'pid', 'sid', 'rid', 'uid', 'vid',
@@ -36,7 +36,7 @@ const PLATFORM_TRACKERS = {
         'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url',
     ]),
     'instagram.com': new Set([
-        'igshid', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
+        'igshid', 'igsh', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
         'img_index', 'taken-by',
     ]),
     'facebook.com': new Set([
@@ -105,6 +105,10 @@ const EMBED_CONVERTERS = [{
         match: h => h === 'x.com' || h === 'twitter.com' || h === 'www.x.com' || h === 'www.twitter.com',
         convert: url => {
             url.hostname = 'fixupx.com';
+            const statusMatch = url.pathname.match(/^\/[^/]+\/(status\/\d+)$/);
+            if (statusMatch) {
+                url.pathname = '/i/' + statusMatch[1];
+            }
             return url;
         },
     },
@@ -112,16 +116,27 @@ const EMBED_CONVERTERS = [{
         name: 'Instagram',
         match: h => h === 'instagram.com' || h === 'www.instagram.com',
         convert: url => {
-            // Try ddinstagram first (InstaFix)
-            url.hostname = 'ddinstagram.com';
+            url.hostname = 'kkclip.com';
             return url;
         },
     },
     {
         name: 'TikTok',
-        match: h => h === 'tiktok.com' || h === 'www.tiktok.com' || h === 'vm.tiktok.com',
+        match: h => h === 'tiktok.com' || h === 'www.tiktok.com' || h === 'vm.tiktok.com' || h === 'vt.tiktok.com',
         convert: url => {
-            url.hostname = 'vxtiktok.com';
+            if (url.hostname === 'vm.tiktok.com' || url.hostname === 'vt.tiktok.com') {
+                url.hostname = 'vt.kktiktok.com';
+            } else {
+                url.hostname = 'kktiktok.com';
+            }
+            return url;
+        },
+    },
+    {
+        name: 'Facebook',
+        match: h => h === 'facebook.com' || h === 'www.facebook.com' || h === 'fb.com' || h === 'www.fb.com' || h === 'm.facebook.com',
+        convert: url => {
+            url.hostname = 'www.facebed.com';
             return url;
         },
     },
@@ -129,10 +144,7 @@ const EMBED_CONVERTERS = [{
         name: 'Reddit',
         match: h => h === 'reddit.com' || h === 'www.reddit.com' || h === 'old.reddit.com' || h === 'new.reddit.com',
         convert: url => {
-            url.hostname = 'rxddit.com';
-            if (url.hostname !== 'old.reddit.com') {
-                // strip old/new subdomain paths aren't needed after hostname swap
-            }
+            url.hostname = 'www.vxreddit.com';
             return url;
         },
     },
