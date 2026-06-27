@@ -510,6 +510,11 @@ body {
 }
 
 /* ===== RESULT AREA ===== */
+.result-area[hidden],
+.error-area[hidden] {
+  display: none;
+}
+
 .result-area {
   display: flex;
   flex-direction: column;
@@ -803,6 +808,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.history-empty[hidden] {
+  display: none;
 }
 
 .history-empty {

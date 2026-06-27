@@ -428,20 +428,20 @@ function renderChangeTags(changes) {
 function renderHistoryList() {
     const history = loadHistory();
     const list = document.getElementById('historyList');
-    const empty = document.getElementById('historyEmpty');
     const badge = document.getElementById('historyCountBadge');
 
     badge.textContent = history.length;
 
+    // Remove only history items, preserve the empty-state element
+    list.querySelectorAll('.history-item').forEach(el => el.remove());
+
+    const empty = document.getElementById('historyEmpty');
     if (history.length === 0) {
-        list.innerHTML = '';
-        list.appendChild(empty);
-        empty.hidden = false;
+        if (empty) empty.hidden = false;
         return;
     }
 
-    empty.hidden = true;
-    list.innerHTML = '';
+    if (empty) empty.hidden = true;
 
     history.forEach(entry => {
         const item = document.createElement('div');
