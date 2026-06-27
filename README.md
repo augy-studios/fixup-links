@@ -5,7 +5,13 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 ## Features
 
 - **Tracker Removal** - Strips UTM parameters, click IDs, and platform-specific tracking from any URL
-- **Embed Fixing** - Converts links to embed-friendly domains for better previews on Discord, Telegram, and more
+- **Embed Fixing** - Converts links to embed-friendly domains for better previews on Discord, Telegram, and more:
+  - X/Twitter → `fixupx.com` (usernames replaced with `i`)
+  - Instagram → `kkclip.com`
+  - TikTok → `kktiktok.com` / `vt.kktiktok.com`
+  - Facebook → `facebed.com`
+  - Reddit → `vxreddit.com`
+  - Bluesky → `bskx.app`
 - **Platform Support** - X/Twitter, Instagram, TikTok, Reddit, Bluesky, YouTube, Facebook, LinkedIn, Substack, GitHub, Discord, Pinterest, Snapchat, and more
 - **Discord Cleanup** - Normalizes `canary.discord.com` and `ptb.discord.com` links to `discord.com`
 - **Google Search Extraction** - Pulls the actual destination URL from Google Search redirect links
