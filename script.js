@@ -186,7 +186,7 @@ function cleanUrl(rawInput) {
     const hostname = url.hostname.replace(/^www\./, '');
     const changes = [];
 
-    // 1. Google Search — extract destination
+    // 1. Google Search - extract destination
     if (hostname === 'google.com' || hostname.endsWith('.google.com')) {
         const dest = extractGoogleDest(url);
         if (dest) {
@@ -533,7 +533,7 @@ async function pasteFromClipboard() {
             showToast('Pasted from clipboard');
         }
     } catch {
-        showToast('Clipboard access denied — paste manually');
+        showToast('Clipboard access denied! Please paste manually.');
     }
 }
 

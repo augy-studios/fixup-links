@@ -1,5 +1,4 @@
-/* uwuFix Service Worker */
-const CACHE = 'uwufix-v1';
+const CACHE = 'uwufix-v2';
 const ASSETS = [
   '/',
   '/index.html',
