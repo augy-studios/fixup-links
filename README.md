@@ -21,12 +21,4 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 3. Copy, open, or share the cleaned result
 4. Use **View History** to revisit previously cleaned URLs
 
-You can also pass a URL via query string: `https://yoursite.com/?url=https://example.com/...`
-
-## Development
-
-This is a static site - just serve the root directory with any HTTP server:
-
-```bash
-npx serve .
-```
+You can also pass a URL via query string: `https://fixup.uwuapps.org/?url=https://example.com/...`
