@@ -637,6 +637,17 @@ async function processUrl() {
             const redirectHost = new URL(finalCleaned).hostname;
             renderChangeTags([...changes, { type: 'redirect', label: `Redirects to ${redirectHost}` }]);
             updates.cleaned = finalCleaned;
+
+            // Title from the redirect response may be unreliable — fetch it directly
+            // from the final destination, then update history once it arrives
+            if (!updates.title) {
+                fetchMetadata(finalCleaned).then(finalMeta => {
+                    if (finalMeta?.title) {
+                        updateHistoryEntry(histEntry.id, { title: finalMeta.title });
+                        renderHistoryList();
+                    }
+                }).catch(() => {});
+            }
         }
 
         if (Object.keys(updates).length) {
