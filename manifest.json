@@ -37,6 +37,16 @@
         }]
     }],
 
+    "share_target": {
+        "action": "/",
+        "method": "GET",
+        "params": {
+            "url": "link",
+            "text": "text",
+            "title": "title"
+        }
+    },
+
     "start_url": "/",
     "theme_color": "#cfc",
     "background_color": "#cfc",

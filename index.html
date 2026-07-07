@@ -43,6 +43,7 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script defer="" src="https://use.fontawesome.com/releases/v6.5.2/js/all.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 
 <body data-theme="classic">
@@ -259,6 +260,19 @@
                             </svg>
                             Share
                         </button>
+                        <button class="btn btn-action" id="qrBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="7" height="7" rx="1" />
+                                <rect x="14" y="3" width="7" height="7" rx="1" />
+                                <rect x="3" y="14" width="7" height="7" rx="1" />
+                                <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+                                <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+                                <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none" />
+                                <path d="M14 14h3v3h-3zM17 17h3v3h-3zM14 20h3" />
+                            </svg>
+                            QR
+                        </button>
                     </div>
                 </div>
 
@@ -406,6 +420,26 @@
         <footer class="footer">
             <p>Made with <svg class="footer-heart" viewBox="0 0 24 24" fill="var(--brand-dark)" xmlns="http://www.w3.org/2000/svg"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> by Augy</p>        </footer>
 
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="modal-overlay" id="qrModal" role="dialog" aria-modal="true" aria-label="QR Code">
+        <div class="modal modal-qr">
+            <div class="modal-header">
+                <span class="modal-title">QR Code</span>
+                <button class="modal-close" id="closeQrModal" aria-label="Close QR modal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="qr-body">
+                <div id="qrContainer" class="qr-container"></div>
+                <p id="qrUrl" class="qr-url"></p>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Notification -->

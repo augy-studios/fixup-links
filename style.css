@@ -894,6 +894,16 @@ body {
   line-height: 1.4;
 }
 
+.history-item-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
 .history-item-original-label {
   font-size: 0.72rem;
   color: var(--text-muted);
@@ -928,6 +938,42 @@ body {
   border-radius: 6px;
   padding: 2px 7px;
   color: var(--text-muted);
+}
+
+/* ===== QR MODAL ===== */
+.modal-qr {
+  max-width: 300px;
+}
+
+.qr-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+}
+
+.qr-container {
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  line-height: 0;
+}
+
+.qr-container canvas,
+.qr-container img {
+  display: block;
+  border-radius: 4px;
+}
+
+.qr-url {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  text-align: center;
+  max-width: 240px;
+  line-height: 1.4;
 }
 
 /* ===== TOAST ===== */

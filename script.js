@@ -338,7 +338,7 @@ function saveHistory(items) {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
 }
 
-function addToHistory(original, cleaned, platform) {
+function addToHistory(original, cleaned, platform, title = null) {
     let history = loadHistory();
     // Remove duplicate of same cleaned URL
     history = history.filter(h => h.cleaned !== cleaned);
@@ -347,12 +347,13 @@ function addToHistory(original, cleaned, platform) {
         original,
         cleaned,
         platform,
+        title,
         date: new Date().toISOString(),
     };
     history.unshift(entry);
     if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
     saveHistory(history);
-    return history;
+    return entry;
 }
 
 function removeFromHistory(id) {
@@ -364,6 +365,15 @@ function removeFromHistory(id) {
 
 function clearHistory() {
     localStorage.removeItem(HISTORY_KEY);
+}
+
+function updateHistoryEntry(id, updates) {
+    const history = loadHistory();
+    const entry = history.find(h => h.id === id);
+    if (entry) {
+        Object.assign(entry, updates);
+        saveHistory(history);
+    }
 }
 
 function formatRelativeDate(iso) {
@@ -479,6 +489,7 @@ function renderHistoryList() {
 
         item.innerHTML = `
       <div class="history-item-content">
+        ${entry.title ? `<div class="history-item-title">${escapeHtml(entry.title)}</div>` : ''}
         <div class="history-item-original-label">Original</div>
         <div class="history-item-original">${escapeHtml(entry.original)}</div>
         <div class="history-item-cleaned">${escapeHtml(entry.cleaned)}</div>
@@ -527,8 +538,46 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
+// ===== METADATA & REDIRECT =====
+function extractUrlFromText(text) {
+    if (!text) return null;
+    const match = text.match(/https?:\/\/\S+/);
+    return match ? match[0] : null;
+}
+
+function isMeaningfulRedirect(fromUrl, toUrl) {
+    try {
+        const from = new URL(fromUrl);
+        const to = new URL(toUrl);
+        const h = s => s.toLowerCase().replace(/^www\./, '');
+        return h(from.hostname) !== h(to.hostname);
+    } catch { return false; }
+}
+
+function urlsEquivalent(a, b) {
+    try {
+        const ua = new URL(a);
+        const ub = new URL(b);
+        const norm = u => u.hostname.toLowerCase().replace(/^www\./, '') + u.pathname.replace(/\/$/, '');
+        return norm(ua) === norm(ub);
+    } catch { return false; }
+}
+
+async function fetchMetadata(url) {
+    try {
+        const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return null;
+        const json = await res.json();
+        if (json.status !== 'success') return null;
+        return {
+            title: json.data.title || null,
+            finalUrl: json.data.url || null,
+        };
+    } catch { return null; }
+}
+
 // ===== MAIN PROCESS =====
-function processUrl() {
+async function processUrl() {
     const input = document.getElementById('urlInput').value.trim();
     const resultArea = document.getElementById('resultArea');
     const errorArea = document.getElementById('errorArea');
@@ -544,28 +593,48 @@ function processUrl() {
         return;
     }
 
+    let cleanResult;
     try {
-        const {
-            cleaned,
-            changes,
-            platform
-        } = cleanUrl(input);
-
-        resultUrl.textContent = cleaned;
-        renderChangeTags(changes);
-        resultArea.hidden = false;
-
-        // Save to history
-        addToHistory(input, cleaned, platform);
-        renderHistoryList();
-
-        // Store cleaned URL for action buttons
-        window._uwufixLastCleaned = cleaned;
-
+        cleanResult = cleanUrl(input);
     } catch (err) {
         errorMsg.textContent = err.message;
         errorArea.hidden = false;
+        return;
     }
+
+    const { cleaned, changes, platform } = cleanResult;
+
+    resultUrl.textContent = cleaned;
+    renderChangeTags(changes);
+    resultArea.hidden = false;
+    window._uwufixLastCleaned = cleaned;
+
+    const histEntry = addToHistory(input, cleaned, platform);
+    renderHistoryList();
+
+    // Async: fetch page title + detect redirects
+    fetchMetadata(cleaned).then(meta => {
+        if (!meta) return;
+        const updates = {};
+
+        if (meta.title) updates.title = meta.title;
+
+        if (meta.finalUrl && isMeaningfulRedirect(cleaned, meta.finalUrl) && !urlsEquivalent(meta.finalUrl, input)) {
+            let finalCleaned = meta.finalUrl;
+            try { finalCleaned = cleanUrl(meta.finalUrl).cleaned; } catch {}
+
+            document.getElementById('resultUrl').textContent = finalCleaned;
+            window._uwufixLastCleaned = finalCleaned;
+            const redirectHost = new URL(finalCleaned).hostname;
+            renderChangeTags([...changes, { type: 'redirect', label: `Redirects to ${redirectHost}` }]);
+            updates.cleaned = finalCleaned;
+        }
+
+        if (Object.keys(updates).length) {
+            updateHistoryEntry(histEntry.id, updates);
+            renderHistoryList();
+        }
+    }).catch(() => {});
 }
 
 // ===== CLIPBOARD =====
@@ -688,9 +757,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (url) shareUrl(url);
     });
 
-    // ---- Auto-paste if URL in query string ----
+    // ---- QR Code modal ----
+    document.getElementById('qrBtn').addEventListener('click', () => {
+        const url = window._uwufixLastCleaned;
+        if (!url) return;
+        const container = document.getElementById('qrContainer');
+        container.innerHTML = '';
+        new QRCode(container, {
+            text: url,
+            width: 240,
+            height: 240,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M,
+        });
+        document.getElementById('qrUrl').textContent = url;
+        openModal('qrModal');
+    });
+    document.getElementById('closeQrModal').addEventListener('click', () => closeModal('qrModal'));
+    document.getElementById('qrModal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModal('qrModal');
+    });
+
+    // ---- Auto-paste if URL in query string (also handles share_target via ?link=) ----
     const qp = new URLSearchParams(window.location.search);
-    const qUrl = qp.get('url');
+    const qUrl = qp.get('url') || qp.get('link') || extractUrlFromText(qp.get('text') || '');
     if (qUrl) {
         document.getElementById('urlInput').value = qUrl;
         setTimeout(processUrl, 100);
@@ -701,6 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') {
             closeModal('themeModal');
             closeModal('historyModal');
+            closeModal('qrModal');
         }
     });
 });
