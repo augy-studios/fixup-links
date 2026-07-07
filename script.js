@@ -566,26 +566,18 @@ function urlsEquivalent(a, b) {
 }
 
 async function fetchMetadata(url) {
-    // Run a direct CORS fetch (catches HTTP-level redirects when the destination allows CORS)
-    // and a microlink.io fetch (server-side scraper, catches more redirect types + provides title)
-    // in parallel; use whichever gives us the redirect first.
-    const [directRes, microlinkRes] = await Promise.allSettled([
-        fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(5000) })
-            .then(res => (res.url && res.url !== url) ? res.url : null)
-            .catch(() => null),
-        fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal: AbortSignal.timeout(8000) })
-            .then(res => res.ok ? res.json() : null)
-            .then(json => (json?.status === 'success') ? json.data : null)
-            .catch(() => null),
-    ]);
-
-    const directFinal = directRes.value;
-    const mlData = microlinkRes.value;
-    const finalUrl = directFinal || mlData?.url || null;
-    const title = mlData?.title || null;
-
-    if (!finalUrl && !title) return null;
-    return { title, finalUrl };
+    try {
+        const res = await fetch(`/api/resolve?url=${encodeURIComponent(url)}`, {
+            signal: AbortSignal.timeout(12000),
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        if (!json.finalUrl && !json.title) return null;
+        return {
+            title: json.title || null,
+            finalUrl: json.finalUrl || null,
+        };
+    } catch { return null; }
 }
 
 // ===== MAIN PROCESS =====
