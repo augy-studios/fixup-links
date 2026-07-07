@@ -23,6 +23,8 @@ const UNIVERSAL_TRACKERS = new Set([
     'mibextid', 'mbid', 'ml_subscriber', 'ml_subscriber_hash',
     'WT.mc_id', 'WT.srch', 'affiliate', 'aff_id', 'aff_sub',
     'trk', 'track', 'tracking', 'trksid',
+    // Klaviyo
+    '_kx', 'kx', 'tw_source',
 ]);
 
 // Platform-specific parameter sets
@@ -612,7 +614,12 @@ async function processUrl() {
     const histEntry = addToHistory(input, cleaned, platform);
     renderHistoryList();
 
-    // Async: fetch page title + detect redirects
+    // Async: fetch page title + detect redirects (requires network)
+    if (!navigator.onLine) {
+        showToast('You\'re offline - redirect detection & title lookup skipped');
+        return;
+    }
+
     fetchMetadata(cleaned).then(meta => {
         if (!meta) return;
         const updates = {};
