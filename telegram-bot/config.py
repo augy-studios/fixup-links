@@ -15,3 +15,9 @@ DONATE_URL = os.environ.get('DONATE_URL', 'https://donate.stripe.com/28o2akeAr3h
 MAX_BATCH_LINKS = int(os.environ.get('MAX_BATCH_LINKS', '30'))
 AUTODETECT_DEFAULT = os.environ.get('AUTODETECT_DEFAULT', 'true').lower() in ('1', 'true', 'yes', 'on')
 BIO_UPDATE_INTERVAL_MINUTES = int(os.environ.get('BIO_UPDATE_INTERVAL_MINUTES', '30'))
+
+# Only needed if the VPS's network can't reach api.telegram.org directly
+# (blocked/throttled at the ISP or hosting-provider level in some regions).
+# e.g. socks5://user:pass@host:1080 or http://host:8080. Leave blank to
+# connect directly. See SETUP.md's troubleshooting section.
+TELEGRAM_PROXY_URL = os.environ.get('TELEGRAM_PROXY_URL', '')

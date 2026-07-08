@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 
 import aiohttp
-from telegram import BotCommand, Update
+from telegram import Update
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, InlineQueryHandler,
     MessageHandler, filters,
@@ -22,21 +22,15 @@ logging.basicConfig(
 )
 log = logging.getLogger('bot')
 
-COMMANDS = [
-    BotCommand('start', 'Show what this bot does'),
-    BotCommand('fix', 'Clean a single link'),
-    BotCommand('batch', 'Clean several links at once'),
-    BotCommand('history', 'Browse links you have fixed before'),
-    BotCommand('settings', 'Toggle automatic link fixing for this chat'),
-    BotCommand('donate', 'Support the project'),
-    BotCommand('help', 'Show what this bot does'),
-]
+# The bot's / command menu is set manually in BotFather (/setcommands), not
+# here - see SETUP.md. Keeping it out of code avoids clobbering whatever is
+# configured there on every restart, and avoids a startup network call that
+# can time out before the bot is otherwise ready to serve.
 
 
 async def post_init(application: Application):
     application.bot_data['db'] = await db.init_db(config.DB_PATH)
     application.bot_data['http_session'] = aiohttp.ClientSession()
-    await application.bot.set_my_commands(COMMANDS)
     scheduler_module.start(application)
     log.info('Bot ready.')
 
@@ -48,7 +42,8 @@ async def post_shutdown(application: Application):
     conn = application.bot_data.get('db')
     if conn:
         await conn.close()
-    scheduler_module.scheduler.shutdown(wait=False)
+    if scheduler_module.scheduler.running:
+        scheduler_module.scheduler.shutdown(wait=False)
 
 
 async def route_callback(update: Update, context):
@@ -74,13 +69,19 @@ def main():
     if not config.BOT_TOKEN:
         raise SystemExit('BOT_TOKEN is not set. Copy .env.example to .env and fill it in.')
 
-    application = (
+    builder = (
         Application.builder()
         .token(config.BOT_TOKEN)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .get_updates_connect_timeout(30)
+        .get_updates_read_timeout(30)
         .post_init(post_init)
         .post_shutdown(post_shutdown)
-        .build()
     )
+    if config.TELEGRAM_PROXY_URL:
+        builder = builder.proxy(config.TELEGRAM_PROXY_URL).get_updates_proxy(config.TELEGRAM_PROXY_URL)
+    application = builder.build()
 
     application.add_handler(CommandHandler('start', start.start_command))
     application.add_handler(CommandHandler('help', start.help_command))

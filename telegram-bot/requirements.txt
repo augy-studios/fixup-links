@@ -1,4 +1,7 @@
-python-telegram-bot[job-queue]>=21.6
+# The "socks" extra is only needed if you set TELEGRAM_PROXY_URL to a
+# socks5:// URL in .env - see SETUP.md's troubleshooting section. It's
+# harmless to leave installed if you don't use a proxy.
+python-telegram-bot[job-queue,socks]>=21.6
 aiosqlite>=0.20.0
 aiohttp>=3.9.0
 python-dotenv>=1.0.0

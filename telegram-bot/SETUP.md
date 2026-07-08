@@ -44,13 +44,24 @@ Debian 13 VPS inside `tmux`.
 
    For both commands, send them to BotFather, pick your bot, then paste the
    text when prompted.
-7. **Skip `/setcommands`.** Normally this is where you'd give BotFather the
-   command list shown in Telegram's `/` menu, but this bot registers its
-   own command list in code (`COMMANDS` in `bot.py`) and pushes it via
-   `set_my_commands` every time it starts up (`post_init`). Anything you set
-   manually with `/setcommands` would just get overwritten on the next
-   restart, so there's nothing to do here - add or rename commands in
-   `bot.py` instead and they'll take effect on the next `python bot.py`.
+7. **Set the `/` command menu.** The bot does *not* push its own command
+   list in code - this is managed entirely through BotFather, so it's set
+   once and doesn't need a network call on every startup. Send
+   `/setcommands` to BotFather, pick your bot, then paste:
+
+   ```text
+   start - Show what this bot does
+   fix - Clean a single link
+   batch - Clean several links at once
+   history - Browse links you have fixed before
+   settings - Toggle automatic link fixing for this chat
+   donate - Support the project
+   help - Show what this bot does
+   ```
+
+   If you add, rename, or remove a command in `bot.py` later, update this
+   list with `/setcommands` again to keep the `/` menu in sync - it isn't
+   done automatically.
 
 ## 2. Install dependencies on the VPS (Debian 13)
 
@@ -111,6 +122,48 @@ source venv/bin/activate
 pip install -r requirements.txt   # only if requirements.txt changed
 python bot.py
 ```
+
+## Troubleshooting: "Timed out" on startup
+
+If `python bot.py` fails immediately with something like:
+
+```text
+[ERROR] telegram.ext: Network Retry Loop (Bootstrap Initialize Application): Timed out: Timed out.
+```
+
+this is happening before any of the bot's own code runs - it's the library's
+very first call to Telegram (`getMe`) failing to get a response over HTTPS
+from `api.telegram.org`. It is **not** related to `/setcommands` or anything
+else configured in BotFather. It means the VPS itself can't reach Telegram's
+servers quickly enough. To diagnose:
+
+1. Check basic connectivity from the VPS:
+
+   ```bash
+   curl -v --max-time 10 https://api.telegram.org
+   ```
+
+   If this hangs or fails, the problem is network-level, not the bot.
+
+2. Common causes:
+   - The VPS's hosting provider or country blocks/throttles Telegram at the
+     network level (known to happen with some providers/regions - Telegram
+     is blocked outright in a few countries).
+   - A firewall (`ufw`/`iptables`, or a provider-level security group) is
+     blocking outbound HTTPS (port 443).
+   - Transient DNS or routing issues - try `dig api.telegram.org` and
+     `ping api.telegram.org` to compare.
+
+3. If outbound access to Telegram is blocked or unreliable from the VPS,
+   route through a proxy: set `TELEGRAM_PROXY_URL` in `.env` (e.g.
+   `socks5://user:pass@host:1080` or `http://host:8080`) and re-run. If
+   using a `socks5://` proxy, make sure `pip install -r requirements.txt`
+   has been re-run after pulling the latest `requirements.txt` (it installs
+   the `socks` extra needed for SOCKS proxy support).
+4. If it's just slow rather than fully blocked, `bot.py` already uses
+   30-second connect/read timeouts (up from the library's 5-second
+   default), which is usually enough headroom for a flaky but working
+   connection.
 
 ## Notes
 
