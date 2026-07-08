@@ -29,6 +29,11 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Private URLs not allowed' });
     }
 
+    // YouTube aggressively blocks server-side scraping (redirects to a Google
+    // "sorry" CAPTCHA page instead of the real page), so titles for it are
+    // fetched via the public oEmbed API instead of parsing HTML.
+    const isYouTube = hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be';
+
     try {
         const response = await fetch(url, {
             redirect: 'follow',
@@ -40,14 +45,34 @@ export default async function handler(req, res) {
             signal: AbortSignal.timeout(10000),
         });
 
-        const finalUrl = response.url;
+        let finalUrl = response.url;
         let title = null;
 
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('text/html')) {
-            const text = await response.text();
-            const match = text.slice(0, 15000).match(/<title[^>]*>([^<]*)<\/title>/i);
-            if (match) title = match[1].trim() || null;
+        if (isYouTube) {
+            // A redirect off youtube.com means the request got bot-blocked —
+            // keep the original URL rather than surfacing the block page.
+            try {
+                if (new URL(finalUrl).hostname.replace(/^www\./, '') !== 'youtube.com' && !finalUrl.includes('youtu.be')) {
+                    finalUrl = url;
+                }
+            } catch { finalUrl = url; }
+
+            try {
+                const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(finalUrl)}&format=json`, {
+                    signal: AbortSignal.timeout(8000),
+                });
+                if (oembedRes.ok) {
+                    const oembedJson = await oembedRes.json();
+                    title = oembedJson.title || null;
+                }
+            } catch {}
+        } else {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+                const text = await response.text();
+                const match = text.slice(0, 15000).match(/<title[^>]*>([^<]*)<\/title>/i);
+                if (match) title = match[1].trim() || null;
+            }
         }
 
         return res.json({ finalUrl, title });
