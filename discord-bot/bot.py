@@ -24,7 +24,9 @@ TOKEN = os.environ.get('DISCORD_TOKEN')
 GUILD_ID = os.environ.get('GUILD_ID') or None
 DB_PATH = os.environ.get('DB_PATH', './data/uwufix_bot.sqlite3')
 WEB_APP_URL = os.environ.get('WEB_APP_URL', 'https://fixup.uwuapps.org')
-MAX_BATCH_LINKS = int(os.environ.get('MAX_BATCH_LINKS', '10'))
+# The /batch response carries one "Copy All" button, and a message can hold
+# at most 25 components total, so the hard ceiling is 25 - 1 = 24.
+MAX_BATCH_LINKS = int(os.environ.get('MAX_BATCH_LINKS', '24'))
 
 INITIAL_EXTENSIONS = (
     'cogs.fix',

@@ -50,7 +50,10 @@ class BatchCog(commands.Cog):
         await interaction.response.defer(thinking=True)
 
         urls = [u for u in re.split(r'\s+', links.strip()) if u]
-        urls = urls[: self.bot.max_batch_links]
+        # The reply carries 1 "Copy All" button and Discord caps a message at
+        # 25 components total, so never process more than 25 - 1 = 24 links
+        # regardless of what MAX_BATCH_LINKS is configured to.
+        urls = urls[: min(self.bot.max_batch_links, 24)]
 
         if not urls:
             await interaction.followup.send('No links found in that input.', ephemeral=True)
