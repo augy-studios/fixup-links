@@ -43,6 +43,7 @@ class HelpCog(commands.Cog):
             label='Invite to Server', style=discord.ButtonStyle.link,
             url='https://discord.com/oauth2/authorize?client_id=1524465330091724880',
         ))
+        view.add_item(discord.ui.Button(label='Donate', style=discord.ButtonStyle.link, url=self.bot.donate_url))
         await interaction.response.send_message(embed=embed, view=view)
 
 

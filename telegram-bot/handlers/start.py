@@ -38,6 +38,7 @@ def _info_text() -> str:
 def _footer_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton('Open web app', url=config.WEB_APP_URL)],
+        [InlineKeyboardButton('Discord bot', url=config.DISCORD_INVITE_URL)],
         [InlineKeyboardButton('Donate', url=config.DONATE_URL)],
     ])
 
