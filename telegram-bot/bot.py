@@ -31,7 +31,7 @@ log = logging.getLogger('bot')
 async def post_init(application: Application):
     application.bot_data['db'] = await db.init_db(config.DB_PATH)
     application.bot_data['http_session'] = aiohttp.ClientSession()
-    scheduler_module.start(application)
+    scheduler_module.start()
     log.info('Bot ready.')
 
 
@@ -84,7 +84,6 @@ def main():
     application = builder.build()
 
     application.add_handler(CommandHandler('start', start.start_command))
-    application.add_handler(CommandHandler('help', start.help_command))
     application.add_handler(CommandHandler('donate', start.donate_command))
     application.add_handler(CommandHandler('fix', fix.fix_command))
     application.add_handler(CommandHandler('batch', batch.batch_command))

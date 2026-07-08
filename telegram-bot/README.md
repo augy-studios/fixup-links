@@ -69,9 +69,6 @@ on or off for that chat. The choice is stored in SQLite per chat.
 ### `/donate`
 Links to the project's donation page.
 
-### `/help`
-Same overview as `/start`.
-
 ### Inline mode
 Type `@your_bot_username <link>` in any chat to get a fixed link you can
 send without adding the bot to that chat. Type `@your_bot_username` with

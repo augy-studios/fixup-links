@@ -7,7 +7,7 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | | [🌐 Web App](main-site) | [💬 Discord Bot](discord-bot) | [✈️ Telegram Bot](telegram-bot) |
 |---|---|---|---|
 | **What it is** | Client-side PWA at [fixup.uwuapps.org](https://fixup.uwuapps.org) | Slash-command bot for Discord servers | Command + inline bot for Telegram |
-| **Use it via** | Browser, or installed as an app | `/fix`, `/batch`, `/history`, `/help` | `/fix`, `/batch`, `/history`, `/settings`, `/donate`, `/help`, inline mode |
+| **Use it via** | Browser, or installed as an app | `/fix`, `/batch`, `/history`, `/help` | `/fix`, `/batch`, `/history`, `/settings`, `/donate`, inline mode |
 | **Tracker removal** | ✅ | ✅ | ✅ |
 | **Embed-domain fixing** | ✅ | ✅ | ✅ |
 | **Redirect following** | ✅ | ✅ | ✅ |

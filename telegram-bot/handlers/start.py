@@ -1,6 +1,6 @@
-"""/start, /help, /donate - informational commands. Deliberately never
-reference the bot's own @username or display name in their text, so the
-wording stays correct regardless of what the bot is registered as."""
+"""/start, /donate - informational commands. Deliberately never reference
+the bot's own @username or display name in their text, so the wording stays
+correct regardless of what the bot is registered as."""
 from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -19,8 +19,7 @@ INFO_TEXT = (
     '/batch - clean several links at once\n'
     '/history - browse links you have fixed before\n'
     '/settings - turn automatic link fixing on/off for this chat (group admins)\n'
-    '/donate - support the project\n'
-    '/help - show this message\n\n'
+    '/donate - support the project\n\n'
     '<b>Inline mode</b>\n'
     'Type <code>@this_bot &lt;link&gt;</code> in any chat to fix a link without adding '
     'the bot, or with nothing after the @mention to pick from your recent history.\n\n'
@@ -40,10 +39,6 @@ def _footer_keyboard() -> InlineKeyboardMarkup:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     await db.touch_chat(context.bot_data['db'], chat.id, default_autodetect=config.AUTODETECT_DEFAULT)
-    await update.effective_message.reply_text(INFO_TEXT, parse_mode='HTML', reply_markup=_footer_keyboard())
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(INFO_TEXT, parse_mode='HTML', reply_markup=_footer_keyboard())
 
 

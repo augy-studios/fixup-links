@@ -56,7 +56,6 @@ Debian 13 VPS inside `tmux`.
    history - Browse links you have fixed before
    settings - Toggle automatic link fixing for this chat
    donate - Support the project
-   help - Show what this bot does
    ```
 
    If you add, rename, or remove a command in `bot.py` later, update this

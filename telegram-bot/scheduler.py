@@ -3,13 +3,20 @@
 equivalent live-presence push - instead we periodically rewrite the bot's
 short description with a stat, driven by an APScheduler job whose schedule
 lives in its own SQLite-backed jobstore).
+
+Job args must stay pickle-able (SQLAlchemyJobStore pickles them to persist
+the job), so this deliberately avoids passing the live Application/Bot
+object around - it takes the bot token and db path (plain strings) and
+builds short-lived Bot/DB objects inside the job itself.
 """
 from __future__ import annotations
 
 import logging
 
+import aiosqlite
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from telegram import Bot
 
 import config
 import db
@@ -21,21 +28,29 @@ scheduler = AsyncIOScheduler(
 )
 
 
-async def _update_bio(application):
+async def _update_bio(bot_token: str, db_path: str):
     try:
-        chat_count = await db.count_known_chats(application.bot_data['db'])
+        conn = await aiosqlite.connect(db_path)
+        conn.row_factory = aiosqlite.Row
+        try:
+            chat_count = await db.count_known_chats(conn)
+        finally:
+            await conn.close()
+
         text = f'Cleaning links in {chat_count} chat{"s" if chat_count != 1 else ""}.'
-        await application.bot.set_my_short_description(short_description=text[:120])
+        bot = Bot(token=bot_token)
+        async with bot:
+            await bot.set_my_short_description(short_description=text[:120])
     except Exception:
         log.exception('Failed to update bot short description')
 
 
-def start(application):
+def start():
     scheduler.add_job(
         _update_bio,
         'interval',
         minutes=config.BIO_UPDATE_INTERVAL_MINUTES,
-        args=[application],
+        args=[config.BOT_TOKEN, config.DB_PATH],
         id='update_bio',
         replace_existing=True,
     )
