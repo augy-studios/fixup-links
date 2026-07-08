@@ -43,7 +43,7 @@ class HelpCog(commands.Cog):
 
         view = discord.ui.View(timeout=None)
         view.add_item(discord.ui.Button(label='Open Web App', style=discord.ButtonStyle.link, url=self.bot.web_app_url))
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=view)
 
 
 async def setup(bot: commands.Bot):
