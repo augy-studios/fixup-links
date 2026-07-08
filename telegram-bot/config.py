@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
+# Used only to build the "@username <link>" example in /start and the docs -
+# purely instructional text, not referenced by any command's own logic.
+BOT_USERNAME = os.environ.get('BOT_USERNAME', 'uwuFix_bot')
 DB_PATH = os.environ.get('DB_PATH', './data/linkfix_bot.sqlite3')
 SCHEDULER_DB_PATH = os.environ.get('SCHEDULER_DB_PATH', './data/scheduler.sqlite3')
 WEB_APP_URL = os.environ.get('WEB_APP_URL', 'https://fixup.uwuapps.org')

@@ -26,9 +26,9 @@ results, and automatic group replies.
   including after the bot restarts.
 - **Per-user history** - the bot remembers every link it has fixed for you so
   you can page back through it later, in `/history` or inline mode.
-- **Inline mode** - type `@your_bot_username <link>` in any chat to fix a
-  link without adding the bot to that chat. Invoke it with no link to pick
-  from your recent history instead.
+- **Inline mode** - type `@uwuFix_bot <link>` in any chat to fix a link
+  without adding the bot to that chat. Invoke it with no link to pick from
+  your recent history instead.
 - **Group autodetect** - when enabled for a chat, links with trackers or a
   fixable embed domain get an automatic reply, no command needed.
 - **Persisted per-chat settings** - autodetect on/off is stored per chat in
@@ -37,8 +37,11 @@ results, and automatic group replies.
   periodically updates the bot's short description with how many chats it's
   active in.
 
-Command and message text never hardcodes the bot's own name, so it reads
-correctly no matter what you register it as with BotFather.
+Command and message text never hardcodes the bot's display name, so that
+part reads correctly no matter what you register it as with BotFather. The
+`@uwuFix_bot` username *is* referenced (in the inline-mode example in
+`/start`), since that's functionally necessary rather than branding - it's
+configurable via `BOT_USERNAME` in `.env` if you register a different one.
 
 ## Commands
 
@@ -70,10 +73,9 @@ on or off for that chat. The choice is stored in SQLite per chat.
 Links to the project's donation page.
 
 ### Inline mode
-Type `@your_bot_username <link>` in any chat to get a fixed link you can
-send without adding the bot to that chat. Type `@your_bot_username` with
-nothing after it to pick from your own recent history instead of retyping a
-link.
+Type `@uwuFix_bot <link>` in any chat to get a fixed link you can send
+without adding the bot to that chat. Type `@uwuFix_bot` with nothing after
+it to pick from your own recent history instead of retyping a link.
 
 ### Group autodetect
 When enabled for a chat (see `/settings`), messages containing a link with

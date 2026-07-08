@@ -6,9 +6,13 @@ Debian 13 VPS inside `tmux`.
 ## 1. Create the bot with BotFather
 
 1. Open a chat with [@BotFather](https://t.me/BotFather) in Telegram and send `/newbot`.
-2. Follow the prompts to pick a display name and a `@username`. Neither is
-   referenced anywhere in the bot's own command text, so you're free to
-   rename it later without touching the code.
+2. Follow the prompts to pick a display name and a `@username`. The display
+   name is never referenced anywhere in the bot's own command text, so you're
+   free to rename it later without touching the code. The `@username` is
+   used in one place - the inline-mode example shown in `/start` - via
+   `BOT_USERNAME` in `.env`. This repo is set up for `@uwuFix_bot`; if you
+   register a different username, update `BOT_USERNAME` to match (see step 3
+   of "Configure the bot" below).
 3. BotFather replies with a token - copy it. Keep this secret; it goes in
    `.env` (`BOT_TOKEN`), which is already gitignored.
 4. **Enable inline mode**: send `/setinline` to BotFather, pick your bot,
@@ -29,7 +33,7 @@ Debian 13 VPS inside `tmux`.
      Cleans messy links: strips tracking parameters and swaps in
      embed-friendly domains (X/Twitter, Instagram, TikTok, Facebook,
      Reddit, Bluesky) so previews actually render. Send /start for the
-     full command list, or use inline mode (@your_bot_username <link>)
+     full command list, or use inline mode (@uwuFix_bot <link>)
      in any chat.
      ```
 
@@ -86,6 +90,8 @@ nano .env
 Fill in:
 
 - `BOT_TOKEN` - the token from step 1.3
+- `BOT_USERNAME` - already set to `uwuFix_bot`; only change this if you
+  registered a different `@username` with BotFather in step 1.2
 - `DB_PATH`, `SCHEDULER_DB_PATH`, `WEB_APP_URL`, `DONATE_URL`,
   `MAX_BATCH_LINKS`, `AUTODETECT_DEFAULT`, `BIO_UPDATE_INTERVAL_MINUTES` -
   sensible defaults are already filled in; adjust if needed.
