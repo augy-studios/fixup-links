@@ -1,5 +1,4 @@
-"""/fix command, auto-detection of messy links in chat, and the persistent
-Fix / Copy / QR buttons.
+"""/fix command and its persistent Copy / QR buttons.
 
 Buttons are implemented with discord.ui.DynamicItem so they keep working
 after the bot restarts: the button's custom_id only carries a small integer
@@ -117,53 +116,10 @@ class QrButton(discord.ui.DynamicItem[discord.ui.Button], template=r'qrbtn:(?P<i
         )
 
 
-class FixButton(discord.ui.DynamicItem[discord.ui.Button], template=r'fixbtn:(?P<id>[0-9]+)'):
-    def __init__(self, pending_id: int):
-        super().__init__(
-            discord.ui.Button(
-                label='Fix Link',
-                style=discord.ButtonStyle.primary,
-                custom_id=f'fixbtn:{pending_id}',
-                emoji='\N{WRENCH}',
-            )
-        )
-        self.pending_id = pending_id
-
-    @classmethod
-    async def from_custom_id(cls, interaction, item, match):
-        return cls(int(match['id']))
-
-    async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        bot = interaction.client
-        pending = await db.get_pending_link(bot.db, self.pending_id)
-        if not pending:
-            await interaction.followup.send('This link is no longer available.', ephemeral=True)
-            return
-
-        original_url = pending['original_url']
-        result, cleaned, title = await do_fix(bot, original_url)
-
-        fix_id = await db.add_fix_result(bot.db, original_url=original_url, cleaned_url=cleaned, platform=result.platform)
-        await db.add_history(bot.db, user_id=interaction.user.id, original_url=original_url,
-                              cleaned_url=cleaned, platform=result.platform)
-
-        embed = build_result_embed(original_url, cleaned, result, title)
-        view = await build_result_view(bot, fix_id, cleaned)
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-
-
-# Links that clean_url() would meaningfully change (tracker stripped or
-# domain converted). Used to decide whether the auto-detect prompt is worth
-# showing at all, so the bot doesn't comment on already-clean links.
-def _worth_fixing(result: linkfix.CleanResult) -> bool:
-    return any(c.type in ('trackers', 'embed', 'redirect') for c in result.changes)
-
-
 class FixCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        bot.add_dynamic_items(FixButton, CopyButton, QrButton)
+        bot.add_dynamic_items(CopyButton, QrButton)
 
     @app_commands.command(name='fix', description='Clean trackers and fix embeds for a link')
     @app_commands.describe(link='The URL to clean up')
@@ -182,45 +138,6 @@ class FixCog(commands.Cog):
         embed = build_result_embed(link, cleaned, result, title)
         view = await build_result_view(self.bot, fix_id, cleaned)
         await interaction.followup.send(embed=embed, view=view)
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if not self.bot.auto_detect_enabled:
-            return
-        if message.author.bot or not message.guild:
-            return
-
-        url = linkfix.extract_first_url(message.content)
-        if not url:
-            return
-
-        try:
-            result = linkfix.clean_url(url)
-        except linkfix.InvalidUrlError:
-            return
-
-        if not _worth_fixing(result):
-            return
-
-        pending_id = await db.add_pending_link(
-            self.bot.db,
-            guild_id=message.guild.id,
-            channel_id=message.channel.id,
-            message_id=message.id,
-            author_id=message.author.id,
-            original_url=url,
-        )
-
-        view = discord.ui.View(timeout=None)
-        view.add_item(FixButton(pending_id))
-        try:
-            await message.reply(
-                'This link has trackers or a better embed available.',
-                view=view,
-                mention_author=False,
-            )
-        except discord.HTTPException:
-            pass
 
 
 async def setup(bot: commands.Bot):

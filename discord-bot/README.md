@@ -18,10 +18,6 @@ available directly as slash commands.
   and cleans that too.
 - **Google Search extraction** - pulls the real destination out of a Google
   Search redirect link.
-- **Automatic detection** - if you post a link in chat that has trackers or
-  a fixable embed, the bot replies with a **Fix Link** button so you don't
-  even need to run a command. These buttons never expire, even across bot
-  restarts.
 - **Persistent result buttons** - every fixed link comes with **Open**,
   **Copy**, and **QR Code** buttons that keep working indefinitely.
 - **Per-user history** - the bot remembers every link you've had it fix so
@@ -46,11 +42,3 @@ only you can page through your own history.
 
 ### `/help`
 Shows a quick rundown of everything above plus a link to the web app.
-
-### Automatic link fixing
-You don't have to use a command at all — just post a link normally. If the
-bot detects trackers or a platform it knows how to convert to an
-embed-friendly domain, it replies with a **Fix Link** button. Clicking it
-sends you a private result with the same Open/Copy/QR options as `/fix`.
-Links that are already clean are left alone, so the bot won't comment on
-every single link posted.

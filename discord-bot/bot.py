@@ -24,7 +24,6 @@ TOKEN = os.environ.get('DISCORD_TOKEN')
 GUILD_ID = os.environ.get('GUILD_ID') or None
 DB_PATH = os.environ.get('DB_PATH', './data/uwufix_bot.sqlite3')
 WEB_APP_URL = os.environ.get('WEB_APP_URL', 'https://fixup.uwuapps.org')
-AUTO_DETECT = os.environ.get('AUTO_DETECT', 'true').lower() not in ('0', 'false', 'no')
 MAX_BATCH_LINKS = int(os.environ.get('MAX_BATCH_LINKS', '10'))
 
 INITIAL_EXTENSIONS = (
@@ -35,7 +34,6 @@ INITIAL_EXTENSIONS = (
 )
 
 intents = discord.Intents.default()
-intents.message_content = True
 
 
 class LinkFixBot(commands.Bot):
@@ -46,7 +44,6 @@ class LinkFixBot(commands.Bot):
         self.db = None
         self.http_session: aiohttp.ClientSession | None = None
         self.web_app_url = WEB_APP_URL
-        self.auto_detect_enabled = AUTO_DETECT
         self.max_batch_links = MAX_BATCH_LINKS
 
     async def setup_hook(self):

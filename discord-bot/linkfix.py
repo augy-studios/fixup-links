@@ -331,11 +331,3 @@ async def resolve_url(session: aiohttp.ClientSession, url: str) -> dict:
             return {'final_url': final_url, 'title': title}
     except Exception:
         return {'final_url': None, 'title': None}
-
-
-FIRST_URL_RE = re.compile(r'https?://\S+', re.I)
-
-
-def extract_first_url(text: str) -> str | None:
-    m = FIRST_URL_RE.search(text or '')
-    return m.group(0) if m else None

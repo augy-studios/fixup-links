@@ -1,12 +1,9 @@
 """SQLite persistence layer.
 
 Backs three things:
-  * pending_links  - links auto-detected in chat, keyed by id so the
-                      "Fix Link" button attached to that message can look the
-                      original URL back up after a bot restart.
-  * fix_results    - the outcome of a single /fix (or auto-detect click),
-                      keyed by id so Copy/QR buttons don't need to re-encode
-                      a full URL into a 100-char custom_id.
+  * fix_results    - the outcome of a single /fix call, keyed by id so
+                      Copy/QR buttons don't need to re-encode a full URL
+                      into a 100-char custom_id.
   * batch_results  - same idea as fix_results but for a /batch call's
                       "Copy All" button.
   * history        - per-user log of links that have been fixed, for /history.
@@ -18,16 +15,6 @@ from pathlib import Path
 import aiosqlite
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS pending_links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    guild_id INTEGER,
-    channel_id INTEGER NOT NULL,
-    message_id INTEGER NOT NULL,
-    author_id INTEGER NOT NULL,
-    original_url TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
 CREATE TABLE IF NOT EXISTS fix_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     original_url TEXT NOT NULL,
@@ -63,21 +50,6 @@ async def init_db(path: str) -> aiosqlite.Connection:
     await conn.executescript(SCHEMA)
     await conn.commit()
     return conn
-
-
-async def add_pending_link(db, *, guild_id, channel_id, message_id, author_id, original_url) -> int:
-    cur = await db.execute(
-        "INSERT INTO pending_links (guild_id, channel_id, message_id, author_id, original_url) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (guild_id, channel_id, message_id, author_id, original_url),
-    )
-    await db.commit()
-    return cur.lastrowid
-
-
-async def get_pending_link(db, pending_id: int):
-    cur = await db.execute("SELECT * FROM pending_links WHERE id = ?", (pending_id,))
-    return await cur.fetchone()
 
 
 async def add_fix_result(db, *, original_url, cleaned_url, platform) -> int:
