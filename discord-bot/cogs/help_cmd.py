@@ -35,14 +35,14 @@ class HelpCog(commands.Cog):
             value='Browse links you have fixed before.',
             inline=False,
         )
-        embed.add_field(
-            name='Automatic detection',
-            value='Posting a link with trackers or a fixable embed will get a "Fix Link" button automatically.',
-            inline=False,
-        )
 
         view = discord.ui.View(timeout=None)
         view.add_item(discord.ui.Button(label='Open Web App', style=discord.ButtonStyle.link, url=self.bot.web_app_url))
+        view.add_item(discord.ui.Button(label='Telegram Bot', style=discord.ButtonStyle.link, url='https://t.me/uwuFix_bot'))
+        view.add_item(discord.ui.Button(
+            label='Invite to Server', style=discord.ButtonStyle.link,
+            url='https://discord.com/oauth2/authorize?client_id=1524465330091724880',
+        ))
         await interaction.response.send_message(embed=embed, view=view)
 
 
