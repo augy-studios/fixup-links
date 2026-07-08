@@ -44,6 +44,13 @@ Debian 13 VPS inside `tmux`.
 
    For both commands, send them to BotFather, pick your bot, then paste the
    text when prompted.
+7. **Skip `/setcommands`.** Normally this is where you'd give BotFather the
+   command list shown in Telegram's `/` menu, but this bot registers its
+   own command list in code (`COMMANDS` in `bot.py`) and pushes it via
+   `set_my_commands` every time it starts up (`post_init`). Anything you set
+   manually with `/setcommands` would just get overwritten on the next
+   restart, so there's nothing to do here - add or rename commands in
+   `bot.py` instead and they'll take effect on the next `python bot.py`.
 
 ## 2. Install dependencies on the VPS (Debian 13)
 
