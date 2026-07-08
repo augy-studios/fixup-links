@@ -126,6 +126,21 @@ async def get_history_page(db, user_id: int, offset: int, limit: int):
     return rows[:limit], has_more
 
 
+async def delete_history_entry(db, entry_id: int, user_id: int) -> bool:
+    """Deletes a history row, but only if it belongs to user_id. Returns
+    whether a row was actually deleted, so callers can tell "already gone"
+    apart from "wasn't yours"."""
+    cur = await db.execute("DELETE FROM history WHERE id = ? AND user_id = ?", (entry_id, user_id))
+    await db.commit()
+    return cur.rowcount > 0
+
+
+async def clear_history(db, user_id: int) -> int:
+    cur = await db.execute("DELETE FROM history WHERE user_id = ?", (user_id,))
+    await db.commit()
+    return cur.rowcount
+
+
 async def touch_chat(db, chat_id: int, *, default_autodetect: bool):
     """Registers a chat the bot has seen, without clobbering an existing preference."""
     await db.execute(

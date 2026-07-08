@@ -11,7 +11,7 @@ import logging
 
 import qrcode
 from telegram import InputFile, Update
-from telegram.ext import ContextTypes, filters
+from telegram.ext import ContextTypes
 
 import db
 import linkfix
@@ -59,18 +59,6 @@ async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data[AWAITING_FIX_KEY] = True
     await update.effective_message.reply_text('Send me the link you want fixed.')
-
-
-async def capture_awaited_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.pop(AWAITING_FIX_KEY, False):
-        return
-    text = (update.effective_message.text or '').strip()
-    urls = linkfix.find_urls(text)
-    raw_link = urls[0] if urls else text
-    await _send_fix_result(update, context, raw_link, reply_to=update.effective_message.message_id)
-
-
-awaiting_link_filter = filters.TEXT & ~filters.COMMAND
 
 
 async def qr_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

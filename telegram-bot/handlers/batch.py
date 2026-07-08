@@ -5,7 +5,7 @@ import re
 from html import escape
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes, filters
+from telegram.ext import ContextTypes
 
 import config
 import db
@@ -65,12 +65,6 @@ async def batch_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     context.user_data[AWAITING_BATCH_KEY] = True
     await update.effective_message.reply_text('Send me the links to clean, one per line or separated by spaces.')
-
-
-async def capture_awaited_batch(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.pop(AWAITING_BATCH_KEY, False):
-        return
-    await _run_batch(update, context, update.effective_message.text or '')
 
 
 async def copyall_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -333,8 +333,31 @@ async def resolve_url(session: aiohttp.ClientSession, url: str) -> dict:
 
 
 _URL_RE = re.compile(r'https?://[^\s<>"\']+', re.I)
+_TRAILING_PUNCT = '.,!?;:\'"’”)]}'
+
+
+def _trim_trailing_punct(url: str) -> str:
+    """Strips sentence punctuation the regex swept up along with the URL
+    (e.g. "check this out: https://bit.ly/abc." -> trailing '.' isn't part
+    of the link). This matters far more for shorteners than long platform
+    URLs: a shortener slug is an exact-match lookup, so one stray trailing
+    character turns a working redirect into a 404 - long URLs with paths/
+    query strings are comparatively more likely to still resolve.
+    """
+    while url and url[-1] in _TRAILING_PUNCT:
+        if url[-1] == ')':
+            # A closing paren that balances an opening one earlier in the
+            # URL is part of it (e.g. Wikipedia-style .../Foo_(disambiguation));
+            # only strip it if it's an extra, unmatched one from surrounding
+            # prose (e.g. "(check this out: https://bit.ly/abc)").
+            if url.count(')') > url.count('('):
+                url = url[:-1]
+                continue
+            break
+        url = url[:-1]
+    return url
 
 
 def find_urls(text: str) -> list[str]:
     """Pulls out candidate URLs from a free-form message, for autodetect/inline use."""
-    return _URL_RE.findall(text or '')
+    return [_trim_trailing_punct(u) for u in _URL_RE.findall(text or '')]

@@ -17,6 +17,8 @@ def _info_text() -> str:
         "Strips tracking parameters from links and swaps in embed-friendly domains "
         "so previews actually render (X/Twitter, Instagram, TikTok, Facebook, Reddit, "
         "Bluesky, and more).\n\n"
+        'In a private chat with the bot, you can also just send a link with no '
+        'command at all and it gets fixed automatically.\n\n'
         '<b>Commands</b>\n'
         '/fix - clean a single link\n'
         '/batch - clean several links at once\n'

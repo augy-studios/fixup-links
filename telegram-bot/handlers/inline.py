@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 
 from telegram import (
-    InlineQueryResultArticle, InputTextMessageContent, Update,
+    InlineQueryResultArticle, InlineQueryResultsButton, InputTextMessageContent, Update,
 )
 from telegram.ext import ContextTypes
 
@@ -44,25 +44,29 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not text:
         results = await _history_results(context, query.from_user.id)
+        button_text = 'Your recent fixes' if results else 'Type or paste a link to fix'
         await query.answer(
             results,
             cache_time=0,
             is_personal=True,
-            switch_pm_text='Type or paste a link to fix' if not results else 'Your recent fixes',
-            switch_pm_parameter='inline_help',
+            button=InlineQueryResultsButton(text=button_text, start_parameter='inline_help'),
         )
         return
 
     if not _looks_like_url(text):
-        await query.answer([], cache_time=0, is_personal=True,
-                            switch_pm_text='Paste a link to fix it', switch_pm_parameter='inline_help')
+        await query.answer(
+            [], cache_time=0, is_personal=True,
+            button=InlineQueryResultsButton(text='Paste a link to fix it', start_parameter='inline_help'),
+        )
         return
 
     try:
         result, cleaned, title = await do_fix(context.bot_data['http_session'], text)
     except linkfix.InvalidUrlError:
-        await query.answer([], cache_time=0, is_personal=True,
-                            switch_pm_text="That doesn't look like a valid link", switch_pm_parameter='inline_help')
+        await query.answer(
+            [], cache_time=0, is_personal=True,
+            button=InlineQueryResultsButton(text="That doesn't look like a valid link", start_parameter='inline_help'),
+        )
         return
 
     await db.add_history(context.bot_data['db'], user_id=query.from_user.id,

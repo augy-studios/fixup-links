@@ -13,7 +13,7 @@ from telegram.ext import (
 import config
 import db
 import scheduler as scheduler_module
-from handlers import autodetect, batch, fix, history, inline, settings, start
+from handlers import autodetect, batch, dm, fix, history, inline, settings, start
 from handlers.core import CB_COPYALL
 
 logging.basicConfig(
@@ -46,17 +46,20 @@ async def post_shutdown(application: Application):
         scheduler_module.scheduler.shutdown(wait=False)
 
 
+CALLBACK_HANDLERS = {
+    **fix.CALLBACK_HANDLERS,
+    **history.CALLBACK_HANDLERS,
+    CB_COPYALL: batch.copyall_callback,
+    settings.CB_AUTODETECT: settings.autodetect_toggle_callback,
+}
+
+
 async def route_callback(update: Update, context):
     query = update.callback_query
     prefix = query.data.split(':', 1)[0]
-    if prefix in fix.CALLBACK_HANDLERS:
-        await fix.CALLBACK_HANDLERS[prefix](update, context)
-    elif prefix == CB_COPYALL:
-        await batch.copyall_callback(update, context)
-    elif prefix == history.CB_NAV:
-        await history.history_nav_callback(update, context)
-    elif prefix == settings.CB_AUTODETECT:
-        await settings.autodetect_toggle_callback(update, context)
+    handler = CALLBACK_HANDLERS.get(prefix)
+    if handler:
+        await handler(update, context)
     else:
         await query.answer()
 
@@ -86,14 +89,11 @@ def main():
     application.add_handler(CommandHandler('history', history.history_command))
     application.add_handler(CommandHandler('settings', settings.settings_command))
 
-    # Follow-up plain-text messages for /fix and /batch when used with no
-    # arguments (private chats only - group text goes through autodetect).
+    # Private-chat text: /fix and /batch follow-up replies, and implicit
+    # auto-fix when a link is sent with no command at all. Group chat text
+    # goes through autodetect instead (below).
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, fix.capture_awaited_link),
-        group=0,
-    )
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, batch.capture_awaited_batch),
+        MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, dm.handle_private_text),
         group=0,
     )
 

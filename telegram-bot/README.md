@@ -25,10 +25,13 @@ results, and automatic group replies.
   `callback_data`, not in-memory state, so they keep working indefinitely -
   including after the bot restarts.
 - **Per-user history** - the bot remembers every link it has fixed for you so
-  you can page back through it later, in `/history` or inline mode.
+  you can page back through it later, in `/history` or inline mode. Delete
+  individual entries or clear it all from `/history` itself.
 - **Inline mode** - type `@uwuFix_bot <link>` in any chat to fix a link
   without adding the bot to that chat. Invoke it with no link to pick from
   your recent history instead.
+- **Private-chat auto-fix** - just send a link to the bot with no command at
+  all in a private chat and it fixes it automatically.
 - **Group autodetect** - when enabled for a chat, links with trackers or a
   fixable embed domain get an automatic reply, no command needed.
 - **Persisted per-chat settings** - autodetect on/off is stored per chat in
@@ -53,7 +56,9 @@ web app and the donate page.
 Cleans a single link. Use `/fix <url>`, or just `/fix` and then send the
 link as your next message. Posts the result with Open / Copy / QR code /
 Show original / Refresh / Delete buttons, the detected platform, what was
-changed, and the destination page title when available.
+changed, and the destination page title when available. In a private chat
+you don't even need the command - just sending the bot a link does the same
+thing.
 
 ### `/batch`
 Cleans several links in one go. Use `/batch <links>`, or `/batch` and then
@@ -63,7 +68,8 @@ Returns a summary of each link plus a **Copy all** button.
 ### `/history`
 Shows a paginated list of links you've previously had the bot fix, newest
 first, with Previous/Next buttons - only you can page through your own
-history.
+history. Each entry has its own 🗑 delete button, and a **Clear all
+history** button (with a confirm/cancel step) wipes everything at once.
 
 ### `/settings`
 Lets a group admin (or anyone in a private chat) turn automatic link fixing
@@ -85,9 +91,10 @@ version. Requires privacy mode to be disabled for the bot in BotFather - see
 
 ## Why SQLite shows up in a few places
 
-- **Buttons** - `fix_results`/`batch_results` rows hold the URLs a button
-  refers to; the button's `callback_data` only carries the row id, so it
-  works forever, independent of process memory.
+- **Buttons** - `fix_results`/`batch_results`/`history` rows hold the data a
+  button refers to; the button's `callback_data` only carries the row id
+  (e.g. a history entry's delete button), so it works forever, independent
+  of process memory.
 - **Chat settings** - `/settings` (autodetect on/off) is per-chat state that
   needs to survive restarts.
 - **Scheduling** - the periodic bot-description update job is registered in
