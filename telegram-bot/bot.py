@@ -48,10 +48,6 @@ async def post_shutdown(application: Application):
 
 async def route_callback(update: Update, context):
     query = update.callback_query
-    if query.data == 'noop':
-        await history.noop_callback(update, context)
-        return
-
     prefix = query.data.split(':', 1)[0]
     if prefix in fix.CALLBACK_HANDLERS:
         await fix.CALLBACK_HANDLERS[prefix](update, context)

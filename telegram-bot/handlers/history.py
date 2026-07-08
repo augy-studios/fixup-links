@@ -25,14 +25,16 @@ def _build_history_text(rows, page: int) -> str:
     return '\n'.join(lines)
 
 
-def _build_nav_keyboard(user_id: int, page: int, has_more: bool) -> InlineKeyboardMarkup:
-    buttons = [
-        InlineKeyboardButton('Previous', callback_data=f'{CB_NAV}:{user_id}:{page - 1}', ) if page > 1
-        else InlineKeyboardButton(' ', callback_data='noop'),
-        InlineKeyboardButton('Next', callback_data=f'{CB_NAV}:{user_id}:{page + 1}') if has_more
-        else InlineKeyboardButton(' ', callback_data='noop'),
-    ]
-    return InlineKeyboardMarkup([buttons])
+def _build_nav_keyboard(user_id: int, page: int, has_more: bool) -> InlineKeyboardMarkup | None:
+    # Telegram inline buttons can't be shown "disabled" the way Discord's
+    # can, so rather than render a blank placeholder button, just omit
+    # whichever direction isn't usable.
+    buttons = []
+    if page > 1:
+        buttons.append(InlineKeyboardButton('◀ Previous', callback_data=f'{CB_NAV}:{user_id}:{page - 1}'))
+    if has_more:
+        buttons.append(InlineKeyboardButton('Next ▶', callback_data=f'{CB_NAV}:{user_id}:{page + 1}'))
+    return InlineKeyboardMarkup([buttons]) if buttons else None
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -58,7 +60,3 @@ async def history_nav_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     keyboard = _build_nav_keyboard(owner_id, page, has_more)
     await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
     await query.answer()
-
-
-async def noop_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
