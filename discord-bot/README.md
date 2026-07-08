@@ -37,7 +37,7 @@ every cleaned link at once.
 
 ### `/history`
 Shows a private, paginated list of links you've previously had the bot fix,
-newest first. Use the **Previous** / **Next** buttons to page through it —
+newest first. Use the **Previous** / **Next** buttons to page through it -
 only you can page through your own history.
 
 ### `/help`

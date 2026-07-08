@@ -14,10 +14,10 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | **Google Search extraction** | ✅ | ✅ | ✅ |
 | **History** | ✅ local, per-browser | ✅ per-user, paginated | ✅ per-user, paginated + inline picker |
 | **QR codes** | ✅ | ✅ button on every result | ✅ button on every result |
-| **Batch cleaning** | — | ✅ `/batch` | ✅ `/batch` |
-| **Automatic detection** | — | — | ✅ opt-in per group chat |
-| **Inline mode** (use in any chat without adding the bot) | — | — | ✅ |
-| **Works offline** | ✅ (PWA) | — | — |
+| **Batch cleaning** | - | ✅ `/batch` | ✅ `/batch` |
+| **Automatic detection** | - | - | ✅ opt-in per group chat |
+| **Inline mode** (use in any chat without adding the bot) | - | - | ✅ |
+| **Works offline** | ✅ (PWA) | - | - |
 | **Storage** | Browser local storage | SQLite | SQLite |
 
 ## Embed-domain fixes (shared logic)

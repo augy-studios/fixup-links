@@ -638,7 +638,7 @@ async function processUrl() {
             renderChangeTags([...changes, { type: 'redirect', label: `Redirects to ${redirectHost}` }]);
             updates.cleaned = finalCleaned;
 
-            // Title from the redirect response may be unreliable — fetch it directly
+            // Title from the redirect response may be unreliable - fetch it directly
             // from the final destination, then update history once it arrives
             if (!updates.title) {
                 fetchMetadata(finalCleaned).then(finalMeta => {

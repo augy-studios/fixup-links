@@ -16,7 +16,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Only http/https URLs supported' });
     }
 
-    // Basic SSRF protection — block private/loopback ranges
+    // Basic SSRF protection - block private/loopback ranges
     const { hostname } = parsed;
     if (
         hostname === 'localhost' ||
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         let title = null;
 
         if (isYouTube) {
-            // A redirect off youtube.com means the request got bot-blocked —
+            // A redirect off youtube.com means the request got bot-blocked -
             // keep the original URL rather than surfacing the block page.
             try {
                 if (new URL(finalUrl).hostname.replace(/^www\./, '') !== 'youtube.com' && !finalUrl.includes('youtu.be')) {

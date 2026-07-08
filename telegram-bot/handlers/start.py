@@ -15,12 +15,12 @@ INFO_TEXT = (
     "so previews actually render (X/Twitter, Instagram, TikTok, Facebook, Reddit, "
     "Bluesky, and more).\n\n"
     '<b>Commands</b>\n'
-    '/fix — clean a single link\n'
-    '/batch — clean several links at once\n'
-    '/history — browse links you have fixed before\n'
-    '/settings — turn automatic link fixing on/off for this chat (group admins)\n'
-    '/donate — support the project\n'
-    '/help — show this message\n\n'
+    '/fix - clean a single link\n'
+    '/batch - clean several links at once\n'
+    '/history - browse links you have fixed before\n'
+    '/settings - turn automatic link fixing on/off for this chat (group admins)\n'
+    '/donate - support the project\n'
+    '/help - show this message\n\n'
     '<b>Inline mode</b>\n'
     'Type <code>@this_bot &lt;link&gt;</code> in any chat to fix a link without adding '
     'the bot, or with nothing after the @mention to pick from your recent history.\n\n'

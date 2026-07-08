@@ -30,7 +30,7 @@ async def _history_results(context: ContextTypes.DEFAULT_TYPE, user_id: int):
         results.append(
             InlineQueryResultArticle(
                 id=str(uuid.uuid4()),
-                title=f"{row['platform'] or 'General'} — {row['cleaned_url'][:60]}",
+                title=f"{row['platform'] or 'General'} - {row['cleaned_url'][:60]}",
                 description=row['original_url'][:80],
                 input_message_content=InputTextMessageContent(row['cleaned_url']),
             )
