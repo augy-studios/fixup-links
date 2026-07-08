@@ -4,6 +4,12 @@ Clean URLs, strip trackers, and swap in embed-friendly domains so link
 previews actually render. This repo has three surfaces sharing the same
 cleanup logic: a web app, a Discord bot, and a Telegram bot.
 
+## Try it
+
+- 🌐 Web app: [fixup.uwuapps.org](https://fixup.uwuapps.org)
+- 💬 Discord bot: [Add to a server](https://discord.com/oauth2/authorize?client_id=1524465330091724880)
+- ✈️ Telegram bot: [t.me/uwuFix_bot](https://t.me/uwuFix_bot)
+
 | | [🌐 Web App](main-site) | [💬 Discord Bot](discord-bot) | [✈️ Telegram Bot](telegram-bot) |
 |---|---|---|---|
 | **What it is** | Client-side PWA at [fixup.uwuapps.org](https://fixup.uwuapps.org) | Slash-command bot for Discord servers | Command + inline bot for Telegram |
@@ -12,7 +18,7 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | **Embed-domain fixing** | ✅ | ✅ | ✅ |
 | **Redirect following** | ✅ | ✅ | ✅ |
 | **Google Search extraction** | ✅ | ✅ | ✅ |
-| **History** | ✅ local, per-browser | ✅ per-user, paginated | ✅ per-user, paginated + inline picker |
+| **History** | ✅ local, per-browser | ✅ per-user, paginated | ✅ per-user, paginated + inline picker, delete/clear |
 | **QR codes** | ✅ | ✅ button on every result | ✅ button on every result |
 | **Batch cleaning** | - | ✅ `/batch` | ✅ `/batch` |
 | **Automatic detection** | - | - | ✅ opt-in per group chat |
@@ -38,12 +44,14 @@ AliExpress, and more) even where there's no embed-domain swap to apply.
 
 ## Getting started
 
-- **Web app**: see [main-site/README.md](main-site/README.md).
-- **Discord bot**: see [discord-bot/README.md](discord-bot/README.md) for
-  features and [discord-bot/SETUP.md](discord-bot/SETUP.md) for deployment.
-- **Telegram bot**: see [telegram-bot/README.md](telegram-bot/README.md) for
-  features and [telegram-bot/SETUP.md](telegram-bot/SETUP.md) for
-  deployment.
+- **Web app**: live at [fixup.uwuapps.org](https://fixup.uwuapps.org); see
+  [main-site/README.md](main-site/README.md) for details.
+- **Discord bot**: [invite it to a server](https://discord.com/oauth2/authorize?client_id=1524465330091724880);
+  see [discord-bot/README.md](discord-bot/README.md) for features and
+  [discord-bot/SETUP.md](discord-bot/SETUP.md) to self-host it.
+- **Telegram bot**: message [@uwuFix_bot](https://t.me/uwuFix_bot); see
+  [telegram-bot/README.md](telegram-bot/README.md) for features and
+  [telegram-bot/SETUP.md](telegram-bot/SETUP.md) to self-host it.
 
 Both bots deploy the same way: a Python venv on a VPS, run inside `tmux`,
 with SQLite for persistence - no external database or hosting service
