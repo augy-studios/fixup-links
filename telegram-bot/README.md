@@ -50,7 +50,7 @@ configurable via `BOT_USERNAME` in `.env` if you register a different one.
 
 ### `/start`
 Shows what the bot does, its full command list, and buttons linking to the
-web app and the donate page.
+web app, the [Discord bot](../discord-bot), and the donate page.
 
 ### `/fix`
 Cleans a single link. Use `/fix <url>`, or just `/fix` and then send the

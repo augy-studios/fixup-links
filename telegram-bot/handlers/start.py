@@ -22,7 +22,7 @@ def _info_text() -> str:
         '<b>Commands</b>\n'
         '/fix - clean a single link\n'
         '/batch - clean several links at once\n'
-        '/history - browse links you have fixed before\n'
+        '/history - browse, delete, or clear links you have fixed before\n'
         '/settings - turn automatic link fixing on/off for this chat (group admins)\n'
         '/donate - support the project\n\n'
         '<b>Inline mode</b>\n'

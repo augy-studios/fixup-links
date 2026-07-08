@@ -57,14 +57,23 @@ Debian 13 VPS inside `tmux`.
    start - Show what this bot does
    fix - Clean a single link
    batch - Clean several links at once
-   history - Browse links you have fixed before
+   history - Browse, delete, or clear links you have fixed before
    settings - Toggle automatic link fixing for this chat
    donate - Support the project
    ```
 
    If you add, rename, or remove a command in `bot.py` later, update this
    list with `/setcommands` again to keep the `/` menu in sync - it isn't
-   done automatically.
+   done automatically. This is currently the bot's full command set; there's
+   nothing else registered in `bot.py` to add here.
+
+   `/history` itself doesn't need a separate command - deleting entries and
+   clearing history are done with buttons under the `/history` reply (a 🗑
+   button per entry, plus a **Clear all history** button with a
+   confirm/cancel step), not extra commands. Those buttons carry a SQLite
+   row id in their `callback_data` (see `handlers/history.py`), so they keep
+   working indefinitely, including across bot restarts - nothing to
+   configure for this in BotFather or `.env`.
 
 ## 2. Install dependencies on the VPS (Debian 13)
 
@@ -93,7 +102,8 @@ Fill in:
 - `BOT_USERNAME` - already set to `uwuFix_bot`; only change this if you
   registered a different `@username` with BotFather in step 1.2
 - `DB_PATH`, `SCHEDULER_DB_PATH`, `WEB_APP_URL`, `DONATE_URL`,
-  `MAX_BATCH_LINKS`, `AUTODETECT_DEFAULT`, `BIO_UPDATE_INTERVAL_MINUTES` -
+  `DISCORD_INVITE_URL`, `MAX_BATCH_LINKS`, `AUTODETECT_DEFAULT`,
+  `BIO_UPDATE_INTERVAL_MINUTES` -
   sensible defaults are already filled in; adjust if needed.
 
 ## 4. Run it in tmux
