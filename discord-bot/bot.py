@@ -75,9 +75,25 @@ class LinkFixBot(commands.Bot):
 bot = LinkFixBot()
 
 
+async def update_presence():
+    activity = discord.CustomActivity(name=f'Fixing links in {len(bot.guilds)} guilds')
+    await bot.change_presence(activity=activity)
+
+
 @bot.event
 async def on_ready():
     log.info('Logged in as %s (id: %s)', bot.user, bot.user.id)
+    await update_presence()
+
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    await update_presence()
+
+
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    await update_presence()
 
 
 def main():
