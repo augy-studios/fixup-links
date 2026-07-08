@@ -18,10 +18,32 @@ Debian 13 VPS inside `tmux`.
    pick your bot, and choose **Disable**. If you don't need group
    autodetect, you can leave privacy mode on and skip this - commands and
    inline mode work either way.
-6. Optionally set a bot description/about text with `/setdescription` and
-   `/setabouttext` - note the periodic scheduled job (see below) will
-   overwrite the *short description* with a live chat-count stat, so put
-   anything you want to keep permanently in the About text instead.
+6. **Set the description and about text.** Telegram bots have two separate
+   blurbs, and BotFather has a command for each:
+   - `/setdescription` sets the **long description** (up to 512 characters),
+     shown on the empty chat screen before someone taps **Start**, and in
+     link previews when the bot is shared. The bot never touches this, so
+     it's safe to set once. Suggested text:
+
+     ```text
+     Cleans messy links: strips tracking parameters and swaps in
+     embed-friendly domains (X/Twitter, Instagram, TikTok, Facebook,
+     Reddit, Bluesky) so previews actually render. Send /start for the
+     full command list, or use inline mode (@your_bot_username <link>)
+     in any chat.
+     ```
+
+   - `/setabouttext` sets the **short description / about text** (up to
+     120 characters), shown on the bot's profile page above the **Start**
+     button. **Don't bother customizing this one** - the bot overwrites it
+     itself on a schedule (`_update_bio` in `scheduler.py`, every
+     `BIO_UPDATE_INTERVAL_MINUTES`) with a live count of how many chats
+     it's active in, e.g. `Cleaning links in 12 chats.`, mirroring the
+     Discord bot's presence status. Whatever you set with `/setabouttext`
+     will be replaced the first time that job runs after the bot starts.
+
+   For both commands, send them to BotFather, pick your bot, then paste the
+   text when prompted.
 
 ## 2. Install dependencies on the VPS (Debian 13)
 
