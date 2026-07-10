@@ -96,7 +96,10 @@ const PLATFORM_TRACKERS = {
         'si', 'context', 'nd',
     ]),
     'threads.net': new Set([
-        'igshid', 'mibextid',
+        'igshid', 'mibextid', 'xmt', 'slof',
+    ]),
+    'threads.com': new Set([
+        'igshid', 'mibextid', 'xmt', 'slof',
     ]),
 };
 
@@ -168,7 +171,7 @@ const EMBED_CONVERTERS = [{
     },
     {
         name: 'Threads',
-        match: h => h === 'threads.net' || h === 'www.threads.net',
+        match: h => h === 'threads.net' || h === 'www.threads.net' || h === 'threads.com' || h === 'www.threads.com',
         convert: url => {
             // No reliable embed fix for Threads as of mid-2026; just strip tracking
             return url;
@@ -318,6 +321,7 @@ function detectPlatform(hostname) {
         'ebay.com': 'eBay',
         'aliexpress.com': 'AliExpress',
         'threads.net': 'Threads',
+        'threads.com': 'Threads',
         'bsky.app': 'Bluesky',
         'google.com': 'Google',
     };

@@ -68,7 +68,8 @@ PLATFORM_TRACKERS = {
     'aliexpress.com': {'aff_platform', 'aff_trace_key', 'terminal_id', 'biztype', 'sourcetype',
                          'btsid', 'ws_ab_test', 'initiative_id', 'origin_design_token'},
     'spotify.com': {'si', 'context', 'nd'},
-    'threads.net': {'igshid', 'mibextid'},
+    'threads.net': {'igshid', 'mibextid', 'xmt', 'slof'},
+    'threads.com': {'igshid', 'mibextid', 'xmt', 'slof'},
 }
 
 PLATFORM_LABELS = {
@@ -79,7 +80,7 @@ PLATFORM_LABELS = {
     'amazon.com': 'Amazon', 'substack.com': 'Substack', 'github.com': 'GitHub',
     'discord.com': 'Discord', 'pinterest.com': 'Pinterest', 'snapchat.com': 'Snapchat',
     'spotify.com': 'Spotify', 'ebay.com': 'eBay', 'aliexpress.com': 'AliExpress',
-    'threads.net': 'Threads', 'bsky.app': 'Bluesky', 'google.com': 'Google',
+    'threads.net': 'Threads', 'threads.com': 'Threads', 'bsky.app': 'Bluesky', 'google.com': 'Google',
 }
 
 
@@ -125,7 +126,7 @@ def _embed_converters():
         ('Reddit', {'reddit.com', 'www.reddit.com', 'old.reddit.com', 'new.reddit.com'}, reddit),
         ('Bluesky', {'bsky.app', 'www.bsky.app'}, bluesky),
         ('Discord', {'canary.discord.com', 'ptb.discord.com'}, discord_canary),
-        ('Threads', {'threads.net', 'www.threads.net'}, threads),
+        ('Threads', {'threads.net', 'www.threads.net', 'threads.com', 'www.threads.com'}, threads),
     ]
 
 
