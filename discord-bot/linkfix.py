@@ -51,7 +51,7 @@ PLATFORM_TRACKERS = {
     'reddit.com': {'utm_name', 'ref_source', 'ref', 'context', 'share_id',
                     'post_fullname', 'cid', 'subreddit_id', 'post_index'},
     'linkedin.com': {'trk', 'trkinfo', 'trk_sid', 'originalsubdomain', 'refid',
-                      'lipi', 'licu', 'lici', 'sharer', 'trackingid'},
+                      'lipi', 'licu', 'lici', 'sharer', 'trackingid', 'rcm'},
     'amazon.com': {'ref', 'ref_', 'pf_rd_r', 'pf_rd_p', 'pf_rd_i', 'pf_rd_m', 'pf_rd_s', 'pf_rd_t',
                     'pd_rd_r', 'pd_rd_w', 'pd_rd_wg', '_encoding', 'smid', 'sprefix', 'sr',
                     'ie', 'qid', 'rps', 'linkcode', 'linkid', 'ascsubtag', 'tag',

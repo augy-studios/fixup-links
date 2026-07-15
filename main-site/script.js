@@ -63,7 +63,7 @@ const PLATFORM_TRACKERS = {
     ]),
     'linkedin.com': new Set([
         'trk', 'trkInfo', 'trk_sid', 'originalSubdomain', 'refId',
-        'lipi', 'licu', 'lici', 'sharer', 'trackingId',
+        'lipi', 'licu', 'lici', 'sharer', 'trackingId', 'rcm',
     ]),
     'amazon.com': new Set([
         'ref', 'ref_', 'pf_rd_r', 'pf_rd_p', 'pf_rd_i', 'pf_rd_m', 'pf_rd_s', 'pf_rd_t',
