@@ -35,8 +35,9 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | TikTok | `kktiktok.com` / `vt.kktiktok.com` |
 | Facebook | `facebed.com` |
 | Reddit | `vxreddit.com` |
-| Bluesky | `bskx.app` |
 | Discord (canary/PTB) | normalized to `discord.com` |
+
+`youtu.be` links are also normalized to `youtube.com` for consistency.
 
 Trackers are also stripped from a much wider set of platforms (YouTube,
 LinkedIn, Amazon, Substack, GitHub, Pinterest, Snapchat, Spotify, eBay,

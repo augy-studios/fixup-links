@@ -11,7 +11,7 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
   - TikTok → `kktiktok.com` / `vt.kktiktok.com`
   - Facebook → `facebed.com`
   - Reddit → `vxreddit.com`
-  - Bluesky → `bskx.app`
+  - `youtu.be` → `youtube.com` (normalized for consistency)
 - **Platform Support** - X/Twitter, Instagram, TikTok, Reddit, Bluesky, Threads, YouTube (including Shorts), Facebook, LinkedIn, Substack, GitHub, Discord, Pinterest, Snapchat, Spotify, Amazon, eBay, AliExpress, and more
 - **Discord Cleanup** - Normalizes `canary.discord.com` and `ptb.discord.com` links to `discord.com`
 - **Google Search Extraction** - Pulls the actual destination URL from Google Search redirect links

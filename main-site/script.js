@@ -47,10 +47,10 @@ const PLATFORM_TRACKERS = {
     ]),
     'fb.com': new Set(['__cft__', '__tn__', '__xts__']),
     'youtube.com': new Set([
-        'feature', 'app', 'list', 'index', 'pp', 'si', 'ab_channel',
+        'feature', 'app', 'list', 'index', 'pp', 'si', 'is', 'ab_channel',
         'cbrd', 'ucbcb', 'pbc', 'pbj',
     ]),
-    'youtu.be': new Set(['feature', 'si']),
+    'youtu.be': new Set(['feature', 'si', 'is']),
     'tiktok.com': new Set([
         '_d', 'checksum', 'is_copy_url', 'is_from_webapp',
         'sender_device', 'sender_web_id', 'share_app_id', 'share_link_id',
@@ -154,14 +154,6 @@ const EMBED_CONVERTERS = [{
         },
     },
     {
-        name: 'Bluesky',
-        match: h => h === 'bsky.app' || h === 'www.bsky.app',
-        convert: url => {
-            url.hostname = 'bskx.app';
-            return url;
-        },
-    },
-    {
         name: 'Discord',
         match: h => h === 'canary.discord.com' || h === 'ptb.discord.com',
         convert: url => {
@@ -208,8 +200,20 @@ function cleanUrl(rawInput) {
         throw new Error('Only http:// and https:// URLs are supported.');
     }
 
-    const hostname = url.hostname.replace(/^www\./, '');
+    let hostname = url.hostname.replace(/^www\./, '');
     const changes = [];
+
+    // 0. Normalize youtu.be -> youtube.com for consistency
+    if (hostname === 'youtu.be') {
+        const videoId = url.pathname.replace(/^\/|\/$/g, '');
+        if (videoId) {
+            url.hostname = 'www.youtube.com';
+            url.pathname = '/watch';
+            url.searchParams.set('v', videoId);
+            hostname = 'youtube.com';
+            changes.push({ type: 'embed', label: 'Converted youtu.be to youtube.com' });
+        }
+    }
 
     // 1. Google Search - extract destination
     if (hostname === 'google.com' || hostname.endsWith('.google.com')) {

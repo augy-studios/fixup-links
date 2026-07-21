@@ -42,9 +42,9 @@ PLATFORM_TRACKERS = {
     'facebook.com': {'__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
                       'theater', 'refsrc', 'source', '_rdr'},
     'fb.com': {'__cft__', '__tn__', '__xts__'},
-    'youtube.com': {'feature', 'app', 'list', 'index', 'pp', 'si', 'ab_channel',
+    'youtube.com': {'feature', 'app', 'list', 'index', 'pp', 'si', 'is', 'ab_channel',
                      'cbrd', 'ucbcb', 'pbc', 'pbj'},
-    'youtu.be': {'feature', 'si'},
+    'youtu.be': {'feature', 'si', 'is'},
     'tiktok.com': {'_d', 'checksum', 'is_copy_url', 'is_from_webapp',
                     'sender_device', 'sender_web_id', 'share_app_id', 'share_link_id',
                     'tt_from', 'tt_medium', 'tt_campaign', 'tiktok_share_from',
@@ -110,9 +110,6 @@ def _embed_converters():
     def reddit(host, path):
         return 'www.vxreddit.com', path
 
-    def bluesky(host, path):
-        return 'bskx.app', path
-
     def discord_canary(host, path):
         return 'discord.com', path
 
@@ -125,7 +122,6 @@ def _embed_converters():
         ('TikTok', {'tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com'}, tiktok),
         ('Facebook', {'facebook.com', 'www.facebook.com', 'fb.com', 'www.fb.com', 'm.facebook.com'}, facebook),
         ('Reddit', {'reddit.com', 'www.reddit.com', 'old.reddit.com', 'new.reddit.com'}, reddit),
-        ('Bluesky', {'bsky.app', 'www.bsky.app'}, bluesky),
         ('Discord', {'canary.discord.com', 'ptb.discord.com'}, discord_canary),
         ('Threads', {'threads.net', 'www.threads.net', 'threads.com', 'www.threads.com'}, threads),
     ]
@@ -190,6 +186,16 @@ def clean_url(raw_input: str) -> CleanResult:
     changes: list[Change] = []
 
     query_pairs = parse_qsl(parts.query, keep_blank_values=True)
+
+    # 0. Normalize youtu.be -> youtube.com for consistency
+    if hostname == 'youtu.be':
+        video_id = parts.path.strip('/')
+        if video_id:
+            query_pairs = [('v', video_id)] + [(k, v) for k, v in query_pairs if k.lower() != 'v']
+            full_host_l = 'www.youtube.com'
+            hostname = 'youtube.com'
+            parts = parts._replace(path='/watch')
+            changes.append(Change('embed', 'Converted youtu.be to youtube.com'))
 
     # 1. Google Search - extract destination
     if hostname == 'google.com' or hostname.endswith('.google.com'):
