@@ -8,7 +8,7 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 - **Embed Fixing** - Converts links to embed-friendly domains for better previews on Discord, Telegram, and more:
   - X/Twitter → `fixupx.com` (usernames replaced with `i`)
   - Instagram → `oginstagram.com`
-  - TikTok → `kktiktok.com` / `vt.kktiktok.com`
+  - TikTok → `tnktok.com` (`vm.` / `vt.` share links keep their subdomain)
   - YouTube Shorts → `koutube.com` (regular watch links stay on `youtube.com`)
   - Facebook → `facebed.com`
   - Reddit → `vxreddit.com`
@@ -19,8 +19,12 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
   - Pixiv → `phixiv.net`
   - Tumblr → `tpmblr.com`
   - BiliBili → `vxbilibili.com`
+  - DeviantArt → `fixdeviantart.com` (art / journal pages)
+  - Newgrounds → `fixnewgrounds.com` (art pages)
+  - Fur Affinity → `xfuraffinity.net` (submission pages)
+  - Mastodon → `fx.zillanlabs.tech/<instance>/@user/<id>` (10 supported instances)
   - `youtu.be` → `youtube.com` (normalized for consistency)
-- **Platform Support** - X/Twitter, Instagram, TikTok, Reddit, Bluesky, Threads, YouTube (including Shorts), Twitch, Facebook, LinkedIn, Substack, GitHub, Discord, Pinterest, Snapchat, Spotify, Tumblr, Pixiv, BiliBili, Amazon, eBay, AliExpress, and more
+- **Platform Support** - X/Twitter, Instagram, TikTok, Reddit, Bluesky, Threads, YouTube (including Shorts), Twitch, Facebook, LinkedIn, Substack, GitHub, Discord, Pinterest, Snapchat, Spotify, Tumblr, Pixiv, BiliBili, Mastodon, DeviantArt, Newgrounds, Fur Affinity, Amazon, eBay, AliExpress, and more
 - **Discord Cleanup** - Normalizes `canary.discord.com` and `ptb.discord.com` links to `discord.com`
 - **Google Search Extraction** - Pulls the actual destination URL from Google Search redirect links
 - **Redirect Detection** - Follows redirect chains (e.g. email click-trackers like `ctrk.klclick.com`, URL shorteners) to the final destination and cleans that URL too; requires an internet connection - basic cleaning still works fully offline

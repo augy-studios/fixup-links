@@ -126,6 +126,14 @@ const PLATFORM_TRACKERS = {
     ]),
 };
 
+// Mastodon has no single hostname, so instances have to be enumerated. This is
+// the set FxMastodon covers.
+const MASTODON_INSTANCES = [
+    'mastodon.social', 'mstdn.jp', 'mastodon.cloud', 'mstdn.social',
+    'mastodon.world', 'mastodon.online', 'mas.to', 'techhub.social',
+    'mastodon.uno', 'infosec.exchange',
+];
+
 // ===== EMBED CONVERSION RULES =====
 // Maps original hostname -> [match_fn, convert_fn, platform_label]
 const EMBED_CONVERTERS = [{
@@ -164,11 +172,11 @@ const EMBED_CONVERTERS = [{
         name: 'TikTok',
         match: h => h === 'tiktok.com' || h === 'www.tiktok.com' || h === 'vm.tiktok.com' || h === 'vt.tiktok.com',
         convert: url => {
-            if (url.hostname === 'vm.tiktok.com' || url.hostname === 'vt.tiktok.com') {
-                url.hostname = 'vt.kktiktok.com';
-            } else {
-                url.hostname = 'kktiktok.com';
-            }
+            // Preserve the subdomain so vm./vt. share links keep resolving on
+            // the matching tnktok.com subdomain.
+            url.hostname = url.hostname
+                .replace(/^www\./, '')
+                .replace(/tiktok\.com$/, 'tnktok.com');
             return url;
         },
     },
@@ -249,6 +257,53 @@ const EMBED_CONVERTERS = [{
         match: h => h === 'bilibili.com' || h === 'www.bilibili.com' || h === 'm.bilibili.com',
         convert: url => {
             url.hostname = 'vxbilibili.com';
+            return url;
+        },
+    },
+    {
+        // fixDeviantArt only handles deviation and journal pages; a profile or
+        // gallery link would 404 there, so leave those on deviantart.com.
+        name: 'DeviantArt',
+        match: h => h === 'deviantart.com' || h === 'www.deviantart.com',
+        convert: url => {
+            if (/^\/[^/]+\/(art|journal)\/[^/]+/.test(url.pathname)) {
+                url.hostname = 'fixdeviantart.com';
+            }
+            return url;
+        },
+    },
+    {
+        // FixNewgrounds covers art pages only.
+        name: 'Newgrounds',
+        match: h => h === 'newgrounds.com' || h === 'www.newgrounds.com',
+        convert: url => {
+            if (/^\/art\/view\/[^/]+\/[^/]+/.test(url.pathname)) {
+                url.hostname = 'fixnewgrounds.com';
+            }
+            return url;
+        },
+    },
+    {
+        // xfuraffinity covers submission pages only.
+        name: 'Fur Affinity',
+        match: h => h === 'furaffinity.net' || h === 'www.furaffinity.net',
+        convert: url => {
+            if (/^\/view\/[^/]+/.test(url.pathname)) {
+                url.hostname = 'xfuraffinity.net';
+            }
+            return url;
+        },
+    },
+    {
+        // FxMastodon isn't a plain host swap - the instance becomes the first
+        // path segment: fx.zillanlabs.tech/mastodon.social/@user/12345
+        name: 'Mastodon',
+        match: h => MASTODON_INSTANCES.includes(h.replace(/^www\./, '')),
+        convert: url => {
+            if (/^\/@[^/]+\/[^/]+/.test(url.pathname)) {
+                url.pathname = '/' + url.hostname.replace(/^www\./, '') + url.pathname;
+                url.hostname = 'fx.zillanlabs.tech';
+            }
             return url;
         },
     },
@@ -423,11 +478,15 @@ function detectPlatform(hostname) {
         'pixiv.net': 'Pixiv',
         'tumblr.com': 'Tumblr',
         'bilibili.com': 'BiliBili',
+        'deviantart.com': 'DeviantArt',
+        'newgrounds.com': 'Newgrounds',
+        'furaffinity.net': 'Fur Affinity',
         'google.com': 'Google',
     };
     for (const [key, val] of Object.entries(map)) {
         if (hostname === key || hostname.endsWith('.' + key)) return val;
     }
+    if (MASTODON_INSTANCES.includes(hostname)) return 'Mastodon';
     return null;
 }
 

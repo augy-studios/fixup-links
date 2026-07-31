@@ -95,8 +95,18 @@ PLATFORM_LABELS = {
     'spotify.com': 'Spotify', 'ebay.com': 'eBay', 'aliexpress.com': 'AliExpress',
     'threads.net': 'Threads', 'threads.com': 'Threads', 'bsky.app': 'Bluesky',
     'twitch.tv': 'Twitch', 'pixiv.net': 'Pixiv', 'tumblr.com': 'Tumblr',
-    'bilibili.com': 'BiliBili', 'google.com': 'Google',
+    'bilibili.com': 'BiliBili', 'deviantart.com': 'DeviantArt',
+    'newgrounds.com': 'Newgrounds', 'furaffinity.net': 'Fur Affinity',
+    'google.com': 'Google',
 }
+
+# Mastodon has no single hostname, so instances have to be enumerated. This is
+# the set FxMastodon covers.
+MASTODON_INSTANCES = (
+    'mastodon.social', 'mstdn.jp', 'mastodon.cloud', 'mstdn.social',
+    'mastodon.world', 'mastodon.online', 'mas.to', 'techhub.social',
+    'mastodon.uno', 'infosec.exchange',
+)
 
 
 def _is_tracker_param(key: str, platform_set: set[str] | None) -> bool:
@@ -133,9 +143,11 @@ def _embed_converters():
         return host, path
 
     def tiktok(host, path):
-        if host in ('vm.tiktok.com', 'vt.tiktok.com'):
-            return 'vt.kktiktok.com', path
-        return 'kktiktok.com', path
+        # Preserve the subdomain so vm./vt. share links keep resolving on the
+        # matching tnktok.com subdomain.
+        if host.startswith('www.'):
+            host = host[4:]
+        return host.replace('tiktok.com', 'tnktok.com'), path
 
     def facebook(host, path):
         return 'www.facebed.com', path
@@ -167,6 +179,35 @@ def _embed_converters():
     def bilibili(host, path):
         return 'vxbilibili.com', path
 
+    def deviantart(host, path):
+        # fixDeviantArt only handles deviation and journal pages; a profile or
+        # gallery link would 404 there, so leave those on deviantart.com.
+        if re.match(r'^/[^/]+/(art|journal)/[^/]+', path):
+            return 'fixdeviantart.com', path
+        return host, path
+
+    def newgrounds(host, path):
+        # FixNewgrounds covers art pages only.
+        if re.match(r'^/art/view/[^/]+/[^/]+', path):
+            return 'fixnewgrounds.com', path
+        return host, path
+
+    def furaffinity(host, path):
+        # xfuraffinity covers submission pages only.
+        if re.match(r'^/view/[^/]+', path):
+            return 'xfuraffinity.net', path
+        return host, path
+
+    def mastodon(host, path):
+        # FxMastodon isn't a plain host swap - the instance becomes the first
+        # path segment: fx.zillanlabs.tech/mastodon.social/@user/12345
+        instance = host[4:] if host.startswith('www.') else host
+        if re.match(r'^/@[^/]+/[^/]+', path):
+            return 'fx.zillanlabs.tech', '/' + instance + path
+        return host, path
+
+    mastodon_hosts = set(MASTODON_INSTANCES) | {'www.' + i for i in MASTODON_INSTANCES}
+
     return [
         ('X / Twitter', {'x.com', 'twitter.com', 'www.x.com', 'www.twitter.com'}, twitter),
         ('Instagram', {'instagram.com', 'www.instagram.com'}, instagram),
@@ -182,6 +223,10 @@ def _embed_converters():
         ('Pixiv', {'pixiv.net', 'www.pixiv.net'}, pixiv),
         ('Tumblr', {'tumblr.com', 'www.tumblr.com'}, tumblr),
         ('BiliBili', {'bilibili.com', 'www.bilibili.com', 'm.bilibili.com'}, bilibili),
+        ('DeviantArt', {'deviantart.com', 'www.deviantart.com'}, deviantart),
+        ('Newgrounds', {'newgrounds.com', 'www.newgrounds.com'}, newgrounds),
+        ('Fur Affinity', {'furaffinity.net', 'www.furaffinity.net'}, furaffinity),
+        ('Mastodon', mastodon_hosts, mastodon),
     ]
 
 
@@ -210,6 +255,8 @@ def detect_platform(hostname: str) -> str | None:
     for key, label in PLATFORM_LABELS.items():
         if _match_host(hostname, key):
             return label
+    if hostname in MASTODON_INSTANCES:
+        return 'Mastodon'
     return None
 
 

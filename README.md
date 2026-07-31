@@ -32,7 +32,7 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 |---|---|
 | X / Twitter | `fixupx.com` (usernames replaced with `i`) |
 | Instagram | `oginstagram.com` |
-| TikTok | `kktiktok.com` / `vt.kktiktok.com` |
+| TikTok | `tnktok.com` (`vm.` / `vt.` share links keep their subdomain) |
 | YouTube Shorts | `koutube.com` (regular watch links stay on `youtube.com`) |
 | Facebook | `facebed.com` |
 | Reddit | `vxreddit.com` |
@@ -43,7 +43,17 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | Pixiv | `phixiv.net` |
 | Tumblr | `tpmblr.com` |
 | BiliBili | `vxbilibili.com` |
+| DeviantArt | `fixdeviantart.com` (art / journal pages) |
+| Newgrounds | `fixnewgrounds.com` (art pages) |
+| Fur Affinity | `xfuraffinity.net` (submission pages) |
+| Mastodon | `fx.zillanlabs.tech/<instance>/@user/<id>` |
 | Discord (canary/PTB) | normalized to `discord.com` |
+
+Some fixers only serve certain page types, so those swaps are path-gated: a
+DeviantArt gallery or Fur Affinity profile link stays on its original domain
+rather than being pointed at a fixer that would 404. Mastodon isn't a plain
+host swap either - it has no single hostname, so the ten instances FxMastodon
+covers are enumerated and the instance is moved into the path.
 
 `youtu.be` links are also normalized to `youtube.com` for consistency.
 
