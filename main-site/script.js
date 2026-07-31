@@ -3,7 +3,6 @@
 
 // ===== CONSTANTS =====
 const HISTORY_KEY = 'uwufix_history';
-const THEME_KEY = 'uwufix_theme';
 const MAX_HISTORY = 100;
 
 // ===== TRACKING PARAMETERS =====
@@ -400,32 +399,6 @@ function formatRelativeDate(iso) {
     return new Date(iso).toLocaleDateString();
 }
 
-// ===== THEME =====
-const THEMES = ['classic', 'notgreen1', 'notgreen2', 'notgreen3', 'notgreen4', 'notgreen5', 'white'];
-
-function loadTheme() {
-    return localStorage.getItem(THEME_KEY) || 'classic';
-}
-
-function applyTheme(theme) {
-    document.body.setAttribute('data-theme', theme);
-    document.querySelectorAll('.theme-option').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.theme === theme);
-    });
-    // Update theme-color meta
-    const colors = {
-        classic: '#ccffcc',
-        notgreen1: '#ffcccc',
-        notgreen2: '#ccccff',
-        notgreen3: '#ffffcc',
-        notgreen4: '#ffccff',
-        notgreen5: '#ccffff',
-        white: '#f7fff7',
-    };
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', colors[theme] || '#ccffcc');
-    localStorage.setItem(THEME_KEY, theme);
-}
-
 // ===== TOAST =====
 let toastTimer;
 
@@ -438,15 +411,7 @@ function showToast(msg) {
 }
 
 // ===== MODALS =====
-function openModal(id) {
-    document.getElementById(id).classList.add('open');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeModal(id) {
-    document.getElementById(id).classList.remove('open');
-    document.body.style.overflow = '';
-}
+// openModal / closeModal come from js/ui.js
 
 // ===== UI RENDERING =====
 function renderChangeTags(changes) {
@@ -715,33 +680,13 @@ async function shareUrl(url) {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
-    // Apply saved theme
-    applyTheme(loadTheme());
+    // Theme init and modal wiring live in js/theme.js
     renderHistoryList();
-
-    // ---- Theme modal ----
-    document.getElementById('openThemeModal').addEventListener('click', () => openModal('themeModal'));
-    document.getElementById('closeThemeModal').addEventListener('click', () => closeModal('themeModal'));
-    document.getElementById('themeModal').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModal('themeModal');
-    });
-
-    document.querySelectorAll('.theme-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            applyTheme(btn.dataset.theme);
-            closeModal('themeModal');
-            showToast('Theme applied');
-        });
-    });
 
     // ---- History modal ----
     document.getElementById('openHistoryModal').addEventListener('click', () => {
         renderHistoryList();
         openModal('historyModal');
-    });
-    document.getElementById('closeHistoryModal').addEventListener('click', () => closeModal('historyModal'));
-    document.getElementById('historyModal').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModal('historyModal');
     });
     document.getElementById('clearHistoryBtn').addEventListener('click', () => {
         if (confirm('Clear all history?')) {
@@ -801,10 +746,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('qrUrl').textContent = url;
         openModal('qrModal');
-    });
-    document.getElementById('closeQrModal').addEventListener('click', () => closeModal('qrModal'));
-    document.getElementById('qrModal').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeModal('qrModal');
     });
 
     // ---- Auto-paste if URL in query string (also handles share_target via ?link=) ----

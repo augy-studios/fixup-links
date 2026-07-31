@@ -48,8 +48,8 @@
     },
 
     "start_url": "/",
-    "theme_color": "#cfc",
-    "background_color": "#cfc",
+    "theme_color": "#ccffcc",
+    "background_color": "#eef2f0",
     "display": "standalone",
     "display_override": ["fullscreen", "minimal-ui", "window-controls-overlay"],
     "orientation": "any",

@@ -1,9 +1,12 @@
-const CACHE = 'uwufix-v21';
+const CACHE = 'uwufix-v22';
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/script.js',
+  '/js/icons.js',
+  '/js/ui.js',
+  '/js/theme.js',
   '/manifest.json',
   '/UFX-main.png',
   '/UFX-192.png',

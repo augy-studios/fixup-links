@@ -30,6 +30,35 @@
     <meta property="og:description" content="Clean URLs, remove trackers, and fix embeds!" />
 
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Jua">
+
+    <!-- Land the saved theme before first paint -->
+    <script>
+        (function () {
+            var k = "uwufix";
+            try {
+                var legacy = localStorage.getItem("uwufix_theme");
+                if (legacy) {
+                    var map = {
+                        classic: "classic", notgreen1: "not-green-1", notgreen2: "not-green-2",
+                        notgreen3: "not-green-3", notgreen4: "not-green-4", notgreen5: "not-green-5",
+                        white: "really-light-green"
+                    };
+                    if (!localStorage.getItem(k + ".colorTheme") && map[legacy]) {
+                        localStorage.setItem(k + ".colorTheme", map[legacy]);
+                    }
+                    localStorage.removeItem("uwufix_theme");
+                }
+            } catch (e) { }
+            var m = "light", c = "classic";
+            try {
+                m = localStorage.getItem(k + ".mode") || "light";
+                c = localStorage.getItem(k + ".colorTheme") || "classic";
+            } catch (e) { }
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+        })();
+    </script>
+
     <link rel="stylesheet" href="/style.css">
     <meta name="theme-color" content="#ccffcc" />
 
@@ -41,62 +70,14 @@
     <meta name="twitter:image:src" content="/UFX-main.png">
     <meta property="og:image" content="/UFX-main.png" />
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script defer="" src="https://use.fontawesome.com/releases/v6.5.2/js/all.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 
-<body data-theme="classic">
-
-    <!-- Theme Picker Modal -->
-    <div class="modal-overlay" id="themeModal" role="dialog" aria-modal="true" aria-label="Choose theme">
-        <div class="modal">
-            <div class="modal-header">
-                <span class="modal-title">Choose Theme</span>
-                <button class="modal-close" id="closeThemeModal" aria-label="Close theme picker">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                </button>
-            </div>
-            <div class="theme-grid">
-                <button class="theme-option" data-theme="classic" aria-label="Classic green theme">
-                    <span class="theme-swatch" style="background:#ccffcc;"></span>
-                    <span class="theme-label">Classic</span>
-                </button>
-                <button class="theme-option" data-theme="notgreen1" aria-label="Pink theme">
-                    <span class="theme-swatch" style="background:#ffcccc;"></span>
-                    <span class="theme-label">Not green 1</span>
-                </button>
-                <button class="theme-option" data-theme="notgreen2" aria-label="Lavender theme">
-                    <span class="theme-swatch" style="background:#ccccff;"></span>
-                    <span class="theme-label">Not green 2</span>
-                </button>
-                <button class="theme-option" data-theme="notgreen3" aria-label="Yellow theme">
-                    <span class="theme-swatch" style="background:#ffffcc;"></span>
-                    <span class="theme-label">Not green 3</span>
-                </button>
-                <button class="theme-option" data-theme="notgreen4" aria-label="Magenta theme">
-                    <span class="theme-swatch" style="background:#ffccff;"></span>
-                    <span class="theme-label">Not green 4</span>
-                </button>
-                <button class="theme-option" data-theme="notgreen5" aria-label="Cyan theme">
-                    <span class="theme-swatch" style="background:#ccffff;"></span>
-                    <span class="theme-label">Not green 5</span>
-                </button>
-                <button class="theme-option" data-theme="white" aria-label="White theme">
-                    <span class="theme-swatch" style="background:#ffffff; border:1px solid #ccc;"></span>
-                    <span class="theme-label">Really really light green</span>
-                </button>
-            </div>
-        </div>
-    </div>
+<body>
 
     <!-- History Modal -->
-    <div class="modal-overlay" id="historyModal" role="dialog" aria-modal="true" aria-label="History">
-        <div class="modal modal-wide">
+    <div class="modal-backdrop hidden" id="historyModal" role="dialog" aria-modal="true" aria-label="History">
+        <div class="modal glass modal-wide">
             <div class="modal-header">
                 <span class="modal-title">History</span>
                 <div class="modal-header-actions">
@@ -110,12 +91,9 @@
                         </svg>
                         Clear All
                     </button>
-                    <button class="modal-close" id="closeHistoryModal" aria-label="Close history">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
+                    <button class="icon-btn small" type="button" data-close-modal="historyModal"
+                        aria-label="Close history">
+                        <span data-icon="close"></span>
                     </button>
                 </div>
             </div>
@@ -168,13 +146,8 @@
                     </svg>
                     <span class="btn-label">Buy me a coffee</span>
                 </a>
-                <button class="btn btn-icon" id="openThemeModal" aria-label="Change theme">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="4" />
-                        <path
-                            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-                    </svg>
+                <button class="icon-btn" id="themeBtn" type="button" aria-label="Theme">
+                    <span data-icon="sun"></span>
                 </button>
             </div>
         </header>
@@ -490,21 +463,17 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>Made with <svg class="footer-heart" viewBox="0 0 24 24" fill="var(--brand-dark)" xmlns="http://www.w3.org/2000/svg"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> by Augy</p>        </footer>
+            <p>Made with <svg class="footer-heart" viewBox="0 0 24 24" fill="#34c759" xmlns="http://www.w3.org/2000/svg"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> by Augy</p>        </footer>
 
     </div>
 
     <!-- QR Code Modal -->
-    <div class="modal-overlay" id="qrModal" role="dialog" aria-modal="true" aria-label="QR Code">
-        <div class="modal modal-qr">
+    <div class="modal-backdrop hidden" id="qrModal" role="dialog" aria-modal="true" aria-label="QR Code">
+        <div class="modal glass modal-qr">
             <div class="modal-header">
                 <span class="modal-title">QR Code</span>
-                <button class="modal-close" id="closeQrModal" aria-label="Close QR modal">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                <button class="icon-btn small" type="button" data-close-modal="qrModal" aria-label="Close QR modal">
+                    <span data-icon="close"></span>
                 </button>
             </div>
             <div class="qr-body">
@@ -517,6 +486,30 @@
     <!-- Toast Notification -->
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+    <!-- Theme Modal -->
+    <div class="modal-backdrop hidden" id="themeModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+            <div class="modal-head">
+                <h2 id="themeModalTitle">Theme</h2>
+                <button class="icon-btn small" type="button" data-close-modal="themeModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <p class="modal-section-label">Mode</p>
+            <div class="mode-toggle" id="modeToggle">
+                <button class="mode-btn" type="button" data-mode="light" aria-pressed="false"><span
+                        data-icon="sun"></span>Light</button>
+                <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false"><span
+                        data-icon="moon"></span>Dark</button>
+            </div>
+            <p class="modal-section-label">Brand colour</p>
+            <div class="swatch-grid" id="swatchGrid"></div>
+        </div>
+    </div>
+
+    <script src="/js/icons.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/theme.js"></script>
     <script src="/script.js"></script>
 
     <script>
