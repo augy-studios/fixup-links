@@ -4,15 +4,23 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 
 ## Features
 
-- **Tracker Removal** - Strips UTM parameters, click IDs, Klaviyo tracking (`_kx`, `tw_source`), and platform-specific tracking from any URL
+- **Tracker Removal** - Strips UTM parameters, click IDs, Klaviyo tracking (`_kx`, `tw_source`), and platform-specific tracking from any URL. Every parameter starting with `utm_` is removed on every host, so UTM variants beyond the named list (`utm_creative`, `utm_pubreferrer`, `utm_swu`, ...) are caught too; matching is case-insensitive and the `#fragment` is preserved
 - **Embed Fixing** - Converts links to embed-friendly domains for better previews on Discord, Telegram, and more:
   - X/Twitter → `fixupx.com` (usernames replaced with `i`)
-  - Instagram → `kkclip.com`
+  - Instagram → `oginstagram.com`
   - TikTok → `kktiktok.com` / `vt.kktiktok.com`
+  - YouTube Shorts → `koutube.com` (regular watch links stay on `youtube.com`)
   - Facebook → `facebed.com`
   - Reddit → `vxreddit.com`
+  - Threads → `fixthreads.seria.moe`
+  - Bluesky → `fxbsky.app`
+  - Twitch → `fxtwitch.seria.moe`
+  - Spotify → `fxspotify.com`
+  - Pixiv → `phixiv.net`
+  - Tumblr → `tpmblr.com`
+  - BiliBili → `vxbilibili.com`
   - `youtu.be` → `youtube.com` (normalized for consistency)
-- **Platform Support** - X/Twitter, Instagram, TikTok, Reddit, Bluesky, Threads, YouTube (including Shorts), Facebook, LinkedIn, Substack, GitHub, Discord, Pinterest, Snapchat, Spotify, Amazon, eBay, AliExpress, and more
+- **Platform Support** - X/Twitter, Instagram, TikTok, Reddit, Bluesky, Threads, YouTube (including Shorts), Twitch, Facebook, LinkedIn, Substack, GitHub, Discord, Pinterest, Snapchat, Spotify, Tumblr, Pixiv, BiliBili, Amazon, eBay, AliExpress, and more
 - **Discord Cleanup** - Normalizes `canary.discord.com` and `ptb.discord.com` links to `discord.com`
 - **Google Search Extraction** - Pulls the actual destination URL from Google Search redirect links
 - **Redirect Detection** - Follows redirect chains (e.g. email click-trackers like `ctrk.klclick.com`, URL shorteners) to the final destination and cleans that URL too; requires an internet connection - basic cleaning still works fully offline

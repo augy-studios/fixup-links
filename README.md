@@ -31,17 +31,29 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | Platform | Fixed to |
 |---|---|
 | X / Twitter | `fixupx.com` (usernames replaced with `i`) |
-| Instagram | `kkclip.com` |
+| Instagram | `oginstagram.com` |
 | TikTok | `kktiktok.com` / `vt.kktiktok.com` |
+| YouTube Shorts | `koutube.com` (regular watch links stay on `youtube.com`) |
 | Facebook | `facebed.com` |
 | Reddit | `vxreddit.com` |
+| Threads | `fixthreads.seria.moe` |
+| Bluesky | `fxbsky.app` |
+| Twitch | `fxtwitch.seria.moe` |
+| Spotify | `fxspotify.com` |
+| Pixiv | `phixiv.net` |
+| Tumblr | `tpmblr.com` |
+| BiliBili | `vxbilibili.com` |
 | Discord (canary/PTB) | normalized to `discord.com` |
 
 `youtu.be` links are also normalized to `youtube.com` for consistency.
 
-Trackers are also stripped from a much wider set of platforms (YouTube,
-LinkedIn, Amazon, Substack, GitHub, Pinterest, Snapchat, Spotify, eBay,
-AliExpress, and more) even where there's no embed-domain swap to apply.
+Trackers are also stripped from a much wider set of platforms (LinkedIn,
+Amazon, Substack, GitHub, Pinterest, Snapchat, eBay, AliExpress, and more)
+even where there's no embed-domain swap to apply. On every host - including
+ones with no platform rules at all - any parameter starting with `utm_` is
+removed, so UTM variants beyond the named list (`utm_creative`,
+`utm_pubreferrer`, `utm_swu`, ...) are caught too. Matching is
+case-insensitive, and the URL fragment (`#section-3`) is always preserved.
 
 ## Getting started
 

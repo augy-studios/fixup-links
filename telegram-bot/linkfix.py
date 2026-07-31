@@ -13,8 +13,14 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, quote
 import aiohttp
 
 # ===== TRACKING PARAMETERS =====
+# Any parameter whose name starts with one of these prefixes is a tracker, on
+# every host. Catches the long tail of UTM variants (utm_creative,
+# utm_pubreferrer, utm_swu, utm_brand, ...) that an exact-name list misses.
+TRACKER_PREFIXES = ('utm_',)
+
+# Keys are compared lowercased, so every entry below must be lowercase.
 UNIVERSAL_TRACKERS = {
-    # UTM
+    # UTM (the utm_ prefix rule above covers the rest)
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
     'utm_id', 'utm_reader', 'utm_name', 'utm_social', 'utm_social-type',
     # Click IDs
@@ -71,6 +77,13 @@ PLATFORM_TRACKERS = {
     'spotify.com': {'si', 'context', 'nd'},
     'threads.net': {'igshid', 'mibextid', 'xmt', 'slof'},
     'threads.com': {'igshid', 'mibextid', 'xmt', 'slof'},
+    'twitch.tv': {'tt_content', 'tt_medium', 'sr', 'filter', 'referrer'},
+    'pixiv.net': {'lang'},
+    'tumblr.com': {'is_related_post', 'source'},
+    'bilibili.com': {'spm_id_from', 'vd_source', 'from_source', 'share_source',
+                      'share_medium', 'share_plat', 'share_session_id', 'share_tag',
+                      'timestamp', 'unique_k', 'bbid', 'ts'},
+    'bsky.app': {'ref_src', 'ref_url'},
 }
 
 PLATFORM_LABELS = {
@@ -81,8 +94,22 @@ PLATFORM_LABELS = {
     'amazon.com': 'Amazon', 'substack.com': 'Substack', 'github.com': 'GitHub',
     'discord.com': 'Discord', 'pinterest.com': 'Pinterest', 'snapchat.com': 'Snapchat',
     'spotify.com': 'Spotify', 'ebay.com': 'eBay', 'aliexpress.com': 'AliExpress',
-    'threads.net': 'Threads', 'threads.com': 'Threads', 'bsky.app': 'Bluesky', 'google.com': 'Google',
+    'threads.net': 'Threads', 'threads.com': 'Threads', 'bsky.app': 'Bluesky',
+    'twitch.tv': 'Twitch', 'pixiv.net': 'Pixiv', 'tumblr.com': 'Tumblr',
+    'bilibili.com': 'BiliBili', 'google.com': 'Google',
 }
+
+
+def _is_tracker_param(key: str, platform_set: set[str] | None) -> bool:
+    """Matching is always case-insensitive: query keys arrive in whatever case
+    the sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the
+    same tracker."""
+    lower = key.lower()
+    if lower.startswith(TRACKER_PREFIXES):
+        return True
+    if lower in UNIVERSAL_TRACKERS:
+        return True
+    return bool(platform_set and lower in platform_set)
 
 
 def _match_host(hostname: str, key: str) -> bool:
@@ -97,7 +124,14 @@ def _embed_converters():
         return 'fixupx.com', path
 
     def instagram(host, path):
-        return 'kkclip.com', path
+        return 'www.oginstagram.com', path
+
+    def youtube(host, path):
+        # Only Shorts need an embed fix - regular watch links already preview
+        # fine, so leave them on youtube.com.
+        if path.startswith('/shorts/'):
+            return 'koutube.com', path
+        return host, path
 
     def tiktok(host, path):
         if host in ('vm.tiktok.com', 'vt.tiktok.com'):
@@ -114,16 +148,41 @@ def _embed_converters():
         return 'discord.com', path
 
     def threads(host, path):
-        return host, path  # no reliable embed fix; tracker stripping only
+        return 'fixthreads.seria.moe', path
+
+    def bluesky(host, path):
+        return 'fxbsky.app', path
+
+    def twitch(host, path):
+        return 'fxtwitch.seria.moe', path
+
+    def spotify(host, path):
+        return 'fxspotify.com', path
+
+    def pixiv(host, path):
+        return 'phixiv.net', path
+
+    def tumblr(host, path):
+        return 'tpmblr.com', path
+
+    def bilibili(host, path):
+        return 'vxbilibili.com', path
 
     return [
         ('X / Twitter', {'x.com', 'twitter.com', 'www.x.com', 'www.twitter.com'}, twitter),
         ('Instagram', {'instagram.com', 'www.instagram.com'}, instagram),
+        ('YouTube', {'youtube.com', 'www.youtube.com', 'm.youtube.com'}, youtube),
         ('TikTok', {'tiktok.com', 'www.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com'}, tiktok),
         ('Facebook', {'facebook.com', 'www.facebook.com', 'fb.com', 'www.fb.com', 'm.facebook.com'}, facebook),
         ('Reddit', {'reddit.com', 'www.reddit.com', 'old.reddit.com', 'new.reddit.com'}, reddit),
         ('Discord', {'canary.discord.com', 'ptb.discord.com'}, discord_canary),
         ('Threads', {'threads.net', 'www.threads.net', 'threads.com', 'www.threads.com'}, threads),
+        ('Bluesky', {'bsky.app', 'www.bsky.app'}, bluesky),
+        ('Twitch', {'twitch.tv', 'www.twitch.tv', 'm.twitch.tv'}, twitch),
+        ('Spotify', {'open.spotify.com', 'spotify.com', 'www.spotify.com'}, spotify),
+        ('Pixiv', {'pixiv.net', 'www.pixiv.net'}, pixiv),
+        ('Tumblr', {'tumblr.com', 'www.tumblr.com'}, tumblr),
+        ('BiliBili', {'bilibili.com', 'www.bilibili.com', 'm.bilibili.com'}, bilibili),
     ]
 
 
@@ -211,8 +270,7 @@ def clean_url(raw_input: str) -> CleanResult:
     kept_pairs = []
     removed = []
     for key, value in query_pairs:
-        lower = key.lower()
-        if lower in UNIVERSAL_TRACKERS or (platform_set and lower in platform_set):
+        if _is_tracker_param(key, platform_set):
             removed.append(key)
         else:
             kept_pairs.append((key, value))
@@ -238,7 +296,9 @@ def clean_url(raw_input: str) -> CleanResult:
 
     # 5. Rebuild URL
     new_query = '&'.join(f'{quote(k, safe="")}={quote(v, safe="")}' for k, v in kept_pairs)
-    cleaned = urlunsplit((parts.scheme, new_host, new_path, new_query, ''))
+    # Keep the fragment: it's the anchor the sharer picked (a Reddit comment,
+    # a docs heading, a video timestamp), not tracking.
+    cleaned = urlunsplit((parts.scheme, new_host, new_path, new_query, parts.fragment))
     if cleaned.endswith('?'):
         cleaned = cleaned[:-1]
 

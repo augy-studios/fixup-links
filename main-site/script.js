@@ -6,27 +6,34 @@ const HISTORY_KEY = 'uwufix_history';
 const MAX_HISTORY = 100;
 
 // ===== TRACKING PARAMETERS =====
-// Universal trackers removed from any URL
+// Any parameter whose name starts with one of these prefixes is a tracker,
+// on every host. Catches the long tail of UTM variants (utm_creative,
+// utm_pubreferrer, utm_swu, utm_brand, ...) that an exact-name list misses.
+const TRACKER_PREFIXES = ['utm_'];
+
+// Universal trackers removed from any URL. Keys are compared lowercased,
+// so every entry here must be lowercase.
 const UNIVERSAL_TRACKERS = new Set([
-    // UTM
+    // UTM (the utm_ prefix rule above covers the rest)
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
     'utm_id', 'utm_reader', 'utm_name', 'utm_social', 'utm_social-type',
     // Click IDs
     'fbclid', 'gclid', 'gclsrc', 'msclkid', 'dclid', 'yclid', 'twclid', 'mc_eid',
-    'igshid', 'igsh', 'li_fat_id', 'ttclid', 'ScCid', 's_cid', 'SNKRHSP',
+    'igshid', 'igsh', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
     // General
     'ref', 'ref_src', 'ref_url', 'referral', 'source', 'srsltid',
     'icid', 'cid', 'eid', 'pid', 'sid', 'rid', 'uid', 'vid',
     '_ga', '_gl', '_hsenc', '_hsmi', 'hsa_acc', 'hsa_ad', 'hsa_cam', 'hsa_grp',
     'hsa_kw', 'hsa_mt', 'hsa_net', 'hsa_src', 'hsa_tgt', 'hsa_ver',
     'mibextid', 'mbid', 'ml_subscriber', 'ml_subscriber_hash',
-    'WT.mc_id', 'WT.srch', 'affiliate', 'aff_id', 'aff_sub',
+    'wt.mc_id', 'wt.srch', 'affiliate', 'aff_id', 'aff_sub',
     'trk', 'track', 'tracking', 'trksid',
     // Klaviyo
     '_kx', 'kx', 'tw_source',
 ]);
 
-// Platform-specific parameter sets
+// Platform-specific parameter sets. Keys are compared lowercased, so every
+// entry here must be lowercase.
 const PLATFORM_TRACKERS = {
     'twitter.com': new Set([
         's', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
@@ -61,14 +68,14 @@ const PLATFORM_TRACKERS = {
         'post_fullname', 'cid', 'subreddit_id', 'post_index',
     ]),
     'linkedin.com': new Set([
-        'trk', 'trkInfo', 'trk_sid', 'originalSubdomain', 'refId',
-        'lipi', 'licu', 'lici', 'sharer', 'trackingId', 'rcm',
+        'trk', 'trkinfo', 'trk_sid', 'originalsubdomain', 'refid',
+        'lipi', 'licu', 'lici', 'sharer', 'trackingid', 'rcm',
     ]),
     'amazon.com': new Set([
         'ref', 'ref_', 'pf_rd_r', 'pf_rd_p', 'pf_rd_i', 'pf_rd_m', 'pf_rd_s', 'pf_rd_t',
         'pd_rd_r', 'pd_rd_w', 'pd_rd_wg', '_encoding', 'smid', 'sprefix', 'sr',
-        'ie', 'qid', 'rps', 'linkCode', 'linkId', 'ascsubtag', 'tag',
-        'creative', 'creativeASIN',
+        'ie', 'qid', 'rps', 'linkcode', 'linkid', 'ascsubtag', 'tag',
+        'creative', 'creativeasin',
     ]),
     'google.com': new Set([
         'ved', 'usg', 'ei', 'sei', 'sa', 'sqi', 'sourceid',
@@ -88,7 +95,7 @@ const PLATFORM_TRACKERS = {
         'epid', 'hash', '_trkparms', '_trksid',
     ]),
     'aliexpress.com': new Set([
-        'aff_platform', 'aff_trace_key', 'terminal_id', 'bizType', 'sourceType',
+        'aff_platform', 'aff_trace_key', 'terminal_id', 'biztype', 'sourcetype',
         'btsid', 'ws_ab_test', 'initiative_id', 'origin_design_token',
     ]),
     'spotify.com': new Set([
@@ -99,6 +106,23 @@ const PLATFORM_TRACKERS = {
     ]),
     'threads.com': new Set([
         'igshid', 'mibextid', 'xmt', 'slof',
+    ]),
+    'twitch.tv': new Set([
+        'tt_content', 'tt_medium', 'sr', 'filter', 'referrer',
+    ]),
+    'pixiv.net': new Set([
+        'lang',
+    ]),
+    'tumblr.com': new Set([
+        'is_related_post', 'source',
+    ]),
+    'bilibili.com': new Set([
+        'spm_id_from', 'vd_source', 'from_source', 'share_source',
+        'share_medium', 'share_plat', 'share_session_id', 'share_tag',
+        'timestamp', 'unique_k', 'bbid', 'ts',
+    ]),
+    'bsky.app': new Set([
+        'ref_src', 'ref_url',
     ]),
 };
 
@@ -120,7 +144,19 @@ const EMBED_CONVERTERS = [{
         name: 'Instagram',
         match: h => h === 'instagram.com' || h === 'www.instagram.com',
         convert: url => {
-            url.hostname = 'kkclip.com';
+            url.hostname = 'www.oginstagram.com';
+            return url;
+        },
+    },
+    {
+        name: 'YouTube',
+        match: h => h === 'youtube.com' || h === 'www.youtube.com' || h === 'm.youtube.com',
+        convert: url => {
+            // Only Shorts need an embed fix - regular watch links already
+            // preview fine, so leave them on youtube.com.
+            if (/^\/shorts\//.test(url.pathname)) {
+                url.hostname = 'koutube.com';
+            }
             return url;
         },
     },
@@ -164,11 +200,70 @@ const EMBED_CONVERTERS = [{
         name: 'Threads',
         match: h => h === 'threads.net' || h === 'www.threads.net' || h === 'threads.com' || h === 'www.threads.com',
         convert: url => {
-            // No reliable embed fix for Threads as of mid-2026; just strip tracking
+            url.hostname = 'fixthreads.seria.moe';
+            return url;
+        },
+    },
+    {
+        name: 'Bluesky',
+        match: h => h === 'bsky.app' || h === 'www.bsky.app',
+        convert: url => {
+            url.hostname = 'fxbsky.app';
+            return url;
+        },
+    },
+    {
+        name: 'Twitch',
+        match: h => h === 'twitch.tv' || h === 'www.twitch.tv' || h === 'm.twitch.tv',
+        convert: url => {
+            url.hostname = 'fxtwitch.seria.moe';
+            return url;
+        },
+    },
+    {
+        name: 'Spotify',
+        match: h => h === 'open.spotify.com' || h === 'spotify.com' || h === 'www.spotify.com',
+        convert: url => {
+            url.hostname = 'fxspotify.com';
+            return url;
+        },
+    },
+    {
+        name: 'Pixiv',
+        match: h => h === 'pixiv.net' || h === 'www.pixiv.net',
+        convert: url => {
+            url.hostname = 'phixiv.net';
+            return url;
+        },
+    },
+    {
+        name: 'Tumblr',
+        match: h => h === 'tumblr.com' || h === 'www.tumblr.com',
+        convert: url => {
+            url.hostname = 'tpmblr.com';
+            return url;
+        },
+    },
+    {
+        name: 'BiliBili',
+        match: h => h === 'bilibili.com' || h === 'www.bilibili.com' || h === 'm.bilibili.com',
+        convert: url => {
+            url.hostname = 'vxbilibili.com';
             return url;
         },
     },
 ];
+
+// ===== TRACKER MATCHING =====
+// Matching is always case-insensitive: query keys arrive in whatever case the
+// sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the same
+// tracker.
+function isTrackerParam(key, platformSet) {
+    const lower = key.toLowerCase();
+    if (TRACKER_PREFIXES.some(p => lower.startsWith(p))) return true;
+    if (UNIVERSAL_TRACKERS.has(lower)) return true;
+    return Boolean(platformSet && platformSet.has(lower));
+}
 
 // ===== GOOGLE SEARCH DESTINATION EXTRACTION =====
 function extractGoogleDest(url) {
@@ -241,9 +336,7 @@ function cleanUrl(rawInput) {
 
     const toDelete = [];
     for (const [key] of url.searchParams) {
-        const lower = key.toLowerCase();
-        if (UNIVERSAL_TRACKERS.has(key) || UNIVERSAL_TRACKERS.has(lower) ||
-            (platformSet && (platformSet.has(key) || platformSet.has(lower)))) {
+        if (isTrackerParam(key, platformSet)) {
             toDelete.push(key);
             removedParams.push(key);
         }
@@ -326,6 +419,10 @@ function detectPlatform(hostname) {
         'threads.net': 'Threads',
         'threads.com': 'Threads',
         'bsky.app': 'Bluesky',
+        'twitch.tv': 'Twitch',
+        'pixiv.net': 'Pixiv',
+        'tumblr.com': 'Tumblr',
+        'bilibili.com': 'BiliBili',
         'google.com': 'Google',
     };
     for (const [key, val] of Object.entries(map)) {
