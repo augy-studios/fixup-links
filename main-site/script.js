@@ -229,10 +229,14 @@ const EMBED_CONVERTERS = [{
         },
     },
     {
+        // Album and prerelease pages render fine on their own, so leave those
+        // on spotify.com.
         name: 'Spotify',
         match: h => h === 'open.spotify.com' || h === 'spotify.com' || h === 'www.spotify.com',
         convert: url => {
-            url.hostname = 'fxspotify.com';
+            if (!/^(\/intl-[^/]+)?\/(album|prerelease)\//.test(url.pathname)) {
+                url.hostname = 'fxspotify.com';
+            }
             return url;
         },
     },

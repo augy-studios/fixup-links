@@ -169,6 +169,10 @@ def _embed_converters():
         return 'fxtwitch.seria.moe', path
 
     def spotify(host, path):
+        # Album and prerelease pages render fine on their own, so leave those
+        # on spotify.com.
+        if re.match(r'^(/intl-[^/]+)?/(album|prerelease)/', path):
+            return host, path
         return 'fxspotify.com', path
 
     def pixiv(host, path):

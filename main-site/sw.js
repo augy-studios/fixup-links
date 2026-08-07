@@ -1,4 +1,4 @@
-const CACHE = 'uwufix-v25';
+const CACHE = 'uwufix-v26';
 const ASSETS = [
   '/',
   '/index.html',
