@@ -15,8 +15,10 @@ import aiohttp
 # ===== TRACKING PARAMETERS =====
 # Any parameter whose name starts with one of these prefixes is a tracker, on
 # every host. Catches the long tail of UTM variants (utm_creative,
-# utm_pubreferrer, utm_swu, utm_brand, ...) that an exact-name list misses.
-TRACKER_PREFIXES = ('utm_',)
+# utm_pubreferrer, utm_swu, utm_brand, ...) that an exact-name list misses, plus
+# Branch.io's attribution blobs (_branch_match_id, _branch_referrer, ...) which
+# apps bolt onto otherwise clean deep links.
+TRACKER_PREFIXES = ('utm_', '_branch_')
 
 # Keys are compared lowercased, so every entry below must be lowercase.
 UNIVERSAL_TRACKERS = {
@@ -36,6 +38,12 @@ UNIVERSAL_TRACKERS = {
     'trk', 'track', 'tracking', 'trksid',
     # Klaviyo
     '_kx', 'kx', 'tw_source',
+    # Branch.io attribution keys that don't carry the _branch_ prefix. The
+    # routing params ($deeplink_path, $fallback_url, $ios_url, ...) are left
+    # alone - those decide where the link actually goes.
+    '~channel', '~feature', '~campaign', '~tags', '~stage', '~creation_source',
+    '~click_id', '~referring_link', '~id', '~secondary_publisher',
+    '$3p', '$original_url', '$identity_id', '$s2s',
 }
 
 PLATFORM_TRACKERS = {

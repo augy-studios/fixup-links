@@ -8,8 +8,10 @@ const MAX_HISTORY = 100;
 // ===== TRACKING PARAMETERS =====
 // Any parameter whose name starts with one of these prefixes is a tracker,
 // on every host. Catches the long tail of UTM variants (utm_creative,
-// utm_pubreferrer, utm_swu, utm_brand, ...) that an exact-name list misses.
-const TRACKER_PREFIXES = ['utm_'];
+// utm_pubreferrer, utm_swu, utm_brand, ...) that an exact-name list misses,
+// plus Branch.io's attribution blobs (_branch_match_id, _branch_referrer, ...)
+// which apps bolt onto otherwise clean deep links.
+const TRACKER_PREFIXES = ['utm_', '_branch_'];
 
 // Universal trackers removed from any URL. Keys are compared lowercased,
 // so every entry here must be lowercase.
@@ -30,6 +32,12 @@ const UNIVERSAL_TRACKERS = new Set([
     'trk', 'track', 'tracking', 'trksid',
     // Klaviyo
     '_kx', 'kx', 'tw_source',
+    // Branch.io attribution keys that don't carry the _branch_ prefix. The
+    // routing params ($deeplink_path, $fallback_url, $ios_url, ...) are left
+    // alone - those decide where the link actually goes.
+    '~channel', '~feature', '~campaign', '~tags', '~stage', '~creation_source',
+    '~click_id', '~referring_link', '~id', '~secondary_publisher',
+    '$3p', '$original_url', '$identity_id', '$s2s',
 ]);
 
 // Platform-specific parameter sets. Keys are compared lowercased, so every

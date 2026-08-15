@@ -4,7 +4,7 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 
 ## Features
 
-- **Tracker Removal** - Strips UTM parameters, click IDs, Klaviyo tracking (`_kx`, `tw_source`), and platform-specific tracking from any URL. Every parameter starting with `utm_` is removed on every host, so UTM variants beyond the named list (`utm_creative`, `utm_pubreferrer`, `utm_swu`, ...) are caught too; matching is case-insensitive and the `#fragment` is preserved
+- **Tracker Removal** - Strips UTM parameters, click IDs, Klaviyo tracking (`_kx`, `tw_source`), and platform-specific tracking from any URL. Every parameter starting with `utm_` or `_branch_` is removed on every host, so UTM variants beyond the named list (`utm_creative`, `utm_pubreferrer`, `utm_swu`, ...) and Branch.io attribution blobs (`_branch_match_id`, `_branch_referrer`, `~channel`, ...) are caught too; Branch's routing params (`$deeplink_path`, `$fallback_url`, ...) are kept since they decide where the link goes. Matching is case-insensitive and the `#fragment` is preserved
 - **Embed Fixing** - Converts links to embed-friendly domains for better previews on Discord, Telegram, and more:
   - X/Twitter → `fixupx.com` (usernames replaced with `i`)
   - Instagram → `oginstagram.com`

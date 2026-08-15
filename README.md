@@ -60,9 +60,12 @@ covers are enumerated and the instance is moved into the path.
 Trackers are also stripped from a much wider set of platforms (LinkedIn,
 Amazon, Substack, GitHub, Pinterest, Snapchat, eBay, AliExpress, and more)
 even where there's no embed-domain swap to apply. On every host - including
-ones with no platform rules at all - any parameter starting with `utm_` is
-removed, so UTM variants beyond the named list (`utm_creative`,
-`utm_pubreferrer`, `utm_swu`, ...) are caught too. Matching is
+ones with no platform rules at all - any parameter starting with `utm_` or
+`_branch_` is removed, so UTM variants beyond the named list (`utm_creative`,
+`utm_pubreferrer`, `utm_swu`, ...) and Branch.io's attribution blobs
+(`_branch_match_id`, `_branch_referrer`, `~channel`, ...) are caught too.
+Branch's routing params (`$deeplink_path`, `$fallback_url`, ...) are left in
+place, since those decide where the link actually goes. Matching is
 case-insensitive, and the URL fragment (`#section-3`) is always preserved.
 
 ## Getting started
