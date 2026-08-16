@@ -27,7 +27,7 @@ UNIVERSAL_TRACKERS = {
     'utm_id', 'utm_reader', 'utm_name', 'utm_social', 'utm_social-type',
     # Click IDs
     'fbclid', 'gclid', 'gclsrc', 'msclkid', 'dclid', 'yclid', 'twclid', 'mc_eid',
-    'igshid', 'igsh', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
+    'igshid', 'igsh', 'igsi', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
     # General
     'ref', 'ref_src', 'ref_url', 'referral', 'source', 'srsltid',
     'icid', 'cid', 'eid', 'pid', 'sid', 'rid', 'uid', 'vid',
@@ -51,7 +51,7 @@ PLATFORM_TRACKERS = {
                      'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url'},
     'x.com': {'s', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
               'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url'},
-    'instagram.com': {'igshid', 'igsh', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
+    'instagram.com': {'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
                        'img_index', 'taken-by'},
     'facebook.com': {'__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
                       'theater', 'refsrc', 'source', '_rdr'},
@@ -83,8 +83,8 @@ PLATFORM_TRACKERS = {
     'aliexpress.com': {'aff_platform', 'aff_trace_key', 'terminal_id', 'biztype', 'sourcetype',
                          'btsid', 'ws_ab_test', 'initiative_id', 'origin_design_token'},
     'spotify.com': {'si', 'context', 'nd'},
-    'threads.net': {'igshid', 'mibextid', 'xmt', 'slof'},
-    'threads.com': {'igshid', 'mibextid', 'xmt', 'slof'},
+    'threads.net': {'igshid', 'igsh', 'igsi', 'mibextid', 'xmt', 'slof'},
+    'threads.com': {'igshid', 'igsh', 'igsi', 'mibextid', 'xmt', 'slof'},
     'twitch.tv': {'tt_content', 'tt_medium', 'sr', 'filter', 'referrer'},
     'pixiv.net': {'lang'},
     'tumblr.com': {'is_related_post', 'source'},

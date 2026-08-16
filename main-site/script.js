@@ -21,7 +21,7 @@ const UNIVERSAL_TRACKERS = new Set([
     'utm_id', 'utm_reader', 'utm_name', 'utm_social', 'utm_social-type',
     // Click IDs
     'fbclid', 'gclid', 'gclsrc', 'msclkid', 'dclid', 'yclid', 'twclid', 'mc_eid',
-    'igshid', 'igsh', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
+    'igshid', 'igsh', 'igsi', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
     // General
     'ref', 'ref_src', 'ref_url', 'referral', 'source', 'srsltid',
     'icid', 'cid', 'eid', 'pid', 'sid', 'rid', 'uid', 'vid',
@@ -52,7 +52,7 @@ const PLATFORM_TRACKERS = {
         'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url',
     ]),
     'instagram.com': new Set([
-        'igshid', 'igsh', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
+        'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
         'img_index', 'taken-by',
     ]),
     'facebook.com': new Set([
@@ -110,10 +110,10 @@ const PLATFORM_TRACKERS = {
         'si', 'context', 'nd',
     ]),
     'threads.net': new Set([
-        'igshid', 'mibextid', 'xmt', 'slof',
+        'igshid', 'igsh', 'igsi', 'mibextid', 'xmt', 'slof',
     ]),
     'threads.com': new Set([
-        'igshid', 'mibextid', 'xmt', 'slof',
+        'igshid', 'igsh', 'igsi', 'mibextid', 'xmt', 'slof',
     ]),
     'twitch.tv': new Set([
         'tt_content', 'tt_medium', 'sr', 'filter', 'referrer',
