@@ -11,6 +11,8 @@ class HelpCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name='help', description='Show what this bot can do')
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def help(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title='Link cleaning & embed fixing',

@@ -68,6 +68,8 @@ class HistoryCog(commands.Cog):
         bot.add_dynamic_items(HistoryNavButton)
 
     @app_commands.command(name='history', description='See links you have fixed before')
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def history(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True, thinking=True)
         rows, has_more = await db.get_history_page(self.bot.db, interaction.user.id, 0, PAGE_SIZE)

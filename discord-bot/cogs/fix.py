@@ -123,6 +123,8 @@ class FixCog(commands.Cog):
 
     @app_commands.command(name='fix', description='Clean trackers and fix embeds for a link')
     @app_commands.describe(link='The URL to clean up')
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def fix(self, interaction: discord.Interaction, link: str):
         await interaction.response.defer(thinking=True)
         try:

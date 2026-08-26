@@ -58,13 +58,16 @@ class LinkFixBot(commands.Bot):
             await self.load_extension(ext)
 
         if GUILD_ID:
+            # Guild-scoped copies show up instantly, which is handy while
+            # testing, but they only ever exist inside that one guild - DMs
+            # and group DMs are served exclusively by the global commands.
             guild = discord.Object(id=int(GUILD_ID))
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
             log.info('Synced commands to guild %s', GUILD_ID)
-        else:
-            await self.tree.sync()
-            log.info('Synced global commands (may take up to an hour to propagate)')
+
+        await self.tree.sync()
+        log.info('Synced global commands (may take up to an hour to propagate)')
 
     async def close(self):
         if self.http_session:

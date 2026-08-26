@@ -46,6 +46,8 @@ class BatchCog(commands.Cog):
 
     @app_commands.command(name='batch', description='Clean multiple links at once (one per line)')
     @app_commands.describe(links='Links to clean, one per line or separated by spaces')
+    @app_commands.allowed_installs(guilds=True, users=True)
+    @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def batch(self, interaction: discord.Interaction, links: str):
         await interaction.response.defer(thinking=True)
 

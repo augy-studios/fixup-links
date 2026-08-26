@@ -17,6 +17,7 @@ Debian 13 VPS inside `tmux`.
      - Read Message History
      - Use Slash Commands (usually implied by `applications.commands`)
    - Copy the generated invite URL and open it in a browser to add the bot to your server.
+4. Still under **Installation**, set **Installation Contexts** to include both **Guild Install** and **User Install**. The commands are registered for both contexts, so if User Install is turned off here Discord rejects the command sync at startup with a 400 about integration types. User Install is also what lets `/fix` work in DMs with other people and in group DMs, not just in a DM with the bot itself.
 
 ## 2. Install dependencies on the VPS (Debian 13)
 
@@ -42,7 +43,7 @@ nano .env
 Fill in:
 
 - `DISCORD_TOKEN` - the token from step 1.2
-- `GUILD_ID` - optional; set this to your server's ID while testing so slash commands sync instantly (right-click your server icon → Copy Server ID, with Developer Mode enabled in Discord). Leave blank for a global sync when you're ready for production (can take up to an hour to propagate to all servers).
+- `GUILD_ID` - optional; set this to your server's ID while testing so slash commands sync instantly (right-click your server icon → Copy Server ID, with Developer Mode enabled in Discord). A global sync always runs as well - DMs and group DMs are only ever served by global commands - but that one can take up to an hour to propagate.
 - `DB_PATH`, `WEB_APP_URL`, `MAX_BATCH_LINKS` - sensible defaults are already filled in; adjust if needed.
 
 ## 4. Run it in tmux
