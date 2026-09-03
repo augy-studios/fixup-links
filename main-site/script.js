@@ -134,6 +134,22 @@ const PLATFORM_TRACKERS = {
     ]),
 };
 
+// ===== FULL QUERY-STRIP HOSTS =====
+// Workday job postings (<tenant>.wdN.myworkdayjobs.com/<locale>/<site>/job/...,
+// plus the myworkdaysite.com variant) carry whatever search facets the sharer
+// happened to have selected - timeType, locationCountry, and jobFamilyGroup
+// repeated once per checked box - and the facet names are defined per tenant,
+// so no fixed list keeps up with them. The posting is addressed entirely by its
+// path, so the whole query string goes. Only /job/ pages qualify: on the search
+// listing above them those same params ARE the search.
+const STRIP_ALL_PARAM_HOSTS = ['myworkdayjobs.com', 'myworkdaysite.com'];
+const STRIP_ALL_PARAM_PATH = '/job/';
+
+function stripsAllParams(hostname, pathname) {
+    return STRIP_ALL_PARAM_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h)) &&
+        pathname.includes(STRIP_ALL_PARAM_PATH);
+}
+
 // Mastodon has no single hostname, so instances have to be enumerated. This is
 // the set FxMastodon covers.
 const MASTODON_INSTANCES = [
@@ -399,11 +415,12 @@ function cleanUrl(rawInput) {
     );
 
     const platformSet = platformKey ? PLATFORM_TRACKERS[platformKey] : null;
+    const stripAll = stripsAllParams(hostname, url.pathname);
     const removedParams = [];
 
     const toDelete = [];
     for (const [key] of url.searchParams) {
-        if (isTrackerParam(key, platformSet)) {
+        if (stripAll || isTrackerParam(key, platformSet)) {
             toDelete.push(key);
             removedParams.push(key);
         }
@@ -494,6 +511,8 @@ function detectPlatform(hostname) {
         'newgrounds.com': 'Newgrounds',
         'furaffinity.net': 'Fur Affinity',
         'google.com': 'Google',
+        'myworkdayjobs.com': 'Workday',
+        'myworkdaysite.com': 'Workday',
     };
     for (const [key, val] of Object.entries(map)) {
         if (hostname === key || hostname.endsWith('.' + key)) return val;

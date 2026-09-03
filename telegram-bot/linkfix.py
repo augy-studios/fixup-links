@@ -94,6 +94,17 @@ PLATFORM_TRACKERS = {
     'bsky.app': {'ref_src', 'ref_url'},
 }
 
+# ===== FULL QUERY-STRIP HOSTS =====
+# Workday job postings (<tenant>.wdN.myworkdayjobs.com/<locale>/<site>/job/...,
+# plus the myworkdaysite.com variant) carry whatever search facets the sharer
+# happened to have selected - timeType, locationCountry, and jobFamilyGroup
+# repeated once per checked box - and the facet names are defined per tenant,
+# so no fixed list keeps up with them. The posting is addressed entirely by its
+# path, so the whole query string goes. Only /job/ pages qualify: on the search
+# listing above them those same params ARE the search.
+STRIP_ALL_PARAM_HOSTS = ('myworkdayjobs.com', 'myworkdaysite.com')
+STRIP_ALL_PARAM_PATH = '/job/'
+
 PLATFORM_LABELS = {
     'twitter.com': 'X / Twitter', 'x.com': 'X / Twitter',
     'instagram.com': 'Instagram', 'tiktok.com': 'TikTok', 'reddit.com': 'Reddit',
@@ -107,6 +118,7 @@ PLATFORM_LABELS = {
     'bilibili.com': 'BiliBili', 'deviantart.com': 'DeviantArt',
     'newgrounds.com': 'Newgrounds', 'furaffinity.net': 'Fur Affinity',
     'google.com': 'Google',
+    'myworkdayjobs.com': 'Workday', 'myworkdaysite.com': 'Workday',
 }
 
 # Mastodon has no single hostname, so instances have to be enumerated. This is
@@ -132,6 +144,11 @@ def _is_tracker_param(key: str, platform_set: set[str] | None) -> bool:
 
 def _match_host(hostname: str, key: str) -> bool:
     return hostname == key or hostname.endswith('.' + key)
+
+
+def _strips_all_params(hostname: str, path: str) -> bool:
+    return (any(_match_host(hostname, h) for h in STRIP_ALL_PARAM_HOSTS)
+            and STRIP_ALL_PARAM_PATH in path)
 
 
 def _embed_converters():
@@ -325,11 +342,12 @@ def clean_url(raw_input: str) -> CleanResult:
     # 2. Remove platform-specific + universal trackers
     platform_key = next((k for k in PLATFORM_TRACKERS if _match_host(hostname, k)), None)
     platform_set = PLATFORM_TRACKERS.get(platform_key) if platform_key else None
+    strip_all = _strips_all_params(hostname, parts.path)
 
     kept_pairs = []
     removed = []
     for key, value in query_pairs:
-        if _is_tracker_param(key, platform_set):
+        if strip_all or _is_tracker_param(key, platform_set):
             removed.append(key)
         else:
             kept_pairs.append((key, value))

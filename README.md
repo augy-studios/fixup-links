@@ -59,7 +59,14 @@ covers are enumerated and the instance is moved into the path.
 
 Trackers are also stripped from a much wider set of platforms (LinkedIn,
 Amazon, Substack, GitHub, Pinterest, Snapchat, eBay, AliExpress, and more)
-even where there's no embed-domain swap to apply. On every host - including
+even where there's no embed-domain swap to apply. Workday job postings
+(`<tenant>.wdN.myworkdayjobs.com/.../job/...` and the `myworkdaysite.com`
+variant) drop their query string entirely: everything on it is the search
+facets the sharer had selected (`timeType`, `locationCountry`, and
+`jobFamilyGroup` repeated once per checked box, with tenant-defined names no
+fixed list can track), and the posting is addressed by its path alone. The
+search listing above those pages is left untouched, since there the same
+params are the search. On every host - including
 ones with no platform rules at all - any parameter starting with `utm_` or
 `_branch_` is removed, so UTM variants beyond the named list (`utm_creative`,
 `utm_pubreferrer`, `utm_swu`, ...) and Branch.io's attribution blobs
