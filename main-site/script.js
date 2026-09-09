@@ -53,7 +53,7 @@ const PLATFORM_TRACKERS = {
     ]),
     'instagram.com': new Set([
         'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
-        'img_index', 'taken-by',
+        'img_index', 'taken-by', 'stkn',
     ]),
     'facebook.com': new Set([
         '__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',

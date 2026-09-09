@@ -52,7 +52,7 @@ PLATFORM_TRACKERS = {
     'x.com': {'s', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
               'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url'},
     'instagram.com': {'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
-                       'img_index', 'taken-by'},
+                       'img_index', 'taken-by', 'stkn'},
     'facebook.com': {'__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
                       'theater', 'refsrc', 'source', '_rdr'},
     'fb.com': {'__cft__', '__tn__', '__xts__'},
