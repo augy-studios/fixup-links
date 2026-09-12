@@ -6,12 +6,12 @@ same pattern as the fix_results buttons in handlers/core.py.
 """
 from __future__ import annotations
 
-from html import escape
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 import db
+from handlers.core import code_cell, escape_cell, md_table
+from reply import edit_rich_message, send_rich_message
 
 PAGE_SIZE = 5
 CB_NAV = 'hn'
@@ -20,18 +20,28 @@ CB_CLEAR = 'hc'
 CB_CLEAR_CONFIRM = 'hcc'
 CB_CLEAR_CANCEL = 'hcx'
 
+EMPTY_TEXT = 'Nothing here yet. Fix a link with /fix to get started.'
 
-def _build_history_text(rows, page: int) -> str:
-    lines = [f'<b>Your link history</b> (page {page})', '']
+
+def build_history_view(rows, page: int) -> dict:
+    """Row numbers are the labels on the delete buttons, so they must stay 1-based per page."""
+    heading = 'Your link history'
+    md = [f'# {heading}', f'_Page {page}_', '']
+    plain = [f'{heading} (page {page})', '']
     if not rows:
-        lines.append('Nothing here yet. Fix a link with /fix to get started.')
-        return '\n'.join(lines)
+        md.append(EMPTY_TEXT)
+        plain.append(EMPTY_TEXT)
+        return {'markdown': '\n'.join(md), 'fallback': '\n'.join(plain)}
+
+    table_rows = []
     for i, row in enumerate(rows, start=1):
-        platform = escape(row['platform'] or 'General')
-        original = escape(row['original_url'][:200])
-        cleaned = escape(row['cleaned_url'][:200])
-        lines.append(f'{i}. <b>{platform}</b>\n{original}\n→ {cleaned}\n')
-    return '\n'.join(lines)
+        platform = row['platform'] or 'General'
+        original = row['original_url'][:200]
+        cleaned = row['cleaned_url'][:200]
+        table_rows.append([i, escape_cell(platform), code_cell(original), code_cell(cleaned)])
+        plain.append(f'{i}. {platform}\n{original}\n→ {cleaned}\n')
+    md += md_table(['Platform', 'Original', 'Fixed'], table_rows)
+    return {'markdown': '\n'.join(md), 'fallback': '\n'.join(plain).rstrip()}
 
 
 def _build_keyboard(user_id: int, page: int, rows, has_more: bool) -> InlineKeyboardMarkup | None:
@@ -63,15 +73,16 @@ def _build_keyboard(user_id: int, page: int, rows, has_more: bool) -> InlineKeyb
 async def _render_page(context: ContextTypes.DEFAULT_TYPE, user_id: int, page: int):
     offset = (page - 1) * PAGE_SIZE
     rows, has_more = await db.get_history_page(context.bot_data['db'], user_id, offset, PAGE_SIZE)
-    text = _build_history_text(rows, page)
+    rich = build_history_view(rows, page)
     keyboard = _build_keyboard(user_id, page, rows, has_more)
-    return text, keyboard
+    return rich, keyboard
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    text, keyboard = await _render_page(context, user.id, 1)
-    await update.effective_message.reply_text(text, parse_mode='HTML', reply_markup=keyboard)
+    rich, keyboard = await _render_page(context, user.id, 1)
+    await send_rich_message(context.bot, update.effective_chat.id, rich, keyboard,
+                            reply_to=update.effective_message.message_id)
 
 
 async def history_nav_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,8 +94,8 @@ async def history_nav_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.answer("This isn't your history to page through.", show_alert=True)
         return
 
-    text, keyboard = await _render_page(context, owner_id, page)
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
+    rich, keyboard = await _render_page(context, owner_id, page)
+    await edit_rich_message(context.bot, query, rich, keyboard)
     await query.answer()
 
 
@@ -106,8 +117,8 @@ async def delete_entry_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not rows and page > 1:
         page -= 1
 
-    text, keyboard = await _render_page(context, owner_id, page)
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
+    rich, keyboard = await _render_page(context, owner_id, page)
+    await edit_rich_message(context.bot, query, rich, keyboard)
     await query.answer('Deleted.')
 
 
@@ -141,8 +152,9 @@ async def clear_confirm_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     deleted = await db.clear_history(context.bot_data['db'], owner_id)
-    text, keyboard = await _render_page(context, owner_id, 1)
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
+    # The now-empty page has no keyboard, so this edit also removes it.
+    rich, keyboard = await _render_page(context, owner_id, 1)
+    await edit_rich_message(context.bot, query, rich, keyboard)
     await query.answer(f'Deleted {deleted} entr{"y" if deleted == 1 else "ies"}.')
 
 
@@ -155,8 +167,8 @@ async def clear_cancel_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer("This isn't your history.", show_alert=True)
         return
 
-    text, keyboard = await _render_page(context, owner_id, page)
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
+    rich, keyboard = await _render_page(context, owner_id, page)
+    await edit_rich_message(context.bot, query, rich, keyboard)
     await query.answer()
 
 

@@ -17,8 +17,9 @@ import db
 import linkfix
 from handlers.core import (
     CB_DELETE, CB_QR, CB_REFRESH, CB_TOGGLE,
-    build_fix_keyboard, do_fix, format_fix_message,
+    build_fix_keyboard, build_fix_view, do_fix,
 )
+from reply import edit_rich_message, send_rich_message
 
 log = logging.getLogger('bot.fix')
 
@@ -43,12 +44,9 @@ async def _send_fix_result(update: Update, context: ContextTypes.DEFAULT_TYPE, r
     await db.add_history(db_conn, user_id=user.id, original_url=raw_link,
                           cleaned_url=cleaned, platform=result.platform)
 
-    text = format_fix_message(raw_link, cleaned, result, title)
+    rich = build_fix_view(raw_link, cleaned, result, title)
     keyboard = build_fix_keyboard(fix_id, cleaned)
-    await context.bot.send_message(
-        chat.id, text, parse_mode='HTML', reply_markup=keyboard,
-        reply_to_message_id=reply_to, disable_web_page_preview=False,
-    )
+    await send_rich_message(context.bot, chat.id, rich, keyboard, reply_to=reply_to)
 
 
 async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -92,13 +90,13 @@ async def toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await db.update_fix_result(db_conn, fix_id, showing_original=showing_original)
 
     result = linkfix.clean_url(row['original_url']) if showing_original else None
-    text = format_fix_message(
+    rich = build_fix_view(
         row['original_url'], row['cleaned_url'],
         result or linkfix.CleanResult(cleaned=row['cleaned_url'], platform=row['platform']),
         None, showing_original=showing_original,
     )
     keyboard = build_fix_keyboard(fix_id, row['cleaned_url'], showing_original=showing_original)
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
+    await edit_rich_message(context.bot, query, rich, keyboard)
     await query.answer()
 
 
@@ -118,9 +116,9 @@ async def refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await db.update_fix_result(db_conn, fix_id, cleaned_url=cleaned, platform=result.platform, showing_original=False)
-    text = format_fix_message(row['original_url'], cleaned, result, title)
+    rich = build_fix_view(row['original_url'], cleaned, result, title)
     keyboard = build_fix_keyboard(fix_id, cleaned)
-    await query.edit_message_text(text, parse_mode='HTML', reply_markup=keyboard)
+    await edit_rich_message(context.bot, query, rich, keyboard)
     await query.answer('Refreshed.')
 
 

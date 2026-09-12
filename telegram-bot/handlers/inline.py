@@ -8,15 +8,26 @@ from __future__ import annotations
 import uuid
 
 from telegram import (
-    InlineQueryResultArticle, InlineQueryResultsButton, InputTextMessageContent, Update,
+    CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, InlineQueryResultArticle,
+    InlineQueryResultsButton, InputTextMessageContent, Update,
 )
 from telegram.ext import ContextTypes
 
 import db
 import linkfix
-from handlers.core import do_fix
+from handlers.core import build_fix_view, do_fix
+from reply import rich_input_content
 
 HISTORY_RESULTS = 15
+
+
+def _details_keyboard(cleaned_url: str) -> InlineKeyboardMarkup:
+    # Only stateless buttons: an inline-mode message has no chat or
+    # fix_results row for the QR / toggle / refresh callbacks to work with.
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton('Open', url=cleaned_url),
+        InlineKeyboardButton('Copy', copy_text=CopyTextButton(text=cleaned_url[:256])),
+    ]])
 
 
 def _looks_like_url(text: str) -> bool:
@@ -73,10 +84,19 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
                           original_url=text, cleaned_url=cleaned, platform=result.platform)
 
     description = title or ', '.join(c.label for c in result.changes)
-    article = InlineQueryResultArticle(
+    # First result sends just the URL (so the chat gets its link preview);
+    # the second sends the same rich card /fix produces.
+    link_article = InlineQueryResultArticle(
         id=str(uuid.uuid4()),
         title=f'{result.platform}: send fixed link',
         description=description,
         input_message_content=InputTextMessageContent(cleaned),
     )
-    await query.answer([article], cache_time=0, is_personal=True)
+    details_article = InlineQueryResultArticle(
+        id=str(uuid.uuid4()),
+        title=f'{result.platform}: send fix details',
+        description=cleaned[:80],
+        input_message_content=rich_input_content(build_fix_view(text, cleaned, result, title)),
+        reply_markup=_details_keyboard(cleaned),
+    )
+    await query.answer([link_article, details_article], cache_time=0, is_personal=True)

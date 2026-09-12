@@ -15,7 +15,8 @@ from telegram.ext import ContextTypes
 import config
 import db
 import linkfix
-from handlers.core import build_fix_keyboard, do_fix, format_fix_message
+from handlers.core import build_fix_keyboard, build_fix_view, do_fix
+from reply import send_rich_message
 
 log = logging.getLogger('bot.autodetect')
 
@@ -54,6 +55,6 @@ async def autodetect_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await db.add_history(db_conn, user_id=update.effective_user.id, original_url=raw_link,
                               cleaned_url=cleaned, platform=result.platform)
 
-        text = format_fix_message(raw_link, cleaned, result, title)
+        rich = build_fix_view(raw_link, cleaned, result, title)
         keyboard = build_fix_keyboard(fix_id, cleaned)
-        await message.reply_text(text, parse_mode='HTML', reply_markup=keyboard)
+        await send_rich_message(context.bot, chat.id, rich, keyboard, reply_to=message.message_id)
