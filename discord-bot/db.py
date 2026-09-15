@@ -2,8 +2,10 @@
 
 Backs three things:
   * fix_results    - the outcome of a single /fix call, keyed by id so
-                      Copy/QR buttons don't need to re-encode a full URL
-                      into a 100-char custom_id.
+                      the Details / Just the Link / QR buttons don't need
+                      to re-encode a full URL into a 100-char custom_id.
+                      Also carries the page title and change list so the
+                      details embed can be rebuilt without re-fetching.
   * batch_results  - same idea as fix_results but for a /batch call's
                       "Copy All" button.
   * history        - per-user log of links that have been fixed, for /history.
@@ -20,6 +22,8 @@ CREATE TABLE IF NOT EXISTS fix_results (
     original_url TEXT NOT NULL,
     cleaned_url TEXT NOT NULL,
     platform TEXT,
+    title TEXT,
+    changes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -48,14 +52,28 @@ async def init_db(path: str) -> aiosqlite.Connection:
     conn = await aiosqlite.connect(path)
     conn.row_factory = aiosqlite.Row
     await conn.executescript(SCHEMA)
+    await _migrate(conn)
     await conn.commit()
     return conn
 
 
-async def add_fix_result(db, *, original_url, cleaned_url, platform) -> int:
+async def _migrate(conn: aiosqlite.Connection):
+    """Adds columns introduced after the table was first created.
+
+    CREATE TABLE IF NOT EXISTS is a no-op on an existing database, so
+    databases created before these columns existed need them bolted on.
+    """
+    cur = await conn.execute("PRAGMA table_info(fix_results)")
+    existing = {row['name'] for row in await cur.fetchall()}
+    for column in ('title', 'changes'):
+        if column not in existing:
+            await conn.execute(f"ALTER TABLE fix_results ADD COLUMN {column} TEXT")
+
+
+async def add_fix_result(db, *, original_url, cleaned_url, platform, title=None, changes=None) -> int:
     cur = await db.execute(
-        "INSERT INTO fix_results (original_url, cleaned_url, platform) VALUES (?, ?, ?)",
-        (original_url, cleaned_url, platform),
+        "INSERT INTO fix_results (original_url, cleaned_url, platform, title, changes) VALUES (?, ?, ?, ?, ?)",
+        (original_url, cleaned_url, platform, title, changes),
     )
     await db.commit()
     return cur.lastrowid

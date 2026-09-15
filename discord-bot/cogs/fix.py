@@ -1,4 +1,12 @@
-"""/fix command and its persistent Copy / QR buttons.
+"""/fix command and its persistent buttons.
+
+A /fix reply has two views that the buttons flip between by editing the
+same message:
+
+  * link view     - just the fixed URL as plain text so Discord unfurls the
+                    embed-friendly domain's own preview. Buttons: Details, QR Code.
+  * details view  - the full "Link fixed" embed (original, fixed, platform,
+                    changes, page title). Buttons: Open, Just the Link, QR Code.
 
 Buttons are implemented with discord.ui.DynamicItem so they keep working
 after the bot restarts: the button's custom_id only carries a small integer
@@ -42,26 +50,101 @@ async def do_fix(bot, original_url: str) -> tuple[linkfix.CleanResult, str, str 
     return result, cleaned, title
 
 
-def build_result_embed(original_url: str, cleaned_url: str, result: linkfix.CleanResult, title: str | None) -> discord.Embed:
+def build_result_embed(original_url: str, cleaned_url: str, platform: str | None,
+                       changes: str | None, title: str | None) -> discord.Embed:
     embed = discord.Embed(title='Link fixed', color=discord.Color.green())
     if title:
         embed.description = title
     embed.add_field(name='Original', value=f'```{original_url[:1000]}```', inline=False)
     embed.add_field(name='Fixed', value=f'```{cleaned_url[:1000]}```', inline=False)
-    embed.add_field(name='Platform', value=result.platform, inline=True)
-    embed.add_field(name='Changes', value=', '.join(c.label for c in result.changes) or 'None', inline=True)
+    embed.add_field(name='Platform', value=platform or 'General', inline=True)
+    embed.add_field(name='Changes', value=changes or 'None', inline=True)
     return embed
 
 
-async def build_result_view(bot, fix_id: int, cleaned_url: str) -> discord.ui.View:
+def build_link_view(fix_id: int) -> discord.ui.View:
     view = discord.ui.View(timeout=None)
-    view.add_item(discord.ui.Button(label='Open', style=discord.ButtonStyle.link, url=cleaned_url))
-    view.add_item(CopyButton(fix_id))
+    view.add_item(DetailsButton(fix_id))
     view.add_item(QrButton(fix_id))
     return view
 
 
+def build_details_view(fix_id: int, cleaned_url: str) -> discord.ui.View:
+    view = discord.ui.View(timeout=None)
+    view.add_item(discord.ui.Button(label='Open', style=discord.ButtonStyle.link, url=cleaned_url))
+    view.add_item(JustLinkButton(fix_id))
+    view.add_item(QrButton(fix_id))
+    return view
+
+
+async def _load_fix(interaction: discord.Interaction, fix_id: int):
+    """Fetches the stored result for a button press, or replies with an expiry notice."""
+    row = await db.get_fix_result(interaction.client.db, fix_id)
+    if not row:
+        await interaction.response.send_message('That result has expired.', ephemeral=True)
+    return row
+
+
+class DetailsButton(discord.ui.DynamicItem[discord.ui.Button], template=r'detailsbtn:(?P<id>[0-9]+)'):
+    def __init__(self, fix_id: int):
+        super().__init__(
+            discord.ui.Button(
+                label='Details',
+                style=discord.ButtonStyle.secondary,
+                custom_id=f'detailsbtn:{fix_id}',
+                emoji='\N{LEFT-POINTING MAGNIFYING GLASS}',
+            )
+        )
+        self.fix_id = fix_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(int(match['id']))
+
+    async def callback(self, interaction: discord.Interaction):
+        row = await _load_fix(interaction, self.fix_id)
+        if not row:
+            return
+        embed = build_result_embed(row['original_url'], row['cleaned_url'], row['platform'],
+                                   row['changes'], row['title'])
+        await interaction.response.edit_message(
+            content=None,
+            embed=embed,
+            view=build_details_view(self.fix_id, row['cleaned_url']),
+        )
+
+
+class JustLinkButton(discord.ui.DynamicItem[discord.ui.Button], template=r'linkbtn:(?P<id>[0-9]+)'):
+    def __init__(self, fix_id: int):
+        super().__init__(
+            discord.ui.Button(
+                label='Just the Link',
+                style=discord.ButtonStyle.secondary,
+                custom_id=f'linkbtn:{fix_id}',
+                emoji='\N{LINK SYMBOL}',
+            )
+        )
+        self.fix_id = fix_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match):
+        return cls(int(match['id']))
+
+    async def callback(self, interaction: discord.Interaction):
+        row = await _load_fix(interaction, self.fix_id)
+        if not row:
+            return
+        await interaction.response.edit_message(
+            content=row['cleaned_url'],
+            embed=None,
+            view=build_link_view(self.fix_id),
+        )
+
+
 class CopyButton(discord.ui.DynamicItem[discord.ui.Button], template=r'copybtn:(?P<id>[0-9]+)'):
+    """Legacy button. No longer added to new replies, but stays registered so
+    the Copy button on messages posted before it was removed keeps working."""
+
     def __init__(self, fix_id: int):
         super().__init__(
             discord.ui.Button(
@@ -78,9 +161,8 @@ class CopyButton(discord.ui.DynamicItem[discord.ui.Button], template=r'copybtn:(
         return cls(int(match['id']))
 
     async def callback(self, interaction: discord.Interaction):
-        row = await db.get_fix_result(interaction.client.db, self.fix_id)
+        row = await _load_fix(interaction, self.fix_id)
         if not row:
-            await interaction.response.send_message('That result has expired.', ephemeral=True)
             return
         await interaction.response.send_message(f"```\n{row['cleaned_url']}\n```", ephemeral=True)
 
@@ -102,9 +184,8 @@ class QrButton(discord.ui.DynamicItem[discord.ui.Button], template=r'qrbtn:(?P<i
         return cls(int(match['id']))
 
     async def callback(self, interaction: discord.Interaction):
-        row = await db.get_fix_result(interaction.client.db, self.fix_id)
+        row = await _load_fix(interaction, self.fix_id)
         if not row:
-            await interaction.response.send_message('That result has expired.', ephemeral=True)
             return
         img = qrcode.make(row['cleaned_url'])
         buf = io.BytesIO()
@@ -119,7 +200,7 @@ class QrButton(discord.ui.DynamicItem[discord.ui.Button], template=r'qrbtn:(?P<i
 class FixCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        bot.add_dynamic_items(CopyButton, QrButton)
+        bot.add_dynamic_items(DetailsButton, JustLinkButton, CopyButton, QrButton)
 
     @app_commands.command(name='fix', description='Clean trackers and fix embeds for a link')
     @app_commands.describe(link='The URL to clean up')
@@ -133,13 +214,15 @@ class FixCog(commands.Cog):
             await interaction.followup.send(str(e), ephemeral=True)
             return
 
-        fix_id = await db.add_fix_result(self.bot.db, original_url=link, cleaned_url=cleaned, platform=result.platform)
+        changes = ', '.join(c.label for c in result.changes)
+        fix_id = await db.add_fix_result(self.bot.db, original_url=link, cleaned_url=cleaned,
+                                         platform=result.platform, title=title, changes=changes)
         await db.add_history(self.bot.db, user_id=interaction.user.id, original_url=link,
                               cleaned_url=cleaned, platform=result.platform)
 
-        embed = build_result_embed(link, cleaned, result, title)
-        view = await build_result_view(self.bot, fix_id, cleaned)
-        await interaction.followup.send(embed=embed, view=view)
+        # Plain text so Discord unfurls the fixed link's own preview; the
+        # Details button swaps in the full embed on demand.
+        await interaction.followup.send(content=cleaned, view=build_link_view(fix_id))
 
 
 async def setup(bot: commands.Bot):

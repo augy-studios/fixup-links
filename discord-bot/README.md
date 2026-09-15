@@ -18,17 +18,21 @@ available directly as slash commands.
   and cleans that too.
 - **Google Search extraction** - pulls the real destination out of a Google
   Search redirect link.
-- **Persistent result buttons** - every fixed link comes with **Open**,
-  **Copy**, and **QR Code** buttons that keep working indefinitely.
+- **Persistent result buttons** - every fixed link comes with **Details** and
+  **QR Code** buttons (plus **Open** / **Just the Link** in the details view)
+  that keep working indefinitely.
 - **Per-user history** - the bot remembers every link you've had it fix so
   you can page back through them later.
 
 ## Commands
 
 ### `/fix link:<url>`
-Cleans a single link and posts the result with **Open** / **Copy** / **QR Code**
-buttons. Shows which platform was detected, what was changed, and the page
-title of the destination when available.
+Cleans a single link and posts it as plain text so Discord shows the fixed
+link's own preview, with **Details** / **QR Code** buttons underneath.
+**Details** swaps the message for an embed showing which platform was
+detected, what was changed, and the page title of the destination when
+available, with **Open** / **Just the Link** / **QR Code** buttons.
+**Just the Link** switches back to the plain link.
 
 ### `/batch links:<urls>`
 Cleans several links in one go. Paste them one per line or separated by
