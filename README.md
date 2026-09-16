@@ -66,7 +66,10 @@ facets the sharer had selected (`timeType`, `locationCountry`, and
 `jobFamilyGroup` repeated once per checked box, with tenant-defined names no
 fixed list can track), and the posting is addressed by its path alone. The
 search listing above those pages is left untouched, since there the same
-params are the search. On every host - including
+params are the search. Eightfold career sites
+(`<tenant>.eightfold.ai/careers/job/<id>`) lose the `domain` and `hl` params
+they append: the subdomain already names the tenant and the locale is just UI
+chrome. On every host - including
 ones with no platform rules at all - any parameter starting with `utm_` or
 `_branch_` is removed, so UTM variants beyond the named list (`utm_creative`,
 `utm_pubreferrer`, `utm_swu`, ...) and Branch.io's attribution blobs

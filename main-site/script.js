@@ -132,6 +132,12 @@ const PLATFORM_TRACKERS = {
     'bsky.app': new Set([
         'ref_src', 'ref_url',
     ]),
+    // Eightfold career sites (<tenant>.eightfold.ai/careers/job/<id>) tack on
+    // the tenant's own domain and a UI locale; the subdomain already picks the
+    // tenant and the posting lives at its path.
+    'eightfold.ai': new Set([
+        'domain', 'hl',
+    ]),
 };
 
 // ===== FULL QUERY-STRIP HOSTS =====
@@ -513,6 +519,7 @@ function detectPlatform(hostname) {
         'google.com': 'Google',
         'myworkdayjobs.com': 'Workday',
         'myworkdaysite.com': 'Workday',
+        'eightfold.ai': 'Eightfold',
     };
     for (const [key, val] of Object.entries(map)) {
         if (hostname === key || hostname.endsWith('.' + key)) return val;

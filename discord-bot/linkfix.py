@@ -91,6 +91,10 @@ PLATFORM_TRACKERS = {
                       'share_medium', 'share_plat', 'share_session_id', 'share_tag',
                       'timestamp', 'unique_k', 'bbid', 'ts'},
     'bsky.app': {'ref_src', 'ref_url'},
+    # Eightfold career sites (<tenant>.eightfold.ai/careers/job/<id>) tack on
+    # the tenant's own domain and a UI locale; the subdomain already picks the
+    # tenant and the posting lives at its path.
+    'eightfold.ai': {'domain', 'hl'},
 }
 
 # ===== FULL QUERY-STRIP HOSTS =====
@@ -118,6 +122,7 @@ PLATFORM_LABELS = {
     'newgrounds.com': 'Newgrounds', 'furaffinity.net': 'Fur Affinity',
     'google.com': 'Google',
     'myworkdayjobs.com': 'Workday', 'myworkdaysite.com': 'Workday',
+    'eightfold.ai': 'Eightfold',
 }
 
 # Mastodon has no single hostname, so instances have to be enumerated. This is
