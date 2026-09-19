@@ -30,6 +30,10 @@ const UNIVERSAL_TRACKERS = new Set([
     'mibextid', 'mbid', 'ml_subscriber', 'ml_subscriber_hash',
     'wt.mc_id', 'wt.srch', 'affiliate', 'aff_id', 'aff_sub',
     'trk', 'track', 'tracking', 'trksid',
+    // AMP page selector. Not tracking - it picks Google's stripped-down mobile
+    // rendering - but the canonical page is what should be shared, and AMP is
+    // deprecated. Dropping it redirects to the real article.
+    'amp',
     // Klaviyo
     '_kx', 'kx', 'tw_source',
     // Branch.io attribution keys that don't carry the _branch_ prefix. The
@@ -96,7 +100,7 @@ const PLATFORM_TRACKERS = {
         'ref', 'notification_referrer_id', 'bpo',
     ]),
     'discord.com': new Set(['ref', 'source']),
-    'pinterest.com': new Set(['sent_episod', 'amp', 'nic']),
+    'pinterest.com': new Set(['sent_episod', 'nic']),
     'snapchat.com': new Set(['sc_referrer', 'share_id']),
     'ebay.com': new Set([
         'mkevt', 'mkcid', 'mkrid', 'campid', 'toolid', 'customid',

@@ -36,6 +36,10 @@ UNIVERSAL_TRACKERS = {
     'mibextid', 'mbid', 'ml_subscriber', 'ml_subscriber_hash',
     'wt.mc_id', 'wt.srch', 'affiliate', 'aff_id', 'aff_sub',
     'trk', 'track', 'tracking', 'trksid',
+    # AMP page selector. Not tracking - it picks Google's stripped-down mobile
+    # rendering - but the canonical page is what should be shared, and AMP is
+    # deprecated. Dropping it redirects to the real article.
+    'amp',
     # Klaviyo
     '_kx', 'kx', 'tw_source',
     # Branch.io attribution keys that don't carry the _branch_ prefix. The
@@ -76,7 +80,7 @@ PLATFORM_TRACKERS = {
     'substack.com': {'r', 'utm_source', 'utm_medium', 'utm_campaign', 'publication_id', 'post_id'},
     'github.com': {'ref', 'notification_referrer_id', 'bpo'},
     'discord.com': {'ref', 'source'},
-    'pinterest.com': {'sent_episod', 'amp', 'nic'},
+    'pinterest.com': {'sent_episod', 'nic'},
     'snapchat.com': {'sc_referrer', 'share_id'},
     'ebay.com': {'mkevt', 'mkcid', 'mkrid', 'campid', 'toolid', 'customid',
                   'epid', 'hash', '_trkparms', '_trksid'},
