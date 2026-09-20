@@ -34,7 +34,7 @@ UNIVERSAL_TRACKERS = {
     'hsa_kw', 'hsa_mt', 'hsa_net', 'hsa_src', 'hsa_tgt', 'hsa_ver',
     'mibextid', 'mbid', 'ml_subscriber', 'ml_subscriber_hash',
     'wt.mc_id', 'wt.srch', 'affiliate', 'aff_id', 'aff_sub',
-    'trk', 'track', 'tracking', 'trksid',
+    'trk', 'track', 'tracking', 'trksid', 'tracesourcecode',
     # AMP page selector. Not tracking - it picks Google's stripped-down mobile
     # rendering - but the canonical page is what should be shared, and AMP is
     # deprecated. Dropping it redirects to the real article.
