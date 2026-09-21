@@ -138,6 +138,54 @@ MASTODON_INSTANCES = (
 )
 
 
+# ===== BARE-HOSTNAME RECOGNITION =====
+# A scheme is optional when sharing a link, so "youtube.com/watch?v=..." has to
+# be recognised as a URL and https:// added. The catch is that prose looks the
+# same to a naive parser: without a check, "how are you" became
+# "https://how are you" and "not a link." became "https://not a link.".
+#
+# The test is on the hostname alone: labels separated by dots, ending in a TLD
+# of at least two letters. That accepts anything actually resolvable and
+# rejects ordinary words, which have no dot, and sentences, which have spaces.
+_HOSTNAME_RE = re.compile(
+    r'^(?=.{1,253}$)'
+    r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+'  # one or more labels
+    r'[a-z]{2,63}$',                                 # TLD
+    re.I,
+)
+
+# Hosts that are valid but can't be a shared link's destination on their own.
+# A bare IP is left to the scheme-prefixed path so a typo'd version number
+# ("1.2.3.4") isn't treated as a link.
+_IPV4_RE = re.compile(r'^\d{1,3}(?:\.\d{1,3}){3}$')
+
+# Filenames mentioned in chat ("open notes.txt", "see report.pdf") parse as a
+# host with a letters-only TLD, so the common extensions are excluded. Only
+# applies without a scheme - "https://foo.zip" is still a link.
+_FILE_EXTENSIONS = frozenset((
+    'txt', 'md', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv',
+    'json', 'yaml', 'yml', 'toml', 'xml', 'html', 'htm', 'css', 'js', 'ts',
+    'jsx', 'tsx', 'py', 'rb', 'rs', 'go', 'java', 'c', 'cpp', 'h', 'cs',
+    'sh', 'bat', 'ps1', 'sql', 'log', 'ini', 'cfg', 'conf', 'env', 'lock',
+    'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'mp3', 'mp4',
+    'wav', 'mov', 'avi', 'mkv', 'webm', 'zip', 'gz', 'tar', 'rar', '7z',
+    'exe', 'dll', 'app', 'dmg', 'iso', 'bin', 'db', 'bak', 'tmp',
+))
+
+
+def _is_valid_hostname(hostname: str, *, has_path: bool = False) -> bool:
+    if not hostname or _IPV4_RE.match(hostname):
+        return False
+    if not _HOSTNAME_RE.match(hostname):
+        return False
+    # Several file extensions are also real TLDs (.app, .zip, .dev, .sh), so
+    # the exclusion only applies to a bare host. With a path attached it's
+    # unambiguously a link - a filename doesn't carry one.
+    if has_path:
+        return True
+    return hostname.rsplit('.', 1)[-1].lower() not in _FILE_EXTENSIONS
+
+
 def _is_tracker_param(key: str, platform_set: set[str] | None) -> bool:
     """Matching is always case-insensitive: query keys arrive in whatever case
     the sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the
@@ -317,11 +365,22 @@ def clean_url(raw_input: str) -> CleanResult:
     if not text:
         raise InvalidUrlError('Please enter a URL.')
 
-    candidate = text if re.match(r'^https?://', text, re.I) else 'https://' + text
-    parts = urlsplit(candidate)
+    had_scheme = bool(re.match(r'^https?://', text, re.I))
+    candidate = text if had_scheme else 'https://' + text
+    try:
+        parts = urlsplit(candidate)
+    except ValueError:
+        raise InvalidUrlError("That doesn't look like a link.")
 
     if parts.scheme not in ('http', 'https') or not parts.netloc:
-        raise InvalidUrlError("That doesn't look like a valid URL. Please include https://")
+        raise InvalidUrlError("That doesn't look like a link.")
+
+    # Without a scheme the input could just as easily be prose, so the
+    # hostname has to actually look like one before https:// is assumed.
+    if not had_scheme:
+        has_path = bool(parts.path.strip('/') or parts.query or parts.fragment)
+        if not _is_valid_hostname(parts.hostname or '', has_path=has_path):
+            raise InvalidUrlError("That doesn't look like a link.")
 
     full_host = parts.hostname or ''
     full_host_l = full_host.lower()

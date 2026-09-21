@@ -38,6 +38,12 @@ async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     urls = linkfix.find_urls(text)
     if not urls:
+        # A DM to the bot is always meant to be a link, so say so when it
+        # isn't - silence just looks like the bot is broken. (Group chats
+        # go through autodetect instead, which stays quiet by design.)
+        await message.reply_text(
+            "That doesn't look like a link. Send me a URL and I'll clean it up."
+        )
         return
 
     for raw_link in urls[:AUTOFIX_LIMIT]:

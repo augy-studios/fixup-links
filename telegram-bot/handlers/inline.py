@@ -31,7 +31,10 @@ def _details_keyboard(cleaned_url: str) -> InlineKeyboardMarkup:
 
 
 def _looks_like_url(text: str) -> bool:
-    return bool(linkfix.find_urls(text)) or text.strip().count('.') >= 1
+    # find_urls recognises bare hosts (youtube.com/watch?v=...) as well as
+    # scheme-prefixed ones, so a plain dot-count fallback would only let
+    # prose through to an error.
+    return bool(linkfix.find_urls(text))
 
 
 async def _history_results(context: ContextTypes.DEFAULT_TYPE, user_id: int):
