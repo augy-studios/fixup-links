@@ -402,6 +402,13 @@ function cleanUrl(rawInput) {
         }
     }
 
+    // 0b. Normalize the mobile YouTube host so links open the full site
+    if (url.hostname.toLowerCase() === 'm.youtube.com') {
+        url.hostname = 'www.youtube.com';
+        hostname = 'youtube.com';
+        changes.push({ type: 'embed', label: 'Converted m.youtube.com to www.youtube.com' });
+    }
+
     // 1. Google Search - extract destination
     if (hostname === 'google.com' || hostname.endsWith('.google.com')) {
         const dest = extractGoogleDest(url);

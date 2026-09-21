@@ -341,6 +341,12 @@ def clean_url(raw_input: str) -> CleanResult:
             parts = parts._replace(path='/watch')
             changes.append(Change('embed', 'Converted youtu.be to youtube.com'))
 
+    # 0b. Normalize the mobile YouTube host so links open the full site
+    if full_host_l == 'm.youtube.com':
+        full_host_l = 'www.youtube.com'
+        hostname = 'youtube.com'
+        changes.append(Change('embed', 'Converted m.youtube.com to www.youtube.com'))
+
     # 1. Google Search - extract destination
     if hostname == 'google.com' or hostname.endswith('.google.com'):
         dest = _extract_google_dest(query_pairs)
