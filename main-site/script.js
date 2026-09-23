@@ -971,9 +971,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ===== SERVICE WORKER REGISTRATION =====
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-    });
-}
+// Service worker registration and the update bar live in js/sw-update.js

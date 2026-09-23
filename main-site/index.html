@@ -54,6 +54,18 @@
                 m = localStorage.getItem(k + ".mode") || "light";
                 c = localStorage.getItem(k + ".colorTheme") || "classic";
             } catch (e) { }
+
+            // Time based mode. Resolved here rather than in theme.js because
+            // theme.js runs after first paint, and an evening reader would
+            // otherwise watch a white page turn dark. Keep the two hours in step
+            // with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in js/theme.js.
+            if (m !== "dark" && m !== "time") m = "light";
+            document.documentElement.setAttribute("data-mode-preference", m);
+            if (m === "time") {
+                var h = new Date().getHours();
+                m = h >= 9 && h < 18 ? "light" : "dark";
+            }
+
             document.documentElement.setAttribute("data-mode", m);
             document.documentElement.setAttribute("data-color-theme", c);
         })();
@@ -576,7 +588,10 @@
                         data-icon="sun"></span>Light</button>
                 <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false"><span
                         data-icon="moon"></span>Dark</button>
+                <button class="mode-btn mode-btn-wide" type="button" data-mode="time" aria-pressed="false"><span
+                        data-icon="clock"></span>Time-based</button>
             </div>
+            <p class="mode-note" id="modeNote" hidden></p>
             <p class="modal-section-label">Brand colour</p>
             <div class="swatch-grid" id="swatchGrid"></div>
         </div>
@@ -586,12 +601,7 @@
     <script src="/js/ui.js"></script>
     <script src="/js/theme.js"></script>
     <script src="/script.js"></script>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
-        }
-    </script>
+    <script src="/js/sw-update.js"></script>
 
 </body>
 

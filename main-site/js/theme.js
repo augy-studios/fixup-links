@@ -57,12 +57,38 @@
     }
   }
 
+  /* Mode preference and mode are different things. The preference is what the
+     person chose and can be "time"; the mode is what the document is in and
+     is only ever light or dark. */
+
+  var MODE_PREFERENCES = ['light', 'dark', 'time'];
+
+  /* The daylight window. Duplicated in the pre-paint script in index.html's
+     head, which has to resolve this before first paint and cannot import
+     anything. Change both together. */
+  var LIGHT_FROM_HOUR = 9;
+  var LIGHT_UNTIL_HOUR = 18;
+
+  function getModePreference() {
+    var v = null;
+    try { v = localStorage.getItem(STORAGE_KEY_MODE); } catch (e) {}
+    return MODE_PREFERENCES.indexOf(v) !== -1 ? v : 'light';
+  }
+
+  function isDaylightHours(now) {
+    var hour = (now || new Date()).getHours();
+    return hour >= LIGHT_FROM_HOUR && hour < LIGHT_UNTIL_HOUR;
+  }
+
+  function resolveMode(preference) {
+    if (preference === 'time') return isDaylightHours() ? 'light' : 'dark';
+    return preference === 'dark' ? 'dark' : 'light';
+  }
+
+  // The mode the document is in right now, resolved. What the theme button
+  // icon and anything else reading the active mode wants.
   function getStoredMode() {
-    try {
-      return localStorage.getItem(STORAGE_KEY_MODE) || 'light';
-    } catch (e) {
-      return 'light';
-    }
+    return resolveMode(getModePreference());
   }
 
   function applyColorTheme(id) {
@@ -76,17 +102,90 @@
     return theme;
   }
 
-  function applyMode(mode) {
-    var resolved = mode === 'dark' ? 'dark' : 'light';
+  function applyMode(preference) {
+    var chosen = MODE_PREFERENCES.indexOf(preference) !== -1 ? preference : 'light';
+    var resolved = resolveMode(chosen);
+
     document.documentElement.setAttribute('data-mode', resolved);
-    try { localStorage.setItem(STORAGE_KEY_MODE, resolved); } catch (e) {}
+    document.documentElement.setAttribute('data-mode-preference', chosen);
+    try { localStorage.setItem(STORAGE_KEY_MODE, chosen); } catch (e) {}
+
+    scheduleModeCheck();
+
     return resolved;
+  }
+
+  /* Keeping the time based mode honest while the page stays open. */
+
+  var modeTimer = null;
+  var watchingVisibility = false;
+
+  // Milliseconds until the next 09:00 or 18:00, whichever comes first.
+  function msUntilNextBoundary(now) {
+    now = now || new Date();
+    var next = new Date(now);
+    next.setMinutes(0, 0, 0);
+
+    var hour = now.getHours();
+    if (hour < LIGHT_FROM_HOUR) {
+      next.setHours(LIGHT_FROM_HOUR);
+    } else if (hour < LIGHT_UNTIL_HOUR) {
+      next.setHours(LIGHT_UNTIL_HOUR);
+    } else {
+      next.setDate(next.getDate() + 1);
+      next.setHours(LIGHT_FROM_HOUR);
+    }
+
+    // A second of slack, so a timer that fires a fraction early does not land
+    // back in the hour it just left and reschedule itself in a tight loop.
+    return Math.max(1000, next.getTime() - now.getTime() + 1000);
+  }
+
+  function scheduleModeCheck() {
+    if (modeTimer !== null) {
+      clearTimeout(modeTimer);
+      modeTimer = null;
+    }
+
+    if (getModePreference() !== 'time') return;
+
+    modeTimer = setTimeout(function () {
+      modeTimer = null;
+      refreshTimeMode();
+    }, msUntilNextBoundary());
+
+    if (!watchingVisibility && typeof document !== 'undefined') {
+      watchingVisibility = true;
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') refreshTimeMode();
+      });
+    }
+  }
+
+  function refreshTimeMode() {
+    if (getModePreference() !== 'time') return;
+
+    var resolved = resolveMode('time');
+    var current = document.documentElement.getAttribute('data-mode');
+
+    if (resolved !== current) {
+      document.documentElement.setAttribute('data-mode', resolved);
+      document.dispatchEvent(
+        new CustomEvent('uwu:modechange', {
+          detail: { mode: resolved, preference: 'time' },
+        })
+      );
+    }
+
+    scheduleModeCheck();
   }
 
   function initTheme() {
     migrateLegacyTheme();
     applyColorTheme(getStoredColorTheme());
-    applyMode(getStoredMode());
+    // The preference, not the resolved mode. Passing the resolved one would
+    // quietly rewrite a stored "time" into "dark" the first evening.
+    applyMode(getModePreference());
   }
 
   /* ---- modal wiring ---- */
@@ -117,21 +216,35 @@
       applyMode(btn.dataset.mode);
       syncThemeModalState();
     });
+
+    // A tab left open across 09:00 or 18:00 re-resolves itself; redraw the
+    // modal so the note and pressed state stay in step with the change.
+    document.addEventListener('uwu:modechange', syncThemeModalState);
   }
 
   function syncThemeModalState() {
     var activeTheme = getStoredColorTheme();
-    var activeMode = getStoredMode();
+    var activePreference = getModePreference();
+    var resolvedMode = getStoredMode();
     document.querySelectorAll('#swatchGrid .swatch').forEach(function (el) {
       var on = el.dataset.themeId === activeTheme;
       el.classList.toggle('active', on);
       el.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     document.querySelectorAll('#modeToggle .mode-btn').forEach(function (el) {
-      var on = el.dataset.mode === activeMode;
+      var on = el.dataset.mode === activePreference;
       el.classList.toggle('active', on);
       el.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+
+    var note = document.getElementById('modeNote');
+    if (note) {
+      note.hidden = activePreference !== 'time';
+      if (activePreference === 'time') {
+        note.textContent = 'Following the clock. Currently ' + resolvedMode + '.';
+      }
+    }
+
     updateThemeButtonIcon();
   }
 
@@ -175,5 +288,12 @@
   window.applyMode = applyMode;
   window.getStoredColorTheme = getStoredColorTheme;
   window.getStoredMode = getStoredMode;
+  window.MODE_PREFERENCES = MODE_PREFERENCES;
+  window.LIGHT_FROM_HOUR = LIGHT_FROM_HOUR;
+  window.LIGHT_UNTIL_HOUR = LIGHT_UNTIL_HOUR;
+  window.getModePreference = getModePreference;
+  window.isDaylightHours = isDaylightHours;
+  window.resolveMode = resolveMode;
+  window.refreshTimeMode = refreshTimeMode;
   window.initTheme = initTheme;
 })();

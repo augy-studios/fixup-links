@@ -1,4 +1,6 @@
-const CACHE = 'uwufix-v31';
+// Bump on every change to anything this worker serves. It is the only thing
+// the browser compares, so an unchanged version means nobody sees the update.
+const CACHE = 'uwufix-v32';
 const ASSETS = [
   '/',
   '/index.html',
@@ -7,6 +9,7 @@ const ASSETS = [
   '/js/icons.js',
   '/js/ui.js',
   '/js/theme.js',
+  '/js/sw-update.js',
   '/manifest.json',
   '/UFX-main.png',
   '/UFX-192.png',
@@ -14,20 +17,30 @@ const ASSETS = [
   'https://fonts.googleapis.com/css2?family=Jua&display=swap',
 ];
 
+// No skipWaiting() here: a new worker installs and then waits until somebody
+// presses Reload in the update bar (js/sw-update.js).
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(cache => cache.addAll(ASSETS.filter(a => !a.startsWith('http'))))
   );
-  self.skipWaiting();
 });
 
+// No clients.claim() here either, for the same reason.
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     )
   );
-  self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  const type = typeof event.data === 'string' ? event.data : event.data?.type;
+
+  // The only place either of these is ever called.
+  if (type === 'skip-waiting') {
+    event.waitUntil(self.skipWaiting().then(() => self.clients.claim()));
+  }
 });
 
 self.addEventListener('fetch', e => {

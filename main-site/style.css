@@ -260,7 +260,8 @@ body.modal-open {
 
 /* ---- mode toggle ---- */
 .mode-toggle {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
   padding: 4px;
   border-radius: 14px;
@@ -268,7 +269,6 @@ body.modal-open {
 }
 
 .mode-btn {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -288,6 +288,20 @@ body.modal-open {
 .mode-btn.active {
   background: var(--brand-fill);
   color: var(--on-brand);
+}
+
+/* Time based mode. Light and dark stay side by side and the third spans the
+   row beneath them: two equal columns would put the longer label in a box
+   too narrow to read at 320px, and the full width row also signals this is a
+   different kind of choice, a rule for picking a mode rather than a mode. */
+.mode-btn-wide {
+  grid-column: 1 / -1;
+}
+
+.mode-note {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 /* ---- swatch grid ---- */
@@ -1006,6 +1020,37 @@ body.modal-open {
   text-align: center;
   max-width: 240px;
   line-height: 1.4;
+}
+
+/* ===== UPDATE NOTICE ===== */
+/* Drawn by js/sw-update.js when a new service worker is waiting. Full width
+   at the top of the document, quieter than the glass header. */
+.update-notice {
+  background: color-mix(in srgb, var(--brand) 12%, var(--surface-strong));
+  border-bottom: 1px solid var(--surface-border);
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+.update-notice-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  /* Under the notch on a phone, where the bar is the topmost thing on screen. */
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.update-notice p {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.update-notice .btn {
+  flex: none;
+  box-shadow: none;
 }
 
 /* ===== TOAST ===== */

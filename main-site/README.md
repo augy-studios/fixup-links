@@ -30,8 +30,8 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 - **Redirect Detection** - Follows redirect chains (e.g. email click-trackers like `ctrk.klclick.com`, URL shorteners) to the final destination and cleans that URL too; requires an internet connection - basic cleaning still works fully offline
 - **History** - Keeps a local log of cleaned URLs with page titles fetched automatically for easier identification; supports per-entry deletion
 - **QR Code** - Generate a QR code for any cleaned URL with one click
-- **Themes** - Multiple color themes to choose from
-- **PWA** - Installable as a progressive web app, works offline, and appears in your system share sheet so you can send URLs directly from other apps
+- **Themes** - Multiple color themes, in light, dark, or time-based mode (light 09:00 to 18:00 on the device clock, dark otherwise)
+- **PWA** - Installable as a progressive web app, works offline, and appears in your system share sheet so you can send URLs directly from other apps. When a new version has downloaded, a bar at the top offers to reload; nothing updates until you press it
 
 ## How to Use
 
