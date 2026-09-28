@@ -69,7 +69,9 @@ search listing above those pages is left untouched, since there the same
 params are the search. Eightfold career sites
 (`<tenant>.eightfold.ai/careers/job/<id>`) lose the `domain` and `hl` params
 they append: the subdomain already names the tenant and the locale is just UI
-chrome. On every host - including
+chrome. Samsung Community forum posts (`r1.community.samsung.com` and the
+other regional subdomains) lose the `src=ShareByUserCM` share tag. On every
+host - including
 ones with no platform rules at all - any parameter starting with `utm_` or
 `_branch_` is removed, so UTM variants beyond the named list (`utm_creative`,
 `utm_pubreferrer`, `utm_swu`, ...) and Branch.io's attribution blobs

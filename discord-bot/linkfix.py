@@ -99,6 +99,10 @@ PLATFORM_TRACKERS = {
     # the tenant's own domain and a UI locale; the subdomain already picks the
     # tenant and the posting lives at its path.
     'eightfold.ai': {'domain', 'hl'},
+    # Samsung Community (Khoros forums on regional subdomains such as
+    # r1.community.samsung.com) tags shared posts with src=ShareByUserCM.
+    # Scoped to the forums: src is too generic a name to strip everywhere.
+    'community.samsung.com': {'src'},
 }
 
 # ===== FULL QUERY-STRIP HOSTS =====
@@ -127,6 +131,7 @@ PLATFORM_LABELS = {
     'google.com': 'Google',
     'myworkdayjobs.com': 'Workday', 'myworkdaysite.com': 'Workday',
     'eightfold.ai': 'Eightfold',
+    'community.samsung.com': 'Samsung Community',
 }
 
 # Mastodon has no single hostname, so instances have to be enumerated. This is

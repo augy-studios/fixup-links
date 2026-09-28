@@ -142,6 +142,12 @@ const PLATFORM_TRACKERS = {
     'eightfold.ai': new Set([
         'domain', 'hl',
     ]),
+    // Samsung Community (Khoros forums on regional subdomains such as
+    // r1.community.samsung.com) tags shared posts with src=ShareByUserCM.
+    // Scoped to the forums: src is too generic a name to strip everywhere.
+    'community.samsung.com': new Set([
+        'src',
+    ]),
 };
 
 // ===== FULL QUERY-STRIP HOSTS =====
@@ -531,6 +537,7 @@ function detectPlatform(hostname) {
         'myworkdayjobs.com': 'Workday',
         'myworkdaysite.com': 'Workday',
         'eightfold.ai': 'Eightfold',
+        'community.samsung.com': 'Samsung Community',
     };
     for (const [key, val] of Object.entries(map)) {
         if (hostname === key || hostname.endsWith('.' + key)) return val;
