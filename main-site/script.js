@@ -34,6 +34,10 @@ const UNIVERSAL_TRACKERS = new Set([
     // rendering - but the canonical page is what should be shared, and AMP is
     // deprecated. Dropping it redirects to the real article.
     'amp',
+    // Google app share tag, e.g. shem=...,sh/x/discover/m1/4 on links shared
+    // from Discover. The app adds it to whatever page was shared, not just
+    // Google's own.
+    'shem',
     // Klaviyo
     '_kx', 'kx', 'tw_source',
     // Branch.io attribution keys that don't carry the _branch_ prefix. The
