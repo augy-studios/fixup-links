@@ -53,9 +53,17 @@
       '</div>';
 
     bar.querySelector('[data-sw-update]').addEventListener('click', function () {
-      // The only place anything asks for skipWaiting. The reload happens on
-      // controllerchange, not here.
-      if (waitingWorker) waitingWorker.postMessage('skip-waiting');
+      // The only place anything asks for skipWaiting. The reload happens once
+      // the new worker has taken over, not here.
+      if (!waitingWorker) return;
+      // An uncontrolled page (after a hard refresh) may never see
+      // controllerchange, so reload when the new worker is active instead.
+      // Either way the old worker is gone and the new one serves the reload.
+      var promoting = waitingWorker;
+      promoting.addEventListener('statechange', function () {
+        if (promoting.state === 'activated') reloadOnce();
+      });
+      promoting.postMessage('skip-waiting');
     });
 
     bar.querySelector('[data-sw-later]').addEventListener('click', function () {
@@ -66,12 +74,21 @@
     if (!existing) document.body.prepend(bar);
   }
 
+  function reloadOnce() {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  }
+
   function watchForUpdate() {
     if (!registration) return;
 
     // A worker already waiting when the page opened: the ordinary case on the
-    // next visit after a deploy.
-    if (registration.waiting && navigator.serviceWorker.controller) {
+    // next visit after a deploy. Tested against the active worker, not
+    // `controller`: a hard refresh leaves the page uncontrolled even though an
+    // older version is installed, and the next soft refresh would put that
+    // older version straight back on screen.
+    if (registration.waiting && registration.active) {
       waitingWorker = registration.waiting;
       render();
     }
@@ -79,11 +96,12 @@
     registration.addEventListener('updatefound', function () {
       var installing = registration.installing;
       if (!installing) return;
+      // No active worker means a first install, which has no previous version
+      // on screen to protect and nothing to prompt about.
+      var isUpdate = !!registration.active;
 
       installing.addEventListener('statechange', function () {
-        // `installed` with no controller is a first install, which has no
-        // previous version on screen to protect and nothing to prompt about.
-        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+        if (installing.state === 'installed' && isUpdate) {
           waitingWorker = registration.waiting || installing;
           render();
         }
@@ -114,11 +132,7 @@
 
     // The swap, once somebody has accepted it. Reloading here rather than in
     // the click handler means the reload is served by the new worker.
-    navigator.serviceWorker.addEventListener('controllerchange', function () {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
-    });
+    navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
   }
 
   // On load, so precaching does not compete with the page's own first fetches.

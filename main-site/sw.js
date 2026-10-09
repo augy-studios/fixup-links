@@ -1,6 +1,6 @@
 // Bump on every change to anything this worker serves. It is the only thing
 // the browser compares, so an unchanged version means nobody sees the update.
-const CACHE = 'uwufix-v35';
+const CACHE = 'uwufix-v36';
 const ASSETS = [
   '/',
   '/index.html',
@@ -43,6 +43,11 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Only ever this worker's own cache. A bare caches.match() searches every
+// cache, including the one a waiting worker has just filled, which would leak
+// the new version into a page the old worker is still serving.
+const fromCache = request => caches.open(CACHE).then(c => c.match(request));
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
@@ -50,14 +55,14 @@ self.addEventListener('fetch', e => {
   // Network-first for Google Fonts
   if (url.hostname.includes('fonts.g')) {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(e.request).catch(() => fromCache(e.request))
     );
     return;
   }
 
   // Cache-first for local assets
   e.respondWith(
-    caches.match(e.request).then(cached => {
+    fromCache(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
         if (res.ok && url.origin === self.location.origin) {
@@ -65,7 +70,7 @@ self.addEventListener('fetch', e => {
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => caches.match('/index.html'));
+      }).catch(() => fromCache('/index.html'));
     })
   );
 });
