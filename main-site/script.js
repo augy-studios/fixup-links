@@ -61,7 +61,7 @@ const PLATFORM_TRACKERS = {
     ]),
     'instagram.com': new Set([
         'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
-        'img_index', 'taken-by', 'stkn', 'psln', 'dlrf',
+        'img_index', 'taken-by',
     ]),
     'facebook.com': new Set([
         '__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
@@ -152,6 +152,16 @@ const PLATFORM_TRACKERS = {
     'community.samsung.com': new Set([
         'src',
     ]),
+};
+
+// Platform trackers matched by shape instead of by name, for keys a platform
+// rotates faster than a list can keep up. Tested against the lowercased key.
+// Every host here must also be a PLATFORM_TRACKERS key, which picks the platform.
+const PLATFORM_TRACKER_PATTERNS = {
+    // Instagram share links carry a random four-letter key (stkn, psln, dlrf,
+    // ...) that changes every few weeks. ?next= on the login page is the only
+    // four-letter parameter an Instagram link needs.
+    'instagram.com': /^(?!next$)[a-z]{4}$/,
 };
 
 // ===== FULL QUERY-STRIP HOSTS =====
@@ -361,10 +371,11 @@ const EMBED_CONVERTERS = [{
 // Matching is always case-insensitive: query keys arrive in whatever case the
 // sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the same
 // tracker.
-function isTrackerParam(key, platformSet) {
+function isTrackerParam(key, platformSet, platformPattern) {
     const lower = key.toLowerCase();
     if (TRACKER_PREFIXES.some(p => lower.startsWith(p))) return true;
     if (UNIVERSAL_TRACKERS.has(lower)) return true;
+    if (platformPattern && platformPattern.test(lower)) return true;
     return Boolean(platformSet && platformSet.has(lower));
 }
 
@@ -442,12 +453,13 @@ function cleanUrl(rawInput) {
     );
 
     const platformSet = platformKey ? PLATFORM_TRACKERS[platformKey] : null;
+    const platformPattern = platformKey ? PLATFORM_TRACKER_PATTERNS[platformKey] : null;
     const stripAll = stripsAllParams(hostname, url.pathname);
     const removedParams = [];
 
     const toDelete = [];
     for (const [key] of url.searchParams) {
-        if (stripAll || isTrackerParam(key, platformSet)) {
+        if (stripAll || isTrackerParam(key, platformSet, platformPattern)) {
             toDelete.push(key);
             removedParams.push(key);
         }

@@ -59,7 +59,7 @@ PLATFORM_TRACKERS = {
     'x.com': {'s', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
               'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url'},
     'instagram.com': {'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
-                       'img_index', 'taken-by', 'stkn', 'psln', 'dlrf'},
+                       'img_index', 'taken-by'},
     'facebook.com': {'__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
                       'theater', 'refsrc', 'source', '_rdr'},
     'fb.com': {'__cft__', '__tn__', '__xts__'},
@@ -107,6 +107,16 @@ PLATFORM_TRACKERS = {
     # r1.community.samsung.com) tags shared posts with src=ShareByUserCM.
     # Scoped to the forums: src is too generic a name to strip everywhere.
     'community.samsung.com': {'src'},
+}
+
+# Platform trackers matched by shape instead of by name, for keys a platform
+# rotates faster than a list can keep up. Tested against the lowercased key.
+# Every host here must also be a PLATFORM_TRACKERS key, which picks the platform.
+PLATFORM_TRACKER_PATTERNS = {
+    # Instagram share links carry a random four-letter key (stkn, psln, dlrf,
+    # ...) that changes every few weeks. ?next= on the login page is the only
+    # four-letter parameter an Instagram link needs.
+    'instagram.com': re.compile(r'^(?!next$)[a-z]{4}$'),
 }
 
 # ===== FULL QUERY-STRIP HOSTS =====
@@ -195,7 +205,8 @@ def _is_valid_hostname(hostname: str, *, has_path: bool = False) -> bool:
     return hostname.rsplit('.', 1)[-1].lower() not in _FILE_EXTENSIONS
 
 
-def _is_tracker_param(key: str, platform_set: set[str] | None) -> bool:
+def _is_tracker_param(key: str, platform_set: set[str] | None,
+                      platform_pattern: re.Pattern | None = None) -> bool:
     """Matching is always case-insensitive: query keys arrive in whatever case
     the sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the
     same tracker."""
@@ -203,6 +214,8 @@ def _is_tracker_param(key: str, platform_set: set[str] | None) -> bool:
     if lower.startswith(TRACKER_PREFIXES):
         return True
     if lower in UNIVERSAL_TRACKERS:
+        return True
+    if platform_pattern and platform_pattern.match(lower):
         return True
     return bool(platform_set and lower in platform_set)
 
@@ -424,12 +437,13 @@ def clean_url(raw_input: str) -> CleanResult:
     # 2. Remove platform-specific + universal trackers
     platform_key = next((k for k in PLATFORM_TRACKERS if _match_host(hostname, k)), None)
     platform_set = PLATFORM_TRACKERS.get(platform_key) if platform_key else None
+    platform_pattern = PLATFORM_TRACKER_PATTERNS.get(platform_key) if platform_key else None
     strip_all = _strips_all_params(hostname, parts.path)
 
     kept_pairs = []
     removed = []
     for key, value in query_pairs:
-        if strip_all or _is_tracker_param(key, platform_set):
+        if strip_all or _is_tracker_param(key, platform_set, platform_pattern):
             removed.append(key)
         else:
             kept_pairs.append((key, value))
