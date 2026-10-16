@@ -373,19 +373,16 @@ body.modal-open {
 }
 
 /* ===== HEADER ===== */
-/* The brand line: the logo and name, and nothing else. The buttons that were beside them are
-   in the Edge Tray. Sticks below the update bar and the notch, level with the tray. */
+/* The brand line: the logo and name at the top of the page, and nothing else: no bar behind
+   them, and they scroll away with the page. The buttons that were beside them are in the Edge
+   Tray. Centred on the tray's first button: the tray's 14px from the top, plus half the
+   difference between a tray button and the 32px logo. */
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  margin: 16px 0;
-  border-radius: 20px;
-  position: sticky;
-  top: calc(max(var(--banner-h, 0px), var(--safe-top)) + 12px);
-  z-index: 100;
-  transition: margin-right var(--tray-time) var(--tray-ease), top 0.2s ease;
+  padding: 0 4px;
+  margin-top: calc(14px + (var(--glass-btn) - 32px) / 2);
+  transition: margin-right var(--tray-time) var(--tray-ease);
 }
 
 .header-brand {
@@ -607,8 +604,7 @@ body.modal-open {
 
   body:not(.tray-open) .header {
     margin-right: calc(24px + 10px - 16px);
-  }
-}
+  }}
 
 /* ===== BUTTONS ===== */
 .btn {
@@ -1230,8 +1226,8 @@ body.modal-open {
 /* ===== UPDATE NOTICE ===== */
 /* Drawn by js/sw-update.js when a new service worker is waiting, and in the Android app by
    js/app-update.js when a new version of the app is out. Full width at the top of the
-   document, quieter than the glass header, and stuck there so the Edge Tray and the header can
-   sit below it (--banner-h). Above the tray, below modals. */
+   document, and stuck there so the Edge Tray can sit below it (--banner-h). Above the tray,
+   below modals. */
 .update-notice,
 .app-update-notice {
   position: sticky;
@@ -1378,10 +1374,6 @@ body:has(.update-notice) .app-update-notice {
   :root {
     --glass-btn: 40px;
     --edge: max(10px, calc(var(--safe-right) + 10px));
-  }
-
-  .header {
-    padding: 10px 14px;
   }
 
   .brand-name {
