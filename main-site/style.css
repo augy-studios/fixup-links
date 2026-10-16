@@ -475,10 +475,8 @@ body.modal-open {
   align-items: center;
   gap: 8px;
   margin-right: var(--edge);
-  /* Scrolls rather than running off a short landscape screen. */
-  max-height: calc(100dvh - var(--tray-top) - 16px);
-  overflow-y: auto;
-  scrollbar-width: none;
+  /* No overflow here: a scrolling column would clip the buttons' soft shadows into a hard-edged
+     grey box behind them. Six buttons fit even a landscape phone. */
 }
 
 /* Separates the links from the app's own actions. */

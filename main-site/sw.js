@@ -1,6 +1,6 @@
 // Bump on every change to anything this worker serves. It is the only thing
 // the browser compares, so an unchanged version means nobody sees the update.
-const CACHE = 'uwufix-v39';
+const CACHE = 'uwufix-v40';
 const ASSETS = [
   '/',
   '/index.html',
