@@ -1,0 +1,26 @@
+<!doctype html>
+<!-- Shown when the app can't load fixup.uwuapps.org at all: the first launch with no internet,
+     before the site's service worker has kept a copy (capacitor.config.json, errorPath). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>uwuFix</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #eef2f0; --fg: #121815; --btn: #ccffcc; --on-btn: #121815; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0c100e; --fg: #eef2ef; } }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--fg);
+      font: 16px/1.5 system-ui, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
+    h1 { font-size: 1.3rem; margin: 0 0 8px; }
+    p { margin: 0 0 20px; opacity: .8; }
+    a { display: inline-block; padding: 10px 22px; border-radius: 14px; background: var(--btn); color: var(--on-btn); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>No connection</h1>
+    <p>uwuFix needs the internet the first time it opens. After that it cleans links offline too. Check your connection, then try again.</p>
+    <a href="https://fixup.uwuapps.org/">Try again</a>
+  </main>
+</body>
+</html>

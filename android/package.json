@@ -1,0 +1,17 @@
+{
+  "name": "uwufix-android",
+  "private": true,
+  "description": "uwuFix for Android: the site at fixup.uwuapps.org in Capacitor, with native plugins (README.md).",
+  "scripts": {
+    "sync": "cap sync android",
+    "build": "powershell -ExecutionPolicy Bypass -File build-apk.ps1"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/push-notifications": "8.1.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

@@ -31,7 +31,10 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 - **History** - Keeps a local log of cleaned URLs with page titles fetched automatically for easier identification; supports per-entry deletion
 - **QR Code** - Generate a QR code for any cleaned URL with one click
 - **Themes** - Multiple color themes, in light, dark, or time-based mode (light 09:00 to 18:00 on the device clock, dark otherwise)
+- **Edge Tray** - The Telegram, Discord, coffee and theme buttons sit in a column pinned to the top right, tucked off the edge with its arrow tab and remembered per browser (`js/tray.js`, spec in `edge-tray-spec.md` at the repo root)
 - **PWA** - Installable as a progressive web app, works offline, and appears in your system share sheet so you can send URLs directly from other apps. When a new version has downloaded, a bar at the top offers to reload; nothing updates until you press it
+- **Android app** - The same site in an APK (`android/`), which adds uwuFix to Android's share sheet and the text selection menu ("Fix link", with Replace in place for links in editable text), updates itself from GitHub Releases, and has opt-in notifications for new versions and news. The page talks to it through `js/app-bridge.js`; everything app-only stays hidden in a browser. See `android/README.md`
+- **No ads** - The site loads no ad scripts
 
 ## How to Use
 

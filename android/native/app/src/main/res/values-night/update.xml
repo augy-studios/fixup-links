@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The update window (UpdateActivity.java) in dark mode. -->
+<resources>
+    <style name="UpdateTheme" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:colorAccent">#BFF5CF</item>
+    </style>
+</resources>

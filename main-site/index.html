@@ -14,14 +14,12 @@
 
         gtag('config', 'G-FMCYFTFPEL');
     </script>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9715826188316382"
-        crossorigin="anonymous"></script>
 
     <link rel="manifest" href="/manifest.json" />
 
     <meta charset="utf-8">
     <title>Link Fixer | UwU Apps</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="Clean URLs, remove trackers, and fix embeds!">
 
     <meta property="og:type" content="website">
@@ -68,6 +66,14 @@
 
             document.documentElement.setAttribute("data-mode", m);
             document.documentElement.setAttribute("data-color-theme", c);
+
+            // The Edge Tray, tucked away from the first frame for someone who left it so,
+            // rather than sliding shut on load. Same key as TRAY_KEY in js/tray.js.
+            try {
+                if (localStorage.getItem(k + ".trayOpen") === "0") {
+                    document.documentElement.classList.add("tray-start-collapsed");
+                }
+            } catch (e) { }
         })();
     </script>
 
@@ -86,6 +92,62 @@
 </head>
 
 <body>
+
+    <!-- The Edge Tray (edge-tray-spec.md): the links and global actions, pinned top right and
+         tucked off the edge by its tab (js/tray.js). The bell and the download button are the
+         Android app's, and stay hidden in a browser (js/app-notify.js, js/app-update.js). -->
+    <div class="hud-right">
+        <div id="tray" class="tray">
+            <button id="trayTab" class="tray-tab" type="button" aria-controls="trayButtons" aria-expanded="true"
+                aria-label="Hide menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" aria-hidden="true">
+                    <path d="m9 5 7 7-7 7" />
+                </svg>
+            </button>
+            <div id="trayButtons" class="tray-buttons">
+                <a href="https://t.me/uwuFix_bot" target="_blank" rel="noopener noreferrer" class="glass-btn"
+                    aria-label="Telegram Bot" title="Telegram Bot">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                    </svg>
+                </a>
+                <a href="https://discord.com/oauth2/authorize?client_id=1524465330091724880" target="_blank"
+                    rel="noopener noreferrer" class="glass-btn" aria-label="Invite Discord Bot"
+                    title="Invite Discord Bot">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.522 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+                    </svg>
+                </a>
+                <a href="https://donate.stripe.com/28o2akeAr3hv0DK6oo" target="_blank" rel="noopener noreferrer"
+                    class="glass-btn" aria-label="Buy Augy a Coffee" title="Buy me a coffee">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M18 8h1a4 4 0 010 8h-1" />
+                        <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" />
+                        <line x1="6" y1="1" x2="6" y2="4" />
+                        <line x1="10" y1="1" x2="10" y2="4" />
+                        <line x1="14" y1="1" x2="14" y2="4" />
+                    </svg>
+                </a>
+                <span class="tray-rule" aria-hidden="true"></span>
+                <button id="notifyBtn" class="glass-btn" type="button" aria-haspopup="dialog"
+                    aria-label="Notifications" title="Notifications" hidden>
+                    <span data-icon="bell"></span>
+                </button>
+                <button id="appUpdateBtn" class="glass-btn" type="button" aria-label="Check for app updates"
+                    title="Check for app updates" hidden>
+                    <span data-icon="download"></span>
+                </button>
+                <button class="glass-btn" id="themeBtn" type="button" aria-haspopup="dialog" aria-label="Theme"
+                    title="Theme">
+                    <span data-icon="sun"></span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- History Modal -->
     <div class="modal-backdrop hidden" id="historyModal" role="dialog" aria-modal="true" aria-label="History">
@@ -125,42 +187,11 @@
     <!-- App Shell -->
     <div class="app">
 
-        <!-- Header -->
+        <!-- Header: the brand line. Its buttons are in the Edge Tray. -->
         <header class="header glass">
             <div class="header-brand">
                 <img class="brand-icon" src="/UFX-main.png" alt="uwuFix logo" />
                 <span class="brand-name">uwuFix</span>
-            </div>
-            <div class="header-actions">
-                <a href="https://t.me/uwuFix_bot" target="_blank" rel="noopener noreferrer"
-                    class="btn btn-icon" aria-label="Telegram Bot" title="Telegram Bot">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                    </svg>
-                </a>
-                <a href="https://discord.com/oauth2/authorize?client_id=1524465330091724880" target="_blank"
-                    rel="noopener noreferrer" class="btn btn-icon" aria-label="Discord Bot" title="Invite Discord Bot">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.522 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
-                    </svg>
-                </a>
-                <a href="https://donate.stripe.com/28o2akeAr3hv0DK6oo" target="_blank" rel="noopener noreferrer"
-                    class="btn btn-icon btn-coffee" aria-label="Buy Augy a Coffee">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <path d="M18 8h1a4 4 0 010 8h-1" />
-                        <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" />
-                        <line x1="6" y1="1" x2="6" y2="4" />
-                        <line x1="10" y1="1" x2="10" y2="4" />
-                        <line x1="14" y1="1" x2="14" y2="4" />
-                    </svg>
-                    <span class="btn-label">Buy me a coffee</span>
-                </a>
-                <button class="icon-btn" id="themeBtn" type="button" aria-label="Theme">
-                    <span data-icon="sun"></span>
-                </button>
             </div>
         </header>
 
@@ -273,6 +304,17 @@
                             QR
                         </button>
                     </div>
+
+                    <!-- The Android app's quick screen, for text highlighted in a box you can type
+                         in: the fixed link back in place of the highlighted one (script.js). -->
+                    <button class="btn btn-primary btn-full" id="replaceBtn" type="button" hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 14 4 9 9 4" />
+                            <path d="M20 20v-7a4 4 0 00-4-4H4" />
+                        </svg>
+                        Replace the highlighted link
+                    </button>
                 </div>
 
                 <!-- Error Area -->
@@ -597,11 +639,40 @@
         </div>
     </div>
 
+    <!-- Notifications, from the bell in the Edge Tray: the Android app only (js/app-notify.js) -->
+    <div class="modal-backdrop hidden" id="notifyModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="notifyModalTitle">
+            <div class="modal-head">
+                <h2 id="notifyModalTitle">Notifications</h2>
+                <button class="icon-btn small" type="button" data-close-modal="notifyModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <label class="toggle-row">
+                <span class="toggle-row-text">New versions of the app<small>When an update is ready to
+                        install</small></span>
+                <input class="switch" type="checkbox" role="switch" data-topic="releases">
+            </label>
+            <label class="toggle-row">
+                <span class="toggle-row-text">News from uwuFix<small>Now and then: new sites it fixes, and
+                        other news</small></span>
+                <input class="switch" type="checkbox" role="switch" data-topic="news">
+            </label>
+            <p class="mode-note notify-note" id="notifyNote" hidden></p>
+            <button class="btn btn-secondary btn-sm" id="notifySettingsBtn" type="button" hidden>Open Android's
+                settings</button>
+        </div>
+    </div>
+
     <script src="/js/icons.js"></script>
     <script src="/js/ui.js"></script>
+    <script src="/js/app-bridge.js"></script>
     <script src="/js/theme.js"></script>
+    <script src="/js/tray.js"></script>
     <script src="/script.js"></script>
     <script src="/js/sw-update.js"></script>
+    <script src="/js/app-update.js"></script>
+    <script src="/js/app-notify.js"></script>
 
 </body>
 

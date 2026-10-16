@@ -1,0 +1,21 @@
+{
+  "appId": "org.uwuapps.fixup",
+  "appName": "uwuFix",
+  "webDir": "www",
+  "server": {
+    "url": "https://fixup.uwuapps.org",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "path": "native",
+    "appendUserAgent": "uwuFixApp/1"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["alert", "sound"]
+    }
+  }
+}

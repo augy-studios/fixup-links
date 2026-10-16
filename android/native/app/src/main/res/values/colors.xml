@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The site's own colours (main-site/style.css): the light page and its brand green. Dark in
+     values-night/colors.xml. -->
+<resources>
+    <color name="background">#EEF2F0</color>
+    <!-- Behind the launcher icon's artwork (mipmap-anydpi-v26), the same green as the logo's. -->
+    <color name="ic_launcher_background">#CCFFCC</color>
+</resources>

@@ -1,0 +1,12 @@
+# Secrets, wherever they end up. android/.gitignore and the bots' own .gitignore files cover
+# their folders; these catch a key saved anywhere else in the repository by mistake.
+*.keystore
+*.jks
+keystore.properties
+*firebase-adminsdk*.json
+.env
+.env.local
+.vercel/
+
+# release/<version>/uwufix-<version>.apk is built by android/build-apk.ps1 and committed, so
+# nothing under release/ is ignored.

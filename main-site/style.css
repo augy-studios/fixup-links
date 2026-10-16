@@ -52,6 +52,8 @@ button:disabled {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    /* The Edge Tray's buttons unroll one after another: no stagger either. */
+    transition-delay: 0s !important;
   }
 }
 
@@ -126,6 +128,21 @@ button:disabled {
 
 /* Same in both modes: brand tints are pale whatever the mode. */
 :root {
+  /* The phone's notch and system bars. The Android app (android/) draws under them and
+     Capacitor passes their sizes in as --safe-area-inset-*; a browser has env() only. */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+
+  /* The Edge Tray (edge-tray-spec.md, js/tray.js). --banner-h is the update bar's height,
+     set by js/tray.js while one shows. */
+  --glass-btn: 44px;
+  --edge: max(16px, calc(var(--safe-right) + 16px));
+  --tray-top: max(calc(var(--banner-h, 0px) + 14px), calc(var(--safe-top) + 14px));
+  --tray-time: 0.34s;
+  --tray-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
   --on-brand: #121815;
   /* Brand-derived fills. Any surface that tracked the brand swatch before
      still tracks it, in both modes. Text on these is always --on-brand. */
@@ -189,15 +206,16 @@ body {
 }
 
 /* ---- modal shell ---- */
+/* Above the Edge Tray (800) and the update bar (900). */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 1000;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   background: rgba(10, 15, 12, 0.35);
-  padding: 12px;
+  padding: max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(12px, var(--safe-bottom)) max(12px, var(--safe-left));
   opacity: 1;
   visibility: visible;
   transition: opacity 0.2s ease, visibility 0s linear 0s;
@@ -351,10 +369,12 @@ body.modal-open {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 0 16px 32px;
+  padding: var(--safe-top) max(16px, var(--safe-right)) calc(32px + var(--safe-bottom)) max(16px, var(--safe-left));
 }
 
 /* ===== HEADER ===== */
+/* The brand line: the logo and name, and nothing else. The buttons that were beside them are
+   in the Edge Tray. Sticks below the update bar and the notch, level with the tray. */
 .header {
   display: flex;
   align-items: center;
@@ -363,8 +383,9 @@ body.modal-open {
   margin: 16px 0;
   border-radius: 20px;
   position: sticky;
-  top: 12px;
+  top: calc(max(var(--banner-h, 0px), var(--safe-top)) + 12px);
   z-index: 100;
+  transition: margin-right var(--tray-time) var(--tray-ease), top 0.2s ease;
 }
 
 .header-brand {
@@ -387,10 +408,206 @@ body.modal-open {
   letter-spacing: 0.01em;
 }
 
-.header-actions {
+/* ===== EDGE TRAY ===== */
+/* edge-tray-spec.md: the column of global actions pinned top right, tucked off the edge by its
+   tab (js/tray.js). Fixed, letting clicks through except on its children. */
+.hud-right {
+  position: fixed;
+  z-index: 800;
+  top: var(--tray-top);
+  right: 0;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  transition: top 0.2s ease;
+}
+
+.hud-right > * {
+  pointer-events: auto;
+}
+
+.tray {
+  --tray-shift: calc(var(--glass-btn) + 8px + var(--edge));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  transition: transform var(--tray-time) var(--tray-ease);
+}
+
+.tray.collapsed {
+  transform: translateX(var(--tray-shift));
+}
+
+.tray-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: var(--glass-btn);
+  padding: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  transition: border-radius var(--tray-time) var(--tray-ease);
+}
+
+.tray-tab svg {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--tray-time) var(--tray-ease);
+}
+
+/* At the edge it is a tab: flat on the side the screen cuts off. */
+.tray.collapsed .tray-tab {
+  border-radius: 12px 0 0 12px;
+  border-right: none;
+}
+
+.tray.collapsed .tray-tab svg {
+  transform: rotate(180deg);
+}
+
+.tray-buttons {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
+  margin-right: var(--edge);
+  /* Scrolls rather than running off a short landscape screen. */
+  max-height: calc(100dvh - var(--tray-top) - 16px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+/* Separates the links from the app's own actions. */
+.tray-rule {
+  width: 24px;
+  height: 1px;
+  margin: 2px 0;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--glass-btn);
+  height: var(--glass-btn);
+  padding: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.glass-btn:hover {
+  transform: translateY(-1px);
+  background: var(--surface-strong);
+}
+
+.glass-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.glass-btn[hidden] {
+  display: none;
+}
+
+/* The buttons unroll: each fades in, slides back from the edge and grows, 18 ms after the one
+   above it. They move by translate and scale, leaving transform to the hover lift. */
+.tray-buttons > * {
+  transition:
+    opacity calc(var(--tray-time) * 0.8) ease,
+    translate var(--tray-time) var(--tray-ease),
+    scale var(--tray-time) var(--tray-ease),
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  transition-delay: calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), 0s, 0s, 0s;
+}
+
+.tray-buttons > :nth-child(2) { --i: 1; }
+.tray-buttons > :nth-child(3) { --i: 2; }
+.tray-buttons > :nth-child(4) { --i: 3; }
+.tray-buttons > :nth-child(5) { --i: 4; }
+.tray-buttons > :nth-child(6) { --i: 5; }
+.tray-buttons > :nth-child(7) { --i: 6; }
+.tray-buttons > :nth-child(8) { --i: 7; }
+
+.tray.collapsed .tray-buttons > * {
+  opacity: 0;
+  translate: 12px 0;
+  scale: 0.85;
+  transition-delay: 0s;
+}
+
+.tray-tab:focus-visible,
+.glass-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* A returning reader who left it tucked away: drawn collapsed from the first frame, without
+   sliding shut (the pre-paint script in index.html's head, cleared by js/tray.js). */
+.tray-start-collapsed .tray {
+  transform: translateX(var(--tray-shift));
+  transition: none;
+}
+
+.tray-start-collapsed .tray-buttons > * {
+  opacity: 0;
+  translate: 12px 0;
+  scale: 0.85;
+  transition: none;
+}
+
+.tray-start-collapsed .app,
+.tray-start-collapsed .header {
+  transition: none;
+}
+
+.tray-start-collapsed .tray-tab {
+  border-radius: 12px 0 0 12px;
+  border-right: none;
+}
+
+.tray-start-collapsed .tray-tab svg {
+  transform: rotate(180deg);
+}
+
+/* Keeping the column clear of the tray. Below where the 680px column's edge meets it, the
+   column makes room while the tray is open; tucked away, only the brand line steps in, far
+   enough for the tab and a 10px gap. */
+.app {
+  transition: padding-right var(--tray-time) var(--tray-ease);
+}
+
+@media (max-width: 840px) {
+  body.tray-open .app {
+    padding-right: max(calc(var(--glass-btn) + var(--edge) + 12px), var(--safe-right));
+  }
+
+  /* The column's padding clears the buttons; the tab, level with the brand line, sits 20px
+     further in (24px wide, an 8px gap, less the 12px above), so that line alone steps in. */
+  body.tray-open .header {
+    margin-right: calc(24px + 8px - 12px);
+  }
+
+  body:not(.tray-open) .header {
+    margin-right: calc(24px + 10px - 16px);
+  }
 }
 
 /* ===== BUTTONS ===== */
@@ -413,6 +630,12 @@ body.modal-open {
   transform: scale(0.97);
 }
 
+/* display: inline-flex above would otherwise show a button the page has hidden, such as the
+   Android app's Replace. */
+.btn[hidden] {
+  display: none;
+}
+
 .btn svg {
   width: 17px;
   height: 17px;
@@ -430,24 +653,6 @@ body.modal-open {
   background: var(--brand-fill);
   color: var(--on-brand);
   border-color: var(--brand-ink);
-}
-
-.btn-coffee {
-  padding: 9px 14px;
-  background: var(--surface-strong);
-  border: 1px solid var(--surface-border);
-  color: var(--ink);
-  font-size: 0.85rem;
-}
-
-.btn-coffee:hover {
-  background: var(--brand-fill);
-  color: var(--on-brand);
-  border-color: var(--brand-ink);
-}
-
-.btn-label {
-  display: inline;
 }
 
 .btn-primary {
@@ -1023,13 +1228,27 @@ body.modal-open {
 }
 
 /* ===== UPDATE NOTICE ===== */
-/* Drawn by js/sw-update.js when a new service worker is waiting. Full width
-   at the top of the document, quieter than the glass header. */
-.update-notice {
+/* Drawn by js/sw-update.js when a new service worker is waiting, and in the Android app by
+   js/app-update.js when a new version of the app is out. Full width at the top of the
+   document, quieter than the glass header, and stuck there so the Edge Tray and the header can
+   sit below it (--banner-h). Above the tray, below modals. */
+.update-notice,
+.app-update-notice {
+  position: sticky;
+  top: 0;
+  z-index: 900;
   background: color-mix(in srgb, var(--brand) 12%, var(--surface-strong));
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
   border-bottom: 1px solid var(--surface-border);
   color: var(--ink);
   font-size: 0.875rem;
+}
+
+/* One bar at a time: the site's own new version first, as the app's bar comes back after
+   the reload. */
+body:has(.update-notice) .app-update-notice {
+  display: none;
 }
 
 .update-notice-inner {
@@ -1040,23 +1259,99 @@ body.modal-open {
   margin: 0 auto;
   padding: 0.5rem 1rem;
   /* Under the notch on a phone, where the bar is the topmost thing on screen. */
-  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-top: max(0.5rem, var(--safe-top));
 }
 
-.update-notice p {
+.update-notice p,
+.app-update-notice p {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.update-notice .btn {
+.update-notice .btn,
+.app-update-notice .btn {
   flex: none;
   box-shadow: none;
+}
+
+/* ===== NOTIFICATIONS (Android app) ===== */
+/* The bell in the Edge Tray's window: js/app-notify.js. */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  cursor: pointer;
+}
+
+.toggle-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-row-text small {
+  font-size: 0.78rem;
+  color: var(--muted-strong);
+}
+
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-strong);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: translate 0.18s ease;
+}
+
+.switch:checked {
+  background: var(--brand-ink);
+}
+
+.switch:checked::after {
+  translate: 18px 0;
+  background: #fff;
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.notify-note[hidden] {
+  display: none;
 }
 
 /* ===== TOAST ===== */
 .toast {
   position: fixed;
-  bottom: 28px;
+  bottom: calc(28px + var(--safe-bottom));
   left: 50%;
   transform: translateX(-50%) translateY(20px);
   background: var(--brand-fill-strong);
@@ -1068,7 +1363,7 @@ body.modal-open {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
-  z-index: 300;
+  z-index: 1100;
   white-space: nowrap;
   box-shadow: var(--shadow);
 }
@@ -1080,16 +1375,17 @@ body.modal-open {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
+  :root {
+    --glass-btn: 40px;
+    --edge: max(10px, calc(var(--safe-right) + 10px));
+  }
+
   .header {
     padding: 10px 14px;
   }
 
   .brand-name {
     font-size: 1.15rem;
-  }
-
-  .btn-coffee .btn-label {
-    display: none;
   }
 
   .hero {

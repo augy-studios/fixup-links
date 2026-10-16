@@ -1,6 +1,6 @@
 // Bump on every change to anything this worker serves. It is the only thing
 // the browser compares, so an unchanged version means nobody sees the update.
-const CACHE = 'uwufix-v37';
+const CACHE = 'uwufix-v38';
 const ASSETS = [
   '/',
   '/index.html',
@@ -8,8 +8,12 @@ const ASSETS = [
   '/script.js',
   '/js/icons.js',
   '/js/ui.js',
+  '/js/app-bridge.js',
   '/js/theme.js',
+  '/js/tray.js',
   '/js/sw-update.js',
+  '/js/app-update.js',
+  '/js/app-notify.js',
   '/manifest.json',
   '/UFX-main.png',
   '/UFX-192.png',
@@ -51,6 +55,10 @@ const fromCache = request => caches.open(CACHE).then(c => c.match(request));
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+
+  // The API answers live: a cached /api/app-release would hide every new version of the
+  // Android app, and /api/resolve's redirects and titles change. Offline, the page skips them.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
 
   // Network-first for Google Fonts
   if (url.hostname.includes('fonts.g')) {

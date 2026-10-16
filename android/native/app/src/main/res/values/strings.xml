@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">uwuFix</string>
+    <string name="title_activity_main">uwuFix</string>
+    <string name="package_name">org.uwuapps.fixup</string>
+    <string name="custom_url_scheme">org.uwuapps.fixup</string>
+    <!-- The quick screen (FixActivity): its name in the text selection menu, and uwuFix's
+         Direct Share shortcut (DirectShare.java). -->
+    <string name="fix_link">Fix link</string>
+    <string name="fix_link_long">Fix link with uwuFix</string>
+</resources>

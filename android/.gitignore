@@ -1,0 +1,24 @@
+# The signing key and its passwords: never in git. Back them up somewhere safe; an APK signed
+# with a different key can't update one already installed.
+android.keystore
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
+
+# Firebase's settings for the app (FIREBASE-SETUP.md): not secret, but your project's own.
+google-services.json
+# A Firebase service account key, if one is ever downloaded here by mistake: it belongs in
+# Vercel only (FIREBASE-SETUP.md, step 5).
+# (Google names it <project-id>-<12 hex digits>.json.)
+*firebase-adminsdk*.json
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+
+node_modules/
+
+# Built apps. The release ones are copied to release/<version>/ at the project root, which is
+# committed.
+*.apk
+*.aab
+*.idsig

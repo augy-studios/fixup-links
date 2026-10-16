@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- uwuFix for Android: see android/README.md for what each part is for. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- New versions and news from uwuFix (Notifications.java), only once you turn them on with
+         the bell in the Edge Tray. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- The app updating itself from GitHub (UpdateActivity.java). Each update still asks you on
+         Android's own install screen. Not allowed on Google Play: drop it for a Play build. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- Firebase's notifications use these unless the push names its own
+             (main-site/api/_push/fcm.js). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification_icon" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="news" />
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- The site's own links open in the app: Android checks the site lists this app's
+                 signing key in main-site/.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="fixup.uwuapps.org" />
+            </intent-filter>
+
+            <!-- uwu://fixup/ links (MainActivity.pageFor). Only the fixup host, so UwU Apps'
+                 other apps can answer uwu:// links of their own. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="uwu" android:host="fixup" />
+            </intent-filter>
+
+            <!-- The Direct Share target (res/xml/shortcuts.xml). Android only reads it from the
+                 launcher's activity, though it opens FixActivity. -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- The quick screen (FixActivity.java): a link shared to uwuFix, or text highlighted
+             anywhere and "Fix link" picked from the menu, cleaned over the app you were in. -->
+        <activity
+            android:name=".FixActivity"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:label="@string/fix_link"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:exported="true">
+
+            <!-- The share sheet. The Direct Share row's uwuFix comes here too (res/xml/shortcuts.xml). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <!-- The text selection menu, as "Fix link". -->
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- The app updating itself, for the site's update bar and the Edge Tray's "Check for app
+             updates" (UpdateActivity.java), and the installer's answers to it. Neither is
+             exported: only this app starts them. -->
+        <activity android:name=".UpdateActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:theme="@style/UpdateTheme" />
+        <receiver android:name=".UpdateActivity$InstallStatus"
+            android:exported="false" />
+    </application>
+</manifest>

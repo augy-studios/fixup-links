@@ -1,8 +1,8 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
         "namespace": "android_app",
-        "package_name": "org.uwuapps.template",
-        "sha256_cert_fingerprints": ["E4:EB:13:B6:CA:2A:9E:89:E4:8B:3C:AB:68:2B:BF:6A:99:97:09:A5:2A:9A:36:20:8C:8C:A9:94:9B:08:CB:51"]
-      }
-    }]
+        "package_name": "org.uwuapps.fixup",
+        "sha256_cert_fingerprints": ["B0:55:C6:AE:FD:D0:88:01:41:54:8E:94:39:80:D5:90:FC:C1:CF:79:4E:90:0A:9A:0A:49:F1:8E:E9:77:23:24"]
+    }
+}]

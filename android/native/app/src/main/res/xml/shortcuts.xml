@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- uwuFix in the share sheet's Direct Share row, for shared text (links): the dynamic shortcut
+     DirectShare.java publishes, with this category, opens FixActivity. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="org.uwuapps.fixup.FixActivity">
+        <data android:mimeType="text/plain" />
+        <category android:name="org.uwuapps.fixup.category.FIX_LINK" />
+    </share-target>
+</shortcuts>

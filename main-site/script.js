@@ -745,7 +745,18 @@ function escapeHtml(str) {
 function extractUrlFromText(text) {
     if (!text) return null;
     const match = text.match(/https?:\/\/\S+/);
-    return match ? match[0] : null;
+    if (match) return match[0];
+    // A link with no https:// in front, such as x.com/user/status/1 highlighted in a chat and
+    // sent from the Android app's "Fix link": one word with a dot in it. cleanUrl adds https://.
+    const bare = text.trim();
+    return /^[^\s/]+\.[a-z]{2,}(\/\S*)?$/i.test(bare) ? bare : null;
+}
+
+// The text with its link swapped for the fixed one, for the Android app's Replace: a link
+// highlighted inside a sentence keeps the sentence around it.
+function replaceLinkInText(text, link, fixed) {
+    const at = link ? text.indexOf(link) : -1;
+    return at === -1 ? fixed : text.slice(0, at) + fixed + text.slice(at + link.length);
 }
 
 function isMeaningfulRedirect(fromUrl, toUrl) {
@@ -861,7 +872,10 @@ async function processUrl() {
 // ===== CLIPBOARD =====
 async function pasteFromClipboard() {
     try {
-        const text = await navigator.clipboard.readText();
+        // The Android app's WebView can't read the clipboard for a page, so the app does.
+        const text = window.AppBridge?.native
+            ? (await AppBridge.call('Fixup', 'paste')).text
+            : await navigator.clipboard.readText();
         if (text) {
             document.getElementById('urlInput').value = text.trim();
             showToast('Pasted from clipboard');
@@ -950,7 +964,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('openBtn').addEventListener('click', () => {
         const url = window._uwufixLastCleaned;
-        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        if (!url) return;
+        // In the Android app, in whichever app opens it (the browser, or X for fixupx.com).
+        if (window.AppBridge?.native) {
+            AppBridge.call('Fixup', 'open', { url }).catch(err => showToast(err.message));
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
     });
 
     document.getElementById('shareBtn').addEventListener('click', () => {
@@ -977,11 +997,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ---- Auto-paste if URL in query string (also handles share_target via ?link=) ----
+    // The Android app's quick screen comes in this way too, with ?text= holding what was shared
+    // or highlighted (android/.../FixActivity.java).
     const qp = new URLSearchParams(window.location.search);
-    const qUrl = qp.get('url') || qp.get('link') || extractUrlFromText(qp.get('text') || '');
+    const qText = qp.get('text') || '';
+    const qUrl = qp.get('url') || qp.get('link') || extractUrlFromText(qText);
     if (qUrl) {
         document.getElementById('urlInput').value = qUrl;
         setTimeout(processUrl, 100);
+    }
+
+    // ---- The Android app's quick screen: Replace ----
+    // Text highlighted in a box you can type in: the fixed link goes back in place of the one
+    // highlighted, and the quick screen closes, back to that app.
+    if (window.AppBridge?.native) {
+        AppBridge.ready(5000).then(() => {
+            if (!AppBridge.quick()?.replace || !qUrl) return;
+            const replaceBtn = document.getElementById('replaceBtn');
+            replaceBtn.hidden = false;
+            replaceBtn.addEventListener('click', () => {
+                const fixed = window._uwufixLastCleaned;
+                if (!fixed) return;
+                AppBridge.call('Fixup', 'finish', { text: replaceLinkInText(qText, qUrl, fixed) }).catch(() => {});
+            });
+        });
     }
 
     // ---- Escape key closes modals ----
@@ -990,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal('themeModal');
             closeModal('historyModal');
             closeModal('qrModal');
+            closeModal('notifyModal');
         }
     });
 });

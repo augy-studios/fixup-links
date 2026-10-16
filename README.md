@@ -7,6 +7,8 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 ## Try it
 
 - 🌐 Web app: [fixup.uwuapps.org](https://fixup.uwuapps.org)
+- 🤖 Android app: [latest APK](https://github.com/augy-studios/fixup-links/releases/latest)
+  (share a link to it, or highlight one and pick "Fix link"; see [android/](android))
 - 💬 Discord bot: [Add to a server](https://discord.com/oauth2/authorize?client_id=1524465330091724880)
 - ✈️ Telegram bot: [t.me/uwuFix_bot](https://t.me/uwuFix_bot)
 
