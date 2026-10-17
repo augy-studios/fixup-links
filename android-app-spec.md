@@ -413,7 +413,7 @@ Short, pasted as is, so it's written as plain text (no Markdown bold or links), 
 block so the emoji and line breaks survive copying:
 
 ```text
-✨NEW✨ <App> <version>
+✨UPDATE✨ <App> <version>
 <host>
 
 New:
@@ -429,8 +429,8 @@ Telegram bot (@<bot>):
 Download the apps and view patch notes: github.com/<owner>/<repo>/releases/latest
 ```
 
-- The header names the app and version; a first app release says what it is: `✨NEW✨ <App>
-  1.0.0 for Android`.
+- The header is `✨UPDATE✨` with the app and version, for every release after the first. Only a
+  first app release says `✨NEW✨`, and what it is: `✨NEW✨ <App> 1.0.0 for Android`.
 - One line per feature, a phrase rather than a sentence, leading with what people get: "PSI
   alerts as notifications, even with the app closed".
 - Only the headline features: four to six under **New**, fewer under each platform. Fixes only
