@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widgets' paste button (layout/widget_*.xml): a circle in the logo's green, which stays
+     pale in dark mode as the site's brand fills do. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/widget_button_press">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/widget_button" />
+        </shape>
+    </item>
+</ripple>

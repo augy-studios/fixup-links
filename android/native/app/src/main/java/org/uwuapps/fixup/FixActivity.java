@@ -1,8 +1,9 @@
 /*
  * The quick screen: a link shared to uwuFix (the share sheet, or uwuFix in its Direct Share row),
- * or text highlighted in any app with "Fix link" picked from the menu that pops up over it. The
- * site opens over the app you were in with the link already cleaned (main-site/script.js reads
- * ?text=), and Back returns you there.
+ * text highlighted in any app with "Fix link" picked from the menu that pops up over it, or the
+ * link you've copied, from a widget's paste button (Widgets.java). The site opens over the app
+ * you were in with the link already cleaned (main-site/script.js reads ?text=), and Back returns
+ * you there.
  *
  * Highlighted in a box you can type in, the page also offers Replace, which puts the fixed link
  * back in place of the one highlighted (FixupPlugin.finish): Android's PROCESS_TEXT, answered with
@@ -17,6 +18,7 @@ package org.uwuapps.fixup;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 
@@ -25,11 +27,18 @@ import com.getcapacitor.BridgeActivity;
 public class FixActivity extends BridgeActivity {
     static final String FROM_SHARE = "share";
     static final String FROM_SELECTION = "select";
+    static final String FROM_COPIED = "copied";
 
-    // What brought it here, for FixupPlugin.info's "quick": the share sheet or a selection, and
-    // whether the selection can be replaced with the fixed link.
+    // A widget's paste button: fix whatever's copied.
+    static final String ACTION_FIX_COPIED = "org.uwuapps.fixup.FIX_COPIED";
+
+    // What brought it here, for FixupPlugin.info's "quick": the share sheet, a selection, or the
+    // clipboard, and whether the selection can be replaced with the fixed link.
     String from = FROM_SHARE;
     boolean canReplace;
+
+    // Opened to fix what's copied, which can't be read until the window has focus.
+    private boolean waitingForClipboard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,8 +74,37 @@ public class FixActivity extends BridgeActivity {
             canReplace = false;
             text = intent.getStringExtra(Intent.EXTRA_TEXT);
             DirectShare.used(this);
+        } else if (ACTION_FIX_COPIED.equals(intent.getAction())) {
+            from = FROM_COPIED;
+            canReplace = false;
+            // Android 10 and later only let the app in front read the clipboard, and it isn't
+            // in front until its window has focus.
+            waitingForClipboard = true;
+            if (hasWindowFocus()) fixCopied();
+            return;
         }
 
+        load(text);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && waitingForClipboard) fixCopied();
+    }
+
+    private void fixCopied() {
+        waitingForClipboard = false;
+        String text = FixupPlugin.clipboardText(this);
+        if (text.trim().isEmpty()) {
+            // The home page is already up, with its box to type or paste a link into.
+            Toast.makeText(this, R.string.nothing_copied, Toast.LENGTH_LONG).show();
+            return;
+        }
+        load(text);
+    }
+
+    private void load(String text) {
         if (bridge == null) return;
         String page = MainActivity.SITE + "/";
         if (text != null && !text.trim().isEmpty()) page += "?text=" + Uri.encode(text.trim());

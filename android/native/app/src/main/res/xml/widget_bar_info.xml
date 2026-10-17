@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Fix a link" widget (Widgets.Bar): four cells wide, narrowing to two, one high. Nothing on
+     it changes, so it never refreshes. targetCell*, previewLayout and description are Android
+     12+; before it, launchers size it from min* and show the app's icon in their list. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_bar_description"
+    android:initialLayout="@layout/widget_bar"
+    android:previewLayout="@layout/widget_bar"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -8,4 +8,14 @@
          Direct Share shortcut (DirectShare.java). -->
     <string name="fix_link">Fix link</string>
     <string name="fix_link_long">Fix link with uwuFix</string>
+    <!-- The quick screen opened to fix what's copied, with nothing copied. -->
+    <string name="nothing_copied">Nothing\'s copied. Paste or type a link to fix it.</string>
+    <!-- The home screen widgets (Widgets.java): their names and descriptions in the launcher's
+         list of widgets, and what's on them. -->
+    <string name="widget_bar_name">Fix a link</string>
+    <string name="widget_bar_description">Open uwuFix, or fix the link you\'ve copied</string>
+    <string name="widget_bar_words">Fix a link</string>
+    <string name="widget_open">Open uwuFix</string>
+    <string name="widget_paste_name">Fix copied link</string>
+    <string name="widget_paste_description">Clean the link you\'ve copied in one tap</string>
 </resources>

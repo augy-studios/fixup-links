@@ -2,8 +2,8 @@
  * The app itself, to the page (main-site/js/app-bridge.js):
  *
  *   info()                    { version, versionCode, features, quick }: what this app can do.
- *                             quick is { from: "share" | "select", replace } in the quick screen
- *                             (FixActivity), or null in the app itself
+ *                             quick is { from: "share" | "select" | "copied", replace } in the
+ *                             quick screen (FixActivity), or null in the app itself
  *   share({ title, text, url })   Android's share sheet, as navigator.share is in Chrome: the
  *                             WebView has none (js/app-bridge.js stands this in for it)
  *   paste()                   { text }: the clipboard, which the WebView can't read for the
@@ -99,16 +99,18 @@ public class FixupPlugin extends Plugin {
     // the page's Paste button can be pressed.
     @PluginMethod
     public void paste(PluginCall call) {
-        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        String text = "";
-        ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
-        if (clip != null && clip.getItemCount() > 0) {
-            CharSequence item = clip.getItemAt(0).coerceToText(getContext());
-            if (item != null) text = item.toString();
-        }
         JSObject out = new JSObject();
-        out.put("text", text);
+        out.put("text", clipboardText(getContext()));
         call.resolve(out);
+    }
+
+    // What's copied, or "" if nothing is (or this app isn't the one in front, on Android 10+).
+    static String clipboardText(Context context) {
+        ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
+        if (clip == null || clip.getItemCount() == 0) return "";
+        CharSequence item = clip.getItemAt(0).coerceToText(context);
+        return item == null ? "" : item.toString();
     }
 
     @PluginMethod

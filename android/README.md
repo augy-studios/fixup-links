@@ -20,7 +20,8 @@ itself from there.
 | **Share sheet** for the Share button (the WebView has no `navigator.share`) | `FixupPlugin.share` | `js/app-bridge.js` |
 | **Paste** from the clipboard (the WebView can't read it for a page) | `FixupPlugin.paste` | `script.js` (`pasteFromClipboard`) |
 | **Open** a fixed link in whichever app takes it (the browser, or X for fixupx.com) | `FixupPlugin.open` | `script.js` (`#openBtn`) |
-| **The site's own links** (`https://fixup.uwuapps.org/...`, verified by `.well-known/assetlinks.json`) and `uwu://fixup/` links, such as `uwu://fixup/?url=https://x.com/...` | `MainActivity` | `script.js` (`?url=`) |
+| **Home screen widgets**: **Fix a link**, a bar like a search box whose logo opens uwuFix and whose paste button fixes the link you've copied in the quick screen; and **Fix copied link**, that paste button alone in one cell. Both follow the phone's light or dark mode | `Widgets`, `FixActivity` (`FIX_COPIED`), `res/layout/widget_*.xml`, `res/xml/widget_*_info.xml` | `script.js` (`?text=`) |
+| **The site's own links** (`https://fixup.uwuapps.org/...`, verified by `.well-known/assetlinks.json`) and `uwu://fix/` links: `uwu://fix/https://x.com/...` or `uwu://fix/?url=https://x.com/...` opens uwuFix with that link cleaned, and plain `uwu://fix/` just opens it. The older `uwu://fixup/` works the same | `MainActivity` | `script.js` (`?url=`) |
 | **Status bar** icons that follow the page's light or dark mode, not the phone's | Capacitor's SystemBars | `js/app-bridge.js` |
 
 The website and PWA lose nothing: everything a browser can do stays as it was, and these only

@@ -7,8 +7,8 @@
  *                      and which notifications you've turned on
  *   PushNotifications  Capacitor's, for Android's notification permission and the pushes
  *
- * Here: what the app was opened with (one of the site's own links, a uwu://fixup/ link, or a
- * tapped notification) opened in the page, the back button going back through the page's
+ * Here: what the app was opened with (one of the site's own links, a uwu://fix/ link, the
+ * "Fix a link" widget, or a tapped notification) opened in the page, the back button going back through the page's
  * history, the notification channels, and uwuFix's place in the share sheet's Direct Share row.
  *
  * Links shared to uwuFix, and text highlighted elsewhere, open FixActivity instead: a quick
@@ -76,13 +76,32 @@ public class MainActivity extends BridgeActivity {
         if ("https".equals(data.getScheme()) && HOST.equalsIgnoreCase(data.getHost())) {
             return data.toString();
         }
-        // uwu://fixup/ to the home page, keeping its query: uwu://fixup/?url=https://x.com/...
-        // cleans that link, as the site's own ?url= does. uwu:// is shared by UwU Apps' apps,
-        // each answering its own host.
-        if ("uwu".equals(data.getScheme()) && "fixup".equalsIgnoreCase(data.getHost())) {
+        // uwu://fix/ (or uwu://fixup/) to the home page. A link after it is cleaned, as the
+        // site's own ?url= does: uwu://fix/https://x.com/... Otherwise its query is kept, so
+        // uwu://fix/?url=https://x.com/... does the same. uwu:// is shared by UwU Apps' apps,
+        // each answering its own hosts.
+        if ("uwu".equalsIgnoreCase(data.getScheme())
+                && ("fix".equalsIgnoreCase(data.getHost()) || "fixup".equalsIgnoreCase(data.getHost()))) {
+            String link = linkIn(data);
+            if (link != null) return SITE + "/?url=" + Uri.encode(link);
             String query = data.getEncodedQuery();
             return SITE + "/" + (query == null ? "" : "?" + query);
         }
         return null;
+    }
+
+    // The link in uwu://fix/https://x.com/a?b=c, everything after the host as it was written
+    // (Uri would split its query and fragment off as uwu://fix/'s own), or null if there's none.
+    private static String linkIn(Uri data) {
+        String raw = data.toString();
+        int host = raw.indexOf("//");
+        if (host < 0) return null;
+        int end = host + 2;
+        while (end < raw.length() && "/?#".indexOf(raw.charAt(end)) < 0) end++;
+        if (end >= raw.length() || raw.charAt(end) != '/') return null;
+        String link = raw.substring(end + 1);
+        if (link.isEmpty() || link.startsWith("?") || link.startsWith("#")) return null;
+        // Percent-encoded whole, as some apps write it: uwu://fix/https%3A%2F%2Fx.com%2F...
+        return link.contains("://") ? link : Uri.decode(link);
     }
 }

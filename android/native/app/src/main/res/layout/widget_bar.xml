@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Fix a link" widget (Widgets.Bar), a bar like a search box: the logo and words open
+     uwuFix, the paste button fixes the link you've copied. Widgets.Bar hides the words when it's
+     narrowed to two cells. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bar_background"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="6dp">
+
+    <LinearLayout
+        android:id="@+id/widget_open"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_bar_press"
+        android:contentDescription="@string/widget_open"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:importantForAccessibility="no"
+            android:src="@mipmap/ic_launcher_round" />
+
+        <TextView
+            android:id="@+id/widget_words"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/widget_bar_words"
+            android:textColor="@color/widget_muted"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/widget_paste"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/widget_button"
+        android:contentDescription="@string/widget_paste_name"
+        android:padding="9dp"
+        android:src="@drawable/ic_widget_paste" />
+</LinearLayout>

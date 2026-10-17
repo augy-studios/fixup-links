@@ -10,9 +10,10 @@
      AppBridge.has('push')              whether the app says it can
      AppBridge.ready(ms)                resolves true once the app's answered, false after ms
      AppBridge.call(plugin, method, {}) a plugin's answer
-     AppBridge.quick()                  { from: 'share' | 'select', replace } in the app's quick
-                                        screen (a link shared to uwuFix, or text highlighted in
-                                        another app), or null
+     AppBridge.quick()                  { from: 'share' | 'select' | 'copied', replace } in the
+                                        app's quick screen (a link shared to uwuFix, text
+                                        highlighted in another app, or what's copied, from a
+                                        widget), or null
      AppBridge.version()                the app's version, such as "1.0.0"
 
    Also, in the app: navigator.share opens Android's share sheet (the WebView has none), and the

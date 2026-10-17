@@ -5,4 +5,14 @@
     <color name="background">#EEF2F0</color>
     <!-- Behind the launcher icon's artwork (mipmap-anydpi-v26), the same green as the logo's. -->
     <color name="ic_launcher_background">#CCFFCC</color>
+
+    <!-- The home screen widgets (Widgets.java), which follow the phone's light or dark mode:
+         the bar is the site's card, and the paste button the logo's green, pale in both modes
+         with the site's dark ink on it. -->
+    <color name="widget_surface">#F7FAF8</color>
+    <color name="widget_muted">#5B665F</color>
+    <color name="widget_press">#1F121815</color>
+    <color name="widget_button">#CCFFCC</color>
+    <color name="widget_button_press">#33121815</color>
+    <color name="widget_on_button">#121815</color>
 </resources>
