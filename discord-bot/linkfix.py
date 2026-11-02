@@ -54,9 +54,9 @@ UNIVERSAL_TRACKERS = {
 }
 
 PLATFORM_TRACKERS = {
-    'twitter.com': {'s', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
+    'twitter.com': {'s', 't', 'a', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
                      'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url'},
-    'x.com': {'s', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
+    'x.com': {'s', 't', 'a', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
               'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url'},
     'instagram.com': {'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl',
                        'taken-by'},

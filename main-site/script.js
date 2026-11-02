@@ -52,11 +52,11 @@ const UNIVERSAL_TRACKERS = new Set([
 // entry here must be lowercase.
 const PLATFORM_TRACKERS = {
     'twitter.com': new Set([
-        's', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
+        's', 't', 'a', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
         'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url',
     ]),
     'x.com': new Set([
-        's', 't', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
+        's', 't', 'a', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
         'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url',
     ]),
     'instagram.com': new Set([
