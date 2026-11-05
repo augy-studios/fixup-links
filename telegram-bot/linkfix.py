@@ -28,6 +28,9 @@ UNIVERSAL_TRACKERS = {
     # Click IDs
     'fbclid', 'gclid', 'gclsrc', 'msclkid', 'dclid', 'yclid', 'twclid', 'mc_eid',
     'igshid', 'igsh', 'igsi', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
+    'gbraid', 'wbraid',
+    # Google Ads auto-tagging
+    'gad_source', 'gad_campaignid',
     # General
     'ref', 'ref_src', 'ref_url', 'referral', 'source', 'srsltid',
     'icid', 'cid', 'eid', 'pid', 'sid', 'rid', 'uid', 'vid',
@@ -46,6 +49,8 @@ UNIVERSAL_TRACKERS = {
     'shem',
     # Klaviyo
     '_kx', 'kx', 'tw_source',
+    # Triple Whale ad attribution (Shopify stores)
+    'tw_adid', 'tw_campaign', 'tw_kwdid',
     # Branch.io attribution keys that don't carry the _branch_ prefix. The
     # routing params ($deeplink_path, $fallback_url, $ios_url, ...) are left
     # alone - those decide where the link actually goes.
