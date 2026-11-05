@@ -27,7 +27,6 @@ UNIVERSAL_TRACKERS = {
     # Click IDs
     'fbclid', 'gclid', 'gclsrc', 'msclkid', 'dclid', 'yclid', 'twclid', 'mc_eid',
     'igshid', 'igsh', 'igsi', 'li_fat_id', 'ttclid', 'sccid', 's_cid', 'snkrhsp',
-    'gbraid', 'wbraid',
     # Google Ads auto-tagging
     'gad_source', 'gad_campaignid',
     # General
