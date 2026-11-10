@@ -70,8 +70,13 @@ const PLATFORM_TRACKERS = {
     'facebook.com': new Set([
         '__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
         'theater', 'refsrc', 'source', '_rdr',
+        'referral_source', 'surface_type', 'in_reels_tab_context',
     ]),
-    'fb.com': new Set(['__cft__', '__tn__', '__xts__']),
+    'fb.com': new Set([
+        '__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
+        'theater', 'refsrc', 'source', '_rdr',
+        'referral_source', 'surface_type', 'in_reels_tab_context',
+    ]),
     'youtube.com': new Set([
         'feature', 'app', 'list', 'index', 'pp', 'si', 'is', 'ab_channel',
         'cbrd', 'ucbcb', 'pbc', 'pbj',
