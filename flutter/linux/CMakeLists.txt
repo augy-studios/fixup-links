@@ -41,7 +41,9 @@ endif()
 # of modifying this function.
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_14)
-  target_compile_options(${TARGET} PRIVATE -Wall -Werror)
+  # Warnings stay errors, except deprecations: tray_manager calls libayatana-appindicator's
+  # app_indicator_new, deprecated in its newer versions, which would otherwise stop the build.
+  target_compile_options(${TARGET} PRIVATE -Wall -Werror -Wno-error=deprecated-declarations)
   target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
   target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
 endfunction()

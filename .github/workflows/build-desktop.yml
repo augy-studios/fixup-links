@@ -55,10 +55,21 @@ jobs:
         with:
           ref: ${{ env.TAG || github.ref }}
       - uses: subosito/flutter-action@v2
+        if: matrix.arch == 'x64'
         with:
           channel: stable
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+      # Flutter publishes no Arm64 SDK for Windows or Linux, which flutter-action needs: its git tag
+      # instead, which fetches the Dart SDK for the machine it runs on.
+      - name: Flutter from git (Arm64)
+        if: matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          $sdk = Join-Path $env:RUNNER_TEMP 'flutter-sdk'
+          git clone --depth 1 --branch $env:FLUTTER_VERSION https://github.com/flutter/flutter.git $sdk
+          Join-Path $sdk 'bin' | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          & (Join-Path $sdk 'bin/flutter.bat') --version
       - run: flutter pub get
       - name: Test
         if: matrix.arch == 'x64'
@@ -91,6 +102,11 @@ jobs:
         run: |
           $v = [regex]::Match((Get-Content pubspec.yaml -Raw), '(?m)^version:\s*([0-9.]+)').Groups[1].Value
           "VERSION=$v" | Out-File -Append $env:GITHUB_ENV
+      # The windows-latest image no longer comes with NSIS.
+      - name: Install NSIS
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { choco install nsis -y --no-progress }
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { throw 'NSIS did not install' }
       - name: NSIS (.exe)
         run: |
           New-Item -ItemType Directory -Force ..\dist | Out-Null
@@ -164,11 +180,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config rpm libayatana-appindicator3-dev libnotify-dev libfuse2t64 file
       - uses: subosito/flutter-action@v2
+        if: matrix.arch == 'x64'
         with:
           channel: stable
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+      # As on Windows: no Arm64 SDK to download, so its git tag.
+      - name: Flutter from git (Arm64)
+        if: matrix.arch == 'arm64'
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter-sdk"
+          echo "$RUNNER_TEMP/flutter-sdk/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter-sdk/bin/flutter" --version
       - run: flutter pub get
+      # Tags from before linux/CMakeLists.txt let deprecations through (android-v1.1.0) get the same
+      # flag here, as tray_manager calls a deprecated libayatana-appindicator function.
+      - name: Let deprecation warnings through
+        run: grep -q 'Wno-error=deprecated-declarations' linux/CMakeLists.txt || sed -i 's/-Wall -Werror)/-Wall -Werror -Wno-error=deprecated-declarations)/' linux/CMakeLists.txt
       - run: flutter build linux --release
       - name: Package
         run: |
