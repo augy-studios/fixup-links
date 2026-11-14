@@ -70,7 +70,15 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
 
   void toggleRail() => setState(() => Store.I.put(_railKey, railWide ? 'narrow' : 'wide'));
 
-  void toggleHistoryPane() => setState(() => Store.I.put(_paneKey, historyPane ? 'hidden' : null));
+  void toggleHistoryPane() => setState(() {
+        final hide = historyPane;
+        Store.I.put(_paneKey, hide ? 'hidden' : null);
+        // Put away while History is the page: the cleaner beside it becomes the page.
+        if (hide && _page == 'history' && _width > 1024) {
+          _page = 'home';
+          AppNav.shown('home');
+        }
+      });
 
   @override
   void initState() {
@@ -153,13 +161,36 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
               final w = c.maxWidth;
               _width = w;
               final rail = w >= 720 && !_full;
-              final split = w > 1024 && historyPane && (_page == 'home' || _page == 'history');
+              final split = w > 1024 && (_page == 'home' || (_page == 'history' && historyPane));
               Widget content;
               if (split) {
+                // History slides out to the left as it's put away, and back in, the cleaner
+                // widening and narrowing beside it. Put away, it can't be reached by Tab or a click.
+                final paneWidth = (w > 1300 ? 400.0 : 360.0) + 1;
                 content = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  SizedBox(width: w > 1300 ? 400 : 360, child: HistoryPage(pane: true, onHide: toggleHistoryPane)),
-                  VerticalDivider(width: 1, color: fx.border),
-                  const Expanded(child: HomePage(showHistoryButton: false)),
+                  ClipRect(
+                    child: AnimatedContainer(
+                      duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      width: historyPane ? paneWidth : 0,
+                      child: OverflowBox(
+                        alignment: Alignment.centerRight,
+                        minWidth: paneWidth,
+                        maxWidth: paneWidth,
+                        child: ExcludeFocus(
+                          excluding: !historyPane,
+                          child: IgnorePointer(
+                            ignoring: !historyPane,
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                              Expanded(child: HistoryPage(pane: true, onHide: toggleHistoryPane)),
+                              VerticalDivider(width: 1, color: fx.border),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(child: HomePage(showHistoryButton: !historyPane)),
                 ]);
               } else {
                 // Pages built once and kept, so switching back keeps their place. Share history
@@ -226,21 +257,31 @@ class _Rail extends StatelessWidget {
       selectedIndex: AppNav.pages.indexOf(page),
       onDestinationSelected: (i) => AppNav.showPage(AppNav.pages[i]),
       labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-      leading: SizedBox(
-        width: extended ? _wide : _narrow,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: _narrow,
-            child: Center(
-              child: IconButton(
-                tooltip: extended ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)',
-                onPressed: onToggle,
-                icon: Icon(extended ? Icons.menu_open : Icons.menu),
+      // The toggle and the buttons below the pages move with the rail as it opens and closes
+      // (its own animation), keeping in line with the pages' icons.
+      leading: Builder(
+        builder: (context) {
+          final open = NavigationRail.extendedAnimation(context);
+          return AnimatedBuilder(
+            animation: open,
+            builder: (context, _) => SizedBox(
+              width: _narrow + (_wide - _narrow) * open.value,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: _narrow,
+                  child: Center(
+                    child: IconButton(
+                      tooltip: extended ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)',
+                      onPressed: onToggle,
+                      icon: Icon(extended ? Icons.menu_open : Icons.menu),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
       destinations: [
         const NavigationRailDestination(icon: Icon(Icons.cleaning_services_outlined), selectedIcon: Icon(Icons.cleaning_services), label: Text('Fix')),
@@ -251,28 +292,94 @@ class _Rail extends StatelessWidget {
         const NavigationRailDestination(icon: Icon(Icons.devices_outlined), selectedIcon: Icon(Icons.devices), label: Text('Share history')),
         const NavigationRailDestination(icon: Icon(Icons.palette_outlined), selectedIcon: Icon(Icons.palette), label: Text('Look')),
       ],
+      // Below the pages: each with its name beside it while the rail is open, as the pages
+      // have, and just its icon (and a tooltip) while it's collapsed.
       trailing: Expanded(
         child: Align(
-          alignment: Alignment.bottomCenter,
+          alignment: Alignment.bottomLeft,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: SizedBox(
-              width: extended ? _wide : _narrow,
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: SizedBox(width: _narrow, child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TourTarget(id: 'rail.tour', child: IconButton(tooltip: 'Show me around', onPressed: () => showTourPicker(context), icon: const Icon(Icons.help_outline))),
-              IconButton(tooltip: 'Report a bug', onPressed: openBugReport, icon: const Icon(Icons.bug_report_outlined)),
-              IconButton(tooltip: 'Telegram Bot', onPressed: () => openLink(telegramUrl), icon: const SvgIcon(telegramSvg, size: 20)),
-              IconButton(tooltip: 'Invite Discord Bot', onPressed: () => openLink(discordUrl), icon: const SvgIcon(discordSvg, size: 20)),
-              IconButton(tooltip: 'Buy me a coffee', onPressed: () => openLink(coffeeUrl), icon: const Icon(Icons.coffee_outlined)),
-                ])),
-              ),
+            child: Builder(
+              builder: (context) {
+                final open = NavigationRail.extendedAnimation(context);
+                return AnimatedBuilder(
+                  animation: open,
+                  builder: (context, _) {
+                    Widget item(Widget icon, String label, VoidCallback onTap) => _RailAction(icon: icon, label: label, onTap: onTap, open: open.value);
+                    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      TourTarget(id: 'rail.tour', child: item(const Icon(Icons.help_outline), 'Show me around', () => showTourPicker(context))),
+                      item(const Icon(Icons.bug_report_outlined), 'Report a bug', openBugReport),
+                      item(const SvgIcon(telegramSvg, size: 20), 'Telegram Bot', () => openLink(telegramUrl)),
+                      item(const SvgIcon(discordSvg, size: 20), 'Invite Discord Bot', () => openLink(discordUrl)),
+                      item(const Icon(Icons.coffee_outlined), 'Buy me a coffee', () => openLink(coffeeUrl)),
+                    ]);
+                  },
+                );
+              },
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+/// One of the rail's buttons below its pages: its icon in line with the pages' icons, and its
+/// name beside it, fading in as the rail opens (open: 0 collapsed, 1 wide).
+class _RailAction extends StatelessWidget {
+  const _RailAction({required this.icon, required this.label, required this.onTap, required this.open});
+  final Widget icon;
+  final String label;
+  final VoidCallback onTap;
+  final double open;
+
+  static const _inset = 12.0; // each side of the button's highlight
+  static const _iconBox = _Rail._narrow - _inset * 2; // the icon centred where the pages' are
+  static const _labelAt = _Rail._narrow - _inset; // the name starts where the pages' names do
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rail = NavigationRailTheme.of(context);
+    final ink = rail.unselectedIconTheme?.color ?? theme.colorScheme.onSurfaceVariant;
+    final style = rail.unselectedLabelTextStyle ?? theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface);
+    final width = _Rail._narrow + (_Rail._wide - _Rail._narrow) * open;
+    final inner = width - _inset * 2;
+    // The name only once there's room for some of it.
+    final named = inner > _labelAt + 24;
+    final button = SizedBox(
+      width: width,
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: _inset, vertical: 2),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: onTap,
+            child: Stack(children: [
+              Positioned(left: 0, top: 0, bottom: 0, width: _iconBox, child: Center(child: IconTheme.merge(data: IconThemeData(color: ink, size: 24), child: icon))),
+              if (named)
+                Positioned(
+                  left: _labelAt,
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Opacity(
+                      opacity: ((open - 0.3) / 0.7).clamp(0.0, 1.0),
+                      child: Text(label, style: style, maxLines: 1, softWrap: false, overflow: TextOverflow.fade),
+                    ),
+                  ),
+                ),
+            ]),
+          ),
+        ),
+      ),
+    );
+    // Collapsed, the name is a tooltip instead; open, it's on the button.
+    return open < 0.5 ? Tooltip(message: label, child: button) : Semantics(button: true, child: button);
   }
 }
 
