@@ -29,10 +29,13 @@ String relativeDate(String iso, {DateTime? now}) {
 }
 
 class HistoryPage extends StatelessWidget {
-  const HistoryPage({super.key, this.pane = false});
+  const HistoryPage({super.key, this.pane = false, this.onHide});
 
   /// The desktop's master pane: no page title bar of its own, and a tap stays put.
   final bool pane;
+
+  /// Beside the cleaner on the desktop: puts the pane away (lib/desktop/chrome.dart).
+  final VoidCallback? onHide;
 
   static void load(HistoryEntry e) {
     Fixer.I.input.text = e.original;
@@ -117,6 +120,7 @@ class HistoryPage extends StatelessWidget {
             Text('History', style: TextStyle(fontSize: 18, color: fx.ink, fontWeight: fx.uwu ? null : FontWeight.w700)),
             const Spacer(),
             ...actions,
+            if (onHide != null) IconButton(tooltip: 'Hide history (Ctrl+Shift+H)', onPressed: onHide, icon: const Icon(Icons.keyboard_double_arrow_left)),
           ]),
         ),
         Expanded(child: list),

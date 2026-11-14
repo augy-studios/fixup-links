@@ -62,6 +62,15 @@ Everything is shared through a **GitHub Release**, from
 
 `https://github.com/augy-studios/fixup-links/releases/latest` always points at the newest one.
 
+## A desktop-only release
+
+When only the desktop apps change (1.1.1), raise the version as usual but build no APK, and tag
+the release `desktop-v<version>`, such as `desktop-v1.1.1`. Publishing it starts the desktop
+workflow just the same. Mark it the latest: the desktop apps update from the latest release.
+Android ignores it, as it only takes `android-v*` releases with an APK, so phones see no update,
+no notification, and nothing new on the updates page. Say in its notes that Android stays on the
+last `android-v` version, with a link to it.
+
 ## How devices hear about it
 
 - **Android, at once**, if they turned on "New versions of the app" under the bell in the Edge

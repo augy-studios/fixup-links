@@ -4,9 +4,11 @@
 //   Reload, the command bar in the middle (Ctrl+K), Copy link, Screenshot and Long screenshot,
 //   the update button once one's downloaded, and on Windows and Linux the window's own buttons;
 // - a navigation rail on the left (Fix, History, Share history, Look, and Show me around), or a
-//   bar at the bottom below 720 px;
+//   bar at the bottom below 720 px. Its button at the top (or Ctrl+B) collapses it to icons or
+//   widens it to names, remembered; until then it's wide over 1300 px;
 // - over 1024 px, History beside the cleaner (master and detail): picking a link fills the
-//   cleaner in place;
+//   cleaner in place. It can be put away (its own button, the title bar's, or Ctrl+Shift+H),
+//   remembered, leaving the cleaner the whole window;
 // - the desktop's keyboard shortcuts, and on macOS its own menu bar;
 // - full screen with F11, the title bar and rail hidden.
 import 'dart:async';
@@ -22,6 +24,7 @@ import '../app/edge_tray.dart';
 import '../app/links.dart';
 import '../app/nav.dart';
 import '../data/history.dart';
+import '../data/store.dart';
 import '../features/bug/bug_report.dart';
 import '../features/history/history_page.dart';
 import '../features/home/fixer.dart';
@@ -57,6 +60,17 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
   Timer? _flashTimer;
   final _content = GlobalKey();
   final _command = GlobalKey<_CommandBarState>();
+
+  // The rail wide or collapsed, and History beside the cleaner or not: remembered.
+  static const _railKey = 'uwufix.desk.rail';
+  static const _paneKey = 'uwufix.desk.historyPane';
+  double _width = 1280;
+  bool get railWide => switch (Store.I.get(_railKey)) { 'wide' => true, 'narrow' => false, _ => _width > 1300 };
+  bool get historyPane => Store.I.get(_paneKey) != 'hidden';
+
+  void toggleRail() => setState(() => Store.I.put(_railKey, railWide ? 'narrow' : 'wide'));
+
+  void toggleHistoryPane() => setState(() => Store.I.put(_paneKey, historyPane ? 'hidden' : null));
 
   @override
   void initState() {
@@ -137,12 +151,13 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
           Expanded(
             child: LayoutBuilder(builder: (context, c) {
               final w = c.maxWidth;
+              _width = w;
               final rail = w >= 720 && !_full;
-              final split = w > 1024 && (_page == 'home' || _page == 'history');
+              final split = w > 1024 && historyPane && (_page == 'home' || _page == 'history');
               Widget content;
               if (split) {
                 content = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  SizedBox(width: w > 1300 ? 400 : 360, child: const HistoryPage(pane: true)),
+                  SizedBox(width: w > 1300 ? 400 : 360, child: HistoryPage(pane: true, onHide: toggleHistoryPane)),
                   VerticalDivider(width: 1, color: fx.border),
                   const Expanded(child: HomePage(showHistoryButton: false)),
                 ]);
@@ -161,7 +176,7 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
               }
               final body = RepaintBoundary(key: _content, child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: content));
               return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                if (rail) _Rail(page: _page, extended: w > 1300),
+                if (rail) _Rail(page: _page, extended: railWide, onToggle: toggleRail),
                 if (rail) VerticalDivider(width: 1, color: fx.border),
                 Expanded(child: body),
               ]);
@@ -188,23 +203,49 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
 }
 
 class _Rail extends StatelessWidget {
-  const _Rail({required this.page, required this.extended});
+  const _Rail({required this.page, required this.extended, required this.onToggle});
   final String page;
   final bool extended;
+  final VoidCallback onToggle;
+
+  /// The collapsed rail's width (Material 3's), which the buttons above and below the pages keep
+  /// to either way, so they line up with the pages' icons.
+  static const _narrow = 80.0;
+  static const _wide = 256.0; // NavigationRail's minExtendedWidth
 
   @override
   Widget build(BuildContext context) {
     final fx = context.fx;
+    // History's count in the brand colour, as the site's is: a count, not an alert (Badge's
+    // default is red).
+    final badge = fx.uwu ? fx.brandFillStrong : Theme.of(context).colorScheme.primary;
+    final badgeInk = badge.computeLuminance() > 0.4 ? const Color(0xFF121815) : Colors.white;
     return NavigationRail(
       extended: extended,
       backgroundColor: fx.uwu ? fx.surface : null,
       selectedIndex: AppNav.pages.indexOf(page),
       onDestinationSelected: (i) => AppNav.showPage(AppNav.pages[i]),
       labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+      leading: SizedBox(
+        width: extended ? _wide : _narrow,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: _narrow,
+            child: Center(
+              child: IconButton(
+                tooltip: extended ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)',
+                onPressed: onToggle,
+                icon: Icon(extended ? Icons.menu_open : Icons.menu),
+              ),
+            ),
+          ),
+        ),
+      ),
       destinations: [
         const NavigationRailDestination(icon: Icon(Icons.cleaning_services_outlined), selectedIcon: Icon(Icons.cleaning_services), label: Text('Fix')),
         NavigationRailDestination(
-          icon: TourTarget(id: 'rail.history', child: ValueListenableBuilder(valueListenable: History.changed, builder: (_, _, _) => Badge.count(count: History.load().length, isLabelVisible: History.load().isNotEmpty, child: const Icon(Icons.history)))),
+          icon: TourTarget(id: 'rail.history', child: ValueListenableBuilder(valueListenable: History.changed, builder: (_, _, _) => Badge.count(count: History.load().length, isLabelVisible: History.load().isNotEmpty, backgroundColor: badge, textColor: badgeInk, child: const Icon(Icons.history)))),
           label: const Text('History'),
         ),
         const NavigationRailDestination(icon: Icon(Icons.devices_outlined), selectedIcon: Icon(Icons.devices), label: Text('Share history')),
@@ -215,13 +256,19 @@ class _Rail extends StatelessWidget {
           alignment: Alignment.bottomCenter,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: SizedBox(
+              width: extended ? _wide : _narrow,
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: SizedBox(width: _narrow, child: Column(mainAxisSize: MainAxisSize.min, children: [
               TourTarget(id: 'rail.tour', child: IconButton(tooltip: 'Show me around', onPressed: () => showTourPicker(context), icon: const Icon(Icons.help_outline))),
               IconButton(tooltip: 'Report a bug', onPressed: openBugReport, icon: const Icon(Icons.bug_report_outlined)),
               IconButton(tooltip: 'Telegram Bot', onPressed: () => openLink(telegramUrl), icon: const SvgIcon(telegramSvg, size: 20)),
               IconButton(tooltip: 'Invite Discord Bot', onPressed: () => openLink(discordUrl), icon: const SvgIcon(discordSvg, size: 20)),
               IconButton(tooltip: 'Buy me a coffee', onPressed: () => openLink(coffeeUrl), icon: const Icon(Icons.coffee_outlined)),
-            ]),
+                ])),
+              ),
+            ),
           ),
         ),
       ),
@@ -279,6 +326,9 @@ class _TitleBar extends StatelessWidget {
               ),
             ),
           ),
+          // History beside the cleaner, on a window wide enough for it, on the pages it's beside.
+          if (MediaQuery.sizeOf(context).width > 1024 && (AppNav.page.value == 'home' || AppNav.page.value == 'history'))
+            btn(Icons.vertical_split_outlined, shell.historyPane ? 'Hide history (Ctrl+Shift+H)' : 'Show history beside (Ctrl+Shift+H)', shell.toggleHistoryPane),
           btn(Icons.link, 'Copy link (Ctrl+Shift+C)', shell.copyLink),
           btn(Icons.photo_camera_outlined, 'Screenshot', () => shell.screenshot()),
           btn(Icons.view_day_outlined, 'Long screenshot', () => shell.screenshot(long: true)),
@@ -414,6 +464,8 @@ class _CommandBarState extends State<_CommandBar> {
       _Command('Make it yours', Icons.tune, () => runTask('welcome')),
       _Command('Check for updates', Icons.system_update_alt, () => AppUpdate.I.check(asked: true)),
       _Command('Full screen', Icons.fullscreen, () => DesktopShellState.current?.toggleFull()),
+      _Command(DesktopShellState.current?.railWide ?? true ? 'Collapse sidebar' : 'Expand sidebar', Icons.menu_open, () => DesktopShellState.current?.toggleRail()),
+      _Command(DesktopShellState.current?.historyPane ?? true ? 'Hide history beside the cleaner' : 'Show history beside the cleaner', Icons.vertical_split_outlined, () => DesktopShellState.current?.toggleHistoryPane()),
     ];
     final out = q.isEmpty ? all : all.where((c) => c.label.toLowerCase().contains(q)).toList();
     if (q.isNotEmpty) {
@@ -554,6 +606,8 @@ class _Shortcuts extends StatelessWidget {
       key(LogicalKeyboardKey.keyL): command,
       const SingleActivator(LogicalKeyboardKey.f6): command,
       key(LogicalKeyboardKey.keyC, shift: true): shell.copyLink,
+      key(LogicalKeyboardKey.keyB): shell.toggleRail,
+      key(LogicalKeyboardKey.keyH, shift: true): shell.toggleHistoryPane,
       SingleActivator(LogicalKeyboardKey.arrowLeft, alt: !mac): AppNav.back,
       SingleActivator(LogicalKeyboardKey.arrowRight, alt: !mac): AppNav.forward,
       if (mac) key(LogicalKeyboardKey.bracketLeft): AppNav.back,
@@ -604,6 +658,8 @@ class _Shortcuts extends StatelessWidget {
           PlatformMenuItem(label: 'History', onSelected: () => AppNav.showPage('history')),
           PlatformMenuItem(label: 'Share history', onSelected: () => AppNav.showPage('sync')),
           PlatformMenuItem(label: 'Full screen', shortcut: const SingleActivator(LogicalKeyboardKey.keyF, meta: true, control: true), onSelected: shell.toggleFull),
+          PlatformMenuItem(label: 'Collapse or expand sidebar', shortcut: const SingleActivator(LogicalKeyboardKey.keyB, meta: true), onSelected: shell.toggleRail),
+          PlatformMenuItem(label: 'Show or hide history beside', shortcut: const SingleActivator(LogicalKeyboardKey.keyH, meta: true, shift: true), onSelected: shell.toggleHistoryPane),
         ]),
         PlatformMenu(label: 'Window', menus: [
           PlatformMenuItem(label: 'Minimise', shortcut: const SingleActivator(LogicalKeyboardKey.keyM, meta: true), onSelected: windowManager.minimize),
