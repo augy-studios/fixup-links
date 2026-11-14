@@ -1,0 +1,12 @@
+ext {
+    minSdkVersion = 24
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    androidxAppCompatVersion = '1.7.1'
+    coreSplashScreenVersion = '1.2.0'
+    // The updates page's Material 3, its colours from the wallpaper (UpdateActivity).
+    materialVersion = '1.13.0'
+    // Notifications from the server (PushNotificationsPlugin, MessagingService) and FixupPlugin's
+    // "releases" and "news" topics.
+    firebaseMessagingVersion = '25.0.1'
+}

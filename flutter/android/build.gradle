@@ -1,0 +1,37 @@
+// Top-level build file. Dependency versions are in variables.gradle.
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Applied by app/build.gradle only when google-services.json is there (FIREBASE-SETUP.md).
+        classpath "com.google.gms:google-services:4.4.4"
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Everything built goes in flutter/build/ (beside pubspec.yaml), where the flutter tool looks for
+// it: build/app/outputs/flutter-apk/ and build/app/outputs/bundle/.
+def newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get()
+rootProject.layout.buildDirectory.value(newBuildDir)
+
+subprojects {
+    project.layout.buildDirectory.value(newBuildDir.dir(project.name))
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.layout.buildDirectory
+}

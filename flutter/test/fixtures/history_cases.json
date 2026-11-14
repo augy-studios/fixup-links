@@ -1,0 +1,1402 @@
+{
+ "sanitize": [
+  {
+   "id": 1763200000000,
+   "original": "https://www.vxreddit.com/r/a/?utm_source=x",
+   "cleaned": "https://www.vxreddit.com/r/a/",
+   "platform": "Reddit",
+   "title": "Reddit thing",
+   "date": "2026-11-15T01:00:00.000Z"
+  },
+  {
+   "id": 1763100000000,
+   "original": "https://example.com/c?utm_source=x",
+   "cleaned": "https://example.com/c",
+   "platform": "X / Twitter",
+   "title": null,
+   "date": "2026-11-14T05:00:00.000Z"
+  },
+  {
+   "id": 1762800000000,
+   "original": "https://example.com/b?utm_source=x",
+   "cleaned": "https://example.com/b",
+   "platform": "X / Twitter",
+   "title": "Theirs B",
+   "date": "2026-11-11T00:00:00.000Z"
+  },
+  {
+   "cleaned": "javascript:alert(1)",
+   "date": "2026-11-14T00:00:00.000Z"
+  },
+  {
+   "cleaned": "https://example.com/no-date"
+  },
+  {
+   "cleaned": "https://example.com/bad-date",
+   "date": "not a date"
+  },
+  "a string",
+  null,
+  [
+   1,
+   2
+  ],
+  {
+   "cleaned": "https://example.com/odd",
+   "date": "2026-11-10T08:30:00Z",
+   "id": 1.5,
+   "platform": 7,
+   "title": "",
+   "original": ""
+  },
+  {
+   "cleaned": "https://example.com/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "date": "2026-11-10T08:30:00.000Z"
+  },
+  {
+   "cleaned": "HTTPS://EXAMPLE.COM/UPPER",
+   "date": "2026-11-10T08:30:00.000Z",
+   "title": "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+   "platform": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP"
+  }
+ ],
+ "merge": [
+  {
+   "name": "both ways",
+   "mine": [
+    {
+     "id": 1763100000000,
+     "original": "https://fixupx.com/i/status/1?utm_source=x",
+     "cleaned": "https://fixupx.com/i/status/1",
+     "platform": "X / Twitter",
+     "title": "A post",
+     "date": "2026-11-14T05:00:00.000Z"
+    },
+    {
+     "id": 1763000000000,
+     "original": "https://www.vxreddit.com/r/a/?utm_source=x",
+     "cleaned": "https://www.vxreddit.com/r/a/",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-11-13T01:00:00.000Z"
+    },
+    {
+     "id": 1762900000000,
+     "original": "https://example.com/b?utm_source=x",
+     "cleaned": "https://example.com/b",
+     "platform": "X / Twitter",
+     "title": "Mine B",
+     "date": "2026-11-12T00:00:00.000Z"
+    }
+   ],
+   "theirs": [
+    {
+     "id": 1763200000000,
+     "original": "https://www.vxreddit.com/r/a/?utm_source=x",
+     "cleaned": "https://www.vxreddit.com/r/a/",
+     "platform": "Reddit",
+     "title": "Reddit thing",
+     "date": "2026-11-15T01:00:00.000Z"
+    },
+    {
+     "id": 1763100000000,
+     "original": "https://example.com/c?utm_source=x",
+     "cleaned": "https://example.com/c",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-11-14T05:00:00.000Z"
+    },
+    {
+     "id": 1762800000000,
+     "original": "https://example.com/b?utm_source=x",
+     "cleaned": "https://example.com/b",
+     "platform": "X / Twitter",
+     "title": "Theirs B",
+     "date": "2026-11-11T00:00:00.000Z"
+    },
+    {
+     "cleaned": "javascript:alert(1)",
+     "date": "2026-11-14T00:00:00.000Z"
+    },
+    {
+     "cleaned": "https://example.com/no-date"
+    },
+    {
+     "cleaned": "https://example.com/bad-date",
+     "date": "not a date"
+    },
+    "a string",
+    null,
+    [
+     1,
+     2
+    ],
+    {
+     "cleaned": "https://example.com/odd",
+     "date": "2026-11-10T08:30:00Z",
+     "id": 1.5,
+     "platform": 7,
+     "title": "",
+     "original": ""
+    },
+    {
+     "cleaned": "https://example.com/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "date": "2026-11-10T08:30:00.000Z"
+    },
+    {
+     "cleaned": "HTTPS://EXAMPLE.COM/UPPER",
+     "date": "2026-11-10T08:30:00.000Z",
+     "title": "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+     "platform": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP"
+    }
+   ]
+  },
+  {
+   "name": "into nothing",
+   "mine": [],
+   "theirs": [
+    {
+     "id": 1763200000000,
+     "original": "https://www.vxreddit.com/r/a/?utm_source=x",
+     "cleaned": "https://www.vxreddit.com/r/a/",
+     "platform": "Reddit",
+     "title": "Reddit thing",
+     "date": "2026-11-15T01:00:00.000Z"
+    },
+    {
+     "id": 1763100000000,
+     "original": "https://example.com/c?utm_source=x",
+     "cleaned": "https://example.com/c",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-11-14T05:00:00.000Z"
+    },
+    {
+     "id": 1762800000000,
+     "original": "https://example.com/b?utm_source=x",
+     "cleaned": "https://example.com/b",
+     "platform": "X / Twitter",
+     "title": "Theirs B",
+     "date": "2026-11-11T00:00:00.000Z"
+    },
+    {
+     "cleaned": "javascript:alert(1)",
+     "date": "2026-11-14T00:00:00.000Z"
+    },
+    {
+     "cleaned": "https://example.com/no-date"
+    },
+    {
+     "cleaned": "https://example.com/bad-date",
+     "date": "not a date"
+    },
+    "a string",
+    null,
+    [
+     1,
+     2
+    ],
+    {
+     "cleaned": "https://example.com/odd",
+     "date": "2026-11-10T08:30:00Z",
+     "id": 1.5,
+     "platform": 7,
+     "title": "",
+     "original": ""
+    },
+    {
+     "cleaned": "https://example.com/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+     "date": "2026-11-10T08:30:00.000Z"
+    },
+    {
+     "cleaned": "HTTPS://EXAMPLE.COM/UPPER",
+     "date": "2026-11-10T08:30:00.000Z",
+     "title": "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+     "platform": "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP"
+    }
+   ]
+  },
+  {
+   "name": "nothing new",
+   "mine": [
+    {
+     "id": 1763100000000,
+     "original": "https://fixupx.com/i/status/1?utm_source=x",
+     "cleaned": "https://fixupx.com/i/status/1",
+     "platform": "X / Twitter",
+     "title": "A post",
+     "date": "2026-11-14T05:00:00.000Z"
+    },
+    {
+     "id": 1763000000000,
+     "original": "https://www.vxreddit.com/r/a/?utm_source=x",
+     "cleaned": "https://www.vxreddit.com/r/a/",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-11-13T01:00:00.000Z"
+    },
+    {
+     "id": 1762900000000,
+     "original": "https://example.com/b?utm_source=x",
+     "cleaned": "https://example.com/b",
+     "platform": "X / Twitter",
+     "title": "Mine B",
+     "date": "2026-11-12T00:00:00.000Z"
+    }
+   ],
+   "theirs": [
+    {
+     "id": 1763100000000,
+     "original": "https://fixupx.com/i/status/1?utm_source=x",
+     "cleaned": "https://fixupx.com/i/status/1",
+     "platform": "X / Twitter",
+     "title": "A post",
+     "date": "2026-11-14T05:00:00.000Z"
+    },
+    {
+     "id": 1763000000000,
+     "original": "https://www.vxreddit.com/r/a/?utm_source=x",
+     "cleaned": "https://www.vxreddit.com/r/a/",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-11-13T01:00:00.000Z"
+    },
+    {
+     "id": 1762900000000,
+     "original": "https://example.com/b?utm_source=x",
+     "cleaned": "https://example.com/b",
+     "platform": "X / Twitter",
+     "title": "Mine B",
+     "date": "2026-11-12T00:00:00.000Z"
+    }
+   ]
+  },
+  {
+   "name": "over a hundred, same ids",
+   "mine": [
+    {
+     "id": 1760000000000,
+     "original": "https://example.com/m0?utm_source=x",
+     "cleaned": "https://example.com/m0",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-01T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000001,
+     "original": "https://example.com/m1?utm_source=x",
+     "cleaned": "https://example.com/m1",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-02T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000002,
+     "original": "https://example.com/m2?utm_source=x",
+     "cleaned": "https://example.com/m2",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-03T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000003,
+     "original": "https://example.com/m3?utm_source=x",
+     "cleaned": "https://example.com/m3",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-04T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000004,
+     "original": "https://example.com/m4?utm_source=x",
+     "cleaned": "https://example.com/m4",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-05T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000005,
+     "original": "https://example.com/m5?utm_source=x",
+     "cleaned": "https://example.com/m5",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-06T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000006,
+     "original": "https://example.com/m6?utm_source=x",
+     "cleaned": "https://example.com/m6",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-07T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000007,
+     "original": "https://example.com/m7?utm_source=x",
+     "cleaned": "https://example.com/m7",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-08T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000008,
+     "original": "https://example.com/m8?utm_source=x",
+     "cleaned": "https://example.com/m8",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-09T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000009,
+     "original": "https://example.com/m9?utm_source=x",
+     "cleaned": "https://example.com/m9",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-10T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000010,
+     "original": "https://example.com/m10?utm_source=x",
+     "cleaned": "https://example.com/m10",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-11T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000011,
+     "original": "https://example.com/m11?utm_source=x",
+     "cleaned": "https://example.com/m11",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-12T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000012,
+     "original": "https://example.com/m12?utm_source=x",
+     "cleaned": "https://example.com/m12",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-13T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000013,
+     "original": "https://example.com/m13?utm_source=x",
+     "cleaned": "https://example.com/m13",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-14T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000014,
+     "original": "https://example.com/m14?utm_source=x",
+     "cleaned": "https://example.com/m14",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-15T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000015,
+     "original": "https://example.com/m15?utm_source=x",
+     "cleaned": "https://example.com/m15",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-16T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000016,
+     "original": "https://example.com/m16?utm_source=x",
+     "cleaned": "https://example.com/m16",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-17T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000017,
+     "original": "https://example.com/m17?utm_source=x",
+     "cleaned": "https://example.com/m17",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-18T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000018,
+     "original": "https://example.com/m18?utm_source=x",
+     "cleaned": "https://example.com/m18",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-19T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000019,
+     "original": "https://example.com/m19?utm_source=x",
+     "cleaned": "https://example.com/m19",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-20T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000020,
+     "original": "https://example.com/m20?utm_source=x",
+     "cleaned": "https://example.com/m20",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-21T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000021,
+     "original": "https://example.com/m21?utm_source=x",
+     "cleaned": "https://example.com/m21",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-22T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000022,
+     "original": "https://example.com/m22?utm_source=x",
+     "cleaned": "https://example.com/m22",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-23T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000023,
+     "original": "https://example.com/m23?utm_source=x",
+     "cleaned": "https://example.com/m23",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-24T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000024,
+     "original": "https://example.com/m24?utm_source=x",
+     "cleaned": "https://example.com/m24",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-25T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000025,
+     "original": "https://example.com/m25?utm_source=x",
+     "cleaned": "https://example.com/m25",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-26T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000026,
+     "original": "https://example.com/m26?utm_source=x",
+     "cleaned": "https://example.com/m26",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-27T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000027,
+     "original": "https://example.com/m27?utm_source=x",
+     "cleaned": "https://example.com/m27",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-28T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000028,
+     "original": "https://example.com/m28?utm_source=x",
+     "cleaned": "https://example.com/m28",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-01T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000029,
+     "original": "https://example.com/m29?utm_source=x",
+     "cleaned": "https://example.com/m29",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-02T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000030,
+     "original": "https://example.com/m30?utm_source=x",
+     "cleaned": "https://example.com/m30",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-03T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000031,
+     "original": "https://example.com/m31?utm_source=x",
+     "cleaned": "https://example.com/m31",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-04T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000032,
+     "original": "https://example.com/m32?utm_source=x",
+     "cleaned": "https://example.com/m32",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-05T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000033,
+     "original": "https://example.com/m33?utm_source=x",
+     "cleaned": "https://example.com/m33",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-06T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000034,
+     "original": "https://example.com/m34?utm_source=x",
+     "cleaned": "https://example.com/m34",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-07T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000035,
+     "original": "https://example.com/m35?utm_source=x",
+     "cleaned": "https://example.com/m35",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-08T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000036,
+     "original": "https://example.com/m36?utm_source=x",
+     "cleaned": "https://example.com/m36",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-09T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000037,
+     "original": "https://example.com/m37?utm_source=x",
+     "cleaned": "https://example.com/m37",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-10T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000038,
+     "original": "https://example.com/m38?utm_source=x",
+     "cleaned": "https://example.com/m38",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-11T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000039,
+     "original": "https://example.com/m39?utm_source=x",
+     "cleaned": "https://example.com/m39",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-12T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000040,
+     "original": "https://example.com/m40?utm_source=x",
+     "cleaned": "https://example.com/m40",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-13T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000041,
+     "original": "https://example.com/m41?utm_source=x",
+     "cleaned": "https://example.com/m41",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-14T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000042,
+     "original": "https://example.com/m42?utm_source=x",
+     "cleaned": "https://example.com/m42",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-15T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000043,
+     "original": "https://example.com/m43?utm_source=x",
+     "cleaned": "https://example.com/m43",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-16T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000044,
+     "original": "https://example.com/m44?utm_source=x",
+     "cleaned": "https://example.com/m44",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-17T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000045,
+     "original": "https://example.com/m45?utm_source=x",
+     "cleaned": "https://example.com/m45",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-18T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000046,
+     "original": "https://example.com/m46?utm_source=x",
+     "cleaned": "https://example.com/m46",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-19T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000047,
+     "original": "https://example.com/m47?utm_source=x",
+     "cleaned": "https://example.com/m47",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-20T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000048,
+     "original": "https://example.com/m48?utm_source=x",
+     "cleaned": "https://example.com/m48",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-21T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000049,
+     "original": "https://example.com/m49?utm_source=x",
+     "cleaned": "https://example.com/m49",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-22T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000050,
+     "original": "https://example.com/m50?utm_source=x",
+     "cleaned": "https://example.com/m50",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-23T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000051,
+     "original": "https://example.com/m51?utm_source=x",
+     "cleaned": "https://example.com/m51",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-24T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000052,
+     "original": "https://example.com/m52?utm_source=x",
+     "cleaned": "https://example.com/m52",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-25T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000053,
+     "original": "https://example.com/m53?utm_source=x",
+     "cleaned": "https://example.com/m53",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-26T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000054,
+     "original": "https://example.com/m54?utm_source=x",
+     "cleaned": "https://example.com/m54",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-27T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000055,
+     "original": "https://example.com/m55?utm_source=x",
+     "cleaned": "https://example.com/m55",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-28T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000056,
+     "original": "https://example.com/m56?utm_source=x",
+     "cleaned": "https://example.com/m56",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-01T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000057,
+     "original": "https://example.com/m57?utm_source=x",
+     "cleaned": "https://example.com/m57",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-02T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000058,
+     "original": "https://example.com/m58?utm_source=x",
+     "cleaned": "https://example.com/m58",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-03T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000059,
+     "original": "https://example.com/m59?utm_source=x",
+     "cleaned": "https://example.com/m59",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-04T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000060,
+     "original": "https://example.com/m60?utm_source=x",
+     "cleaned": "https://example.com/m60",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-05T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000061,
+     "original": "https://example.com/m61?utm_source=x",
+     "cleaned": "https://example.com/m61",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-06T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000062,
+     "original": "https://example.com/m62?utm_source=x",
+     "cleaned": "https://example.com/m62",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-07T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000063,
+     "original": "https://example.com/m63?utm_source=x",
+     "cleaned": "https://example.com/m63",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-08T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000064,
+     "original": "https://example.com/m64?utm_source=x",
+     "cleaned": "https://example.com/m64",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-09T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000065,
+     "original": "https://example.com/m65?utm_source=x",
+     "cleaned": "https://example.com/m65",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-10T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000066,
+     "original": "https://example.com/m66?utm_source=x",
+     "cleaned": "https://example.com/m66",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-11T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000067,
+     "original": "https://example.com/m67?utm_source=x",
+     "cleaned": "https://example.com/m67",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-12T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000068,
+     "original": "https://example.com/m68?utm_source=x",
+     "cleaned": "https://example.com/m68",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-13T00:00:00.000Z"
+    },
+    {
+     "id": 1760000000069,
+     "original": "https://example.com/m69?utm_source=x",
+     "cleaned": "https://example.com/m69",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-14T00:00:00.000Z"
+    }
+   ],
+   "theirs": [
+    {
+     "id": 1760000000000,
+     "original": "https://example.com/t0?utm_source=x",
+     "cleaned": "https://example.com/t0",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-01T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000001,
+     "original": "https://example.com/t1?utm_source=x",
+     "cleaned": "https://example.com/t1",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-02T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000002,
+     "original": "https://example.com/t2?utm_source=x",
+     "cleaned": "https://example.com/t2",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-03T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000003,
+     "original": "https://example.com/t3?utm_source=x",
+     "cleaned": "https://example.com/t3",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-04T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000004,
+     "original": "https://example.com/t4?utm_source=x",
+     "cleaned": "https://example.com/t4",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-05T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000005,
+     "original": "https://example.com/t5?utm_source=x",
+     "cleaned": "https://example.com/t5",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-06T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000006,
+     "original": "https://example.com/t6?utm_source=x",
+     "cleaned": "https://example.com/t6",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-07T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000007,
+     "original": "https://example.com/t7?utm_source=x",
+     "cleaned": "https://example.com/t7",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-08T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000008,
+     "original": "https://example.com/t8?utm_source=x",
+     "cleaned": "https://example.com/t8",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-09T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000009,
+     "original": "https://example.com/t9?utm_source=x",
+     "cleaned": "https://example.com/t9",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-10T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000010,
+     "original": "https://example.com/t10?utm_source=x",
+     "cleaned": "https://example.com/t10",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-11T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000011,
+     "original": "https://example.com/t11?utm_source=x",
+     "cleaned": "https://example.com/t11",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-12T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000012,
+     "original": "https://example.com/t12?utm_source=x",
+     "cleaned": "https://example.com/t12",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-13T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000013,
+     "original": "https://example.com/t13?utm_source=x",
+     "cleaned": "https://example.com/t13",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-14T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000014,
+     "original": "https://example.com/t14?utm_source=x",
+     "cleaned": "https://example.com/t14",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-15T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000015,
+     "original": "https://example.com/t15?utm_source=x",
+     "cleaned": "https://example.com/t15",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-16T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000016,
+     "original": "https://example.com/t16?utm_source=x",
+     "cleaned": "https://example.com/t16",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-17T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000017,
+     "original": "https://example.com/t17?utm_source=x",
+     "cleaned": "https://example.com/t17",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-18T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000018,
+     "original": "https://example.com/t18?utm_source=x",
+     "cleaned": "https://example.com/t18",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-19T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000019,
+     "original": "https://example.com/t19?utm_source=x",
+     "cleaned": "https://example.com/t19",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-20T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000020,
+     "original": "https://example.com/t20?utm_source=x",
+     "cleaned": "https://example.com/t20",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-21T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000021,
+     "original": "https://example.com/t21?utm_source=x",
+     "cleaned": "https://example.com/t21",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-22T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000022,
+     "original": "https://example.com/t22?utm_source=x",
+     "cleaned": "https://example.com/t22",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-23T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000023,
+     "original": "https://example.com/t23?utm_source=x",
+     "cleaned": "https://example.com/t23",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-24T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000024,
+     "original": "https://example.com/t24?utm_source=x",
+     "cleaned": "https://example.com/t24",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-25T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000025,
+     "original": "https://example.com/t25?utm_source=x",
+     "cleaned": "https://example.com/t25",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-26T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000026,
+     "original": "https://example.com/t26?utm_source=x",
+     "cleaned": "https://example.com/t26",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-27T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000027,
+     "original": "https://example.com/t27?utm_source=x",
+     "cleaned": "https://example.com/t27",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-28T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000028,
+     "original": "https://example.com/t28?utm_source=x",
+     "cleaned": "https://example.com/t28",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-01T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000029,
+     "original": "https://example.com/t29?utm_source=x",
+     "cleaned": "https://example.com/t29",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-02T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000030,
+     "original": "https://example.com/t30?utm_source=x",
+     "cleaned": "https://example.com/t30",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-03T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000031,
+     "original": "https://example.com/t31?utm_source=x",
+     "cleaned": "https://example.com/t31",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-04T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000032,
+     "original": "https://example.com/t32?utm_source=x",
+     "cleaned": "https://example.com/t32",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-05T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000033,
+     "original": "https://example.com/t33?utm_source=x",
+     "cleaned": "https://example.com/t33",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-06T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000034,
+     "original": "https://example.com/t34?utm_source=x",
+     "cleaned": "https://example.com/t34",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-07T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000035,
+     "original": "https://example.com/t35?utm_source=x",
+     "cleaned": "https://example.com/t35",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-08T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000036,
+     "original": "https://example.com/t36?utm_source=x",
+     "cleaned": "https://example.com/t36",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-09T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000037,
+     "original": "https://example.com/t37?utm_source=x",
+     "cleaned": "https://example.com/t37",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-10T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000038,
+     "original": "https://example.com/t38?utm_source=x",
+     "cleaned": "https://example.com/t38",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-11T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000039,
+     "original": "https://example.com/t39?utm_source=x",
+     "cleaned": "https://example.com/t39",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-12T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000040,
+     "original": "https://example.com/t40?utm_source=x",
+     "cleaned": "https://example.com/t40",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-13T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000041,
+     "original": "https://example.com/t41?utm_source=x",
+     "cleaned": "https://example.com/t41",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-14T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000042,
+     "original": "https://example.com/t42?utm_source=x",
+     "cleaned": "https://example.com/t42",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-15T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000043,
+     "original": "https://example.com/t43?utm_source=x",
+     "cleaned": "https://example.com/t43",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-16T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000044,
+     "original": "https://example.com/t44?utm_source=x",
+     "cleaned": "https://example.com/t44",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-17T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000045,
+     "original": "https://example.com/t45?utm_source=x",
+     "cleaned": "https://example.com/t45",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-18T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000046,
+     "original": "https://example.com/t46?utm_source=x",
+     "cleaned": "https://example.com/t46",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-19T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000047,
+     "original": "https://example.com/t47?utm_source=x",
+     "cleaned": "https://example.com/t47",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-20T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000048,
+     "original": "https://example.com/t48?utm_source=x",
+     "cleaned": "https://example.com/t48",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-21T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000049,
+     "original": "https://example.com/t49?utm_source=x",
+     "cleaned": "https://example.com/t49",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-22T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000050,
+     "original": "https://example.com/t50?utm_source=x",
+     "cleaned": "https://example.com/t50",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-23T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000051,
+     "original": "https://example.com/t51?utm_source=x",
+     "cleaned": "https://example.com/t51",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-24T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000052,
+     "original": "https://example.com/t52?utm_source=x",
+     "cleaned": "https://example.com/t52",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-25T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000053,
+     "original": "https://example.com/t53?utm_source=x",
+     "cleaned": "https://example.com/t53",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-26T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000054,
+     "original": "https://example.com/t54?utm_source=x",
+     "cleaned": "https://example.com/t54",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-27T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000055,
+     "original": "https://example.com/t55?utm_source=x",
+     "cleaned": "https://example.com/t55",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-28T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000056,
+     "original": "https://example.com/t56?utm_source=x",
+     "cleaned": "https://example.com/t56",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-01T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000057,
+     "original": "https://example.com/t57?utm_source=x",
+     "cleaned": "https://example.com/t57",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-02T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000058,
+     "original": "https://example.com/t58?utm_source=x",
+     "cleaned": "https://example.com/t58",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-03T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000059,
+     "original": "https://example.com/t59?utm_source=x",
+     "cleaned": "https://example.com/t59",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-04T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000060,
+     "original": "https://example.com/t60?utm_source=x",
+     "cleaned": "https://example.com/t60",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-05T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000061,
+     "original": "https://example.com/t61?utm_source=x",
+     "cleaned": "https://example.com/t61",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-06T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000062,
+     "original": "https://example.com/t62?utm_source=x",
+     "cleaned": "https://example.com/t62",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-07T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000063,
+     "original": "https://example.com/t63?utm_source=x",
+     "cleaned": "https://example.com/t63",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-08T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000064,
+     "original": "https://example.com/t64?utm_source=x",
+     "cleaned": "https://example.com/t64",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-09T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000065,
+     "original": "https://example.com/t65?utm_source=x",
+     "cleaned": "https://example.com/t65",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-10T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000066,
+     "original": "https://example.com/t66?utm_source=x",
+     "cleaned": "https://example.com/t66",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-11T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000067,
+     "original": "https://example.com/t67?utm_source=x",
+     "cleaned": "https://example.com/t67",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-12T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000068,
+     "original": "https://example.com/t68?utm_source=x",
+     "cleaned": "https://example.com/t68",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-13T12:00:00.000Z"
+    },
+    {
+     "id": 1760000000069,
+     "original": "https://example.com/t69?utm_source=x",
+     "cleaned": "https://example.com/t69",
+     "platform": "X / Twitter",
+     "title": null,
+     "date": "2026-10-14T12:00:00.000Z"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1595 @@
+{
+ "lists": {
+  "trackerPrefixes": [
+   "utm_",
+   "_branch_"
+  ],
+  "universal": [
+   "utm_source",
+   "utm_medium",
+   "utm_campaign",
+   "utm_term",
+   "utm_content",
+   "utm_id",
+   "utm_reader",
+   "utm_name",
+   "utm_social",
+   "utm_social-type",
+   "fbclid",
+   "gclid",
+   "gclsrc",
+   "msclkid",
+   "dclid",
+   "yclid",
+   "twclid",
+   "mc_eid",
+   "igshid",
+   "igsh",
+   "igsi",
+   "li_fat_id",
+   "ttclid",
+   "sccid",
+   "s_cid",
+   "snkrhsp",
+   "gad_source",
+   "gad_campaignid",
+   "ref",
+   "ref_src",
+   "ref_url",
+   "referral",
+   "source",
+   "srsltid",
+   "icid",
+   "cid",
+   "eid",
+   "pid",
+   "sid",
+   "rid",
+   "uid",
+   "vid",
+   "_ga",
+   "_gl",
+   "_hsenc",
+   "_hsmi",
+   "hsa_acc",
+   "hsa_ad",
+   "hsa_cam",
+   "hsa_grp",
+   "hsa_kw",
+   "hsa_mt",
+   "hsa_net",
+   "hsa_src",
+   "hsa_tgt",
+   "hsa_ver",
+   "mibextid",
+   "mbid",
+   "ml_subscriber",
+   "ml_subscriber_hash",
+   "wt.mc_id",
+   "wt.srch",
+   "affiliate",
+   "aff_id",
+   "aff_sub",
+   "trk",
+   "track",
+   "tracking",
+   "trksid",
+   "tracesourcecode",
+   "amp",
+   "shem",
+   "_kx",
+   "kx",
+   "tw_source",
+   "tw_adid",
+   "tw_campaign",
+   "tw_kwdid",
+   "~channel",
+   "~feature",
+   "~campaign",
+   "~tags",
+   "~stage",
+   "~creation_source",
+   "~click_id",
+   "~referring_link",
+   "~id",
+   "~secondary_publisher",
+   "$3p",
+   "$original_url",
+   "$identity_id",
+   "$s2s"
+  ],
+  "platform": {
+   "twitter.com": [
+    "s",
+    "t",
+    "a",
+    "twsrc",
+    "twcamp",
+    "twterm",
+    "twgr",
+    "twcon",
+    "src",
+    "original_referer",
+    "pc",
+    "lang",
+    "cxt",
+    "ref_src",
+    "ref_url"
+   ],
+   "x.com": [
+    "s",
+    "t",
+    "a",
+    "twsrc",
+    "twcamp",
+    "twterm",
+    "twgr",
+    "twcon",
+    "src",
+    "original_referer",
+    "pc",
+    "lang",
+    "cxt",
+    "ref_src",
+    "ref_url"
+   ],
+   "instagram.com": [
+    "igshid",
+    "igsh",
+    "igsi",
+    "ig_rid",
+    "ig_mid",
+    "stp",
+    "smid",
+    "hl",
+    "taken-by"
+   ],
+   "facebook.com": [
+    "__cft__",
+    "__tn__",
+    "__xts__",
+    "hc_ref",
+    "fref",
+    "rc",
+    "theater",
+    "refsrc",
+    "source",
+    "_rdr",
+    "referral_source",
+    "surface_type",
+    "in_reels_tab_context"
+   ],
+   "fb.com": [
+    "__cft__",
+    "__tn__",
+    "__xts__",
+    "hc_ref",
+    "fref",
+    "rc",
+    "theater",
+    "refsrc",
+    "source",
+    "_rdr",
+    "referral_source",
+    "surface_type",
+    "in_reels_tab_context"
+   ],
+   "youtube.com": [
+    "feature",
+    "app",
+    "list",
+    "index",
+    "pp",
+    "si",
+    "is",
+    "ab_channel",
+    "cbrd",
+    "ucbcb",
+    "pbc",
+    "pbj"
+   ],
+   "youtu.be": [
+    "feature",
+    "si",
+    "is"
+   ],
+   "tiktok.com": [
+    "_d",
+    "checksum",
+    "is_copy_url",
+    "is_from_webapp",
+    "sender_device",
+    "sender_web_id",
+    "share_app_id",
+    "share_link_id",
+    "tt_from",
+    "tt_medium",
+    "tt_campaign",
+    "tiktok_share_from",
+    "source_ref",
+    "sec_uid",
+    "_r"
+   ],
+   "reddit.com": [
+    "utm_name",
+    "ref_source",
+    "ref",
+    "context",
+    "share_id",
+    "post_fullname",
+    "cid",
+    "subreddit_id",
+    "post_index"
+   ],
+   "linkedin.com": [
+    "trk",
+    "trkinfo",
+    "trk_sid",
+    "originalsubdomain",
+    "refid",
+    "lipi",
+    "licu",
+    "lici",
+    "sharer",
+    "trackingid",
+    "rcm"
+   ],
+   "amazon.com": [
+    "ref",
+    "ref_",
+    "pf_rd_r",
+    "pf_rd_p",
+    "pf_rd_i",
+    "pf_rd_m",
+    "pf_rd_s",
+    "pf_rd_t",
+    "pd_rd_r",
+    "pd_rd_w",
+    "pd_rd_wg",
+    "_encoding",
+    "smid",
+    "sprefix",
+    "sr",
+    "ie",
+    "qid",
+    "rps",
+    "linkcode",
+    "linkid",
+    "ascsubtag",
+    "tag",
+    "creative",
+    "creativeasin"
+   ],
+   "google.com": [
+    "ved",
+    "usg",
+    "ei",
+    "sei",
+    "sa",
+    "sqi",
+    "sourceid",
+    "client",
+    "channel",
+    "rlz",
+    "oq"
+   ],
+   "substack.com": [
+    "r",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "publication_id",
+    "post_id"
+   ],
+   "github.com": [
+    "ref",
+    "notification_referrer_id",
+    "bpo"
+   ],
+   "discord.com": [
+    "ref",
+    "source"
+   ],
+   "pinterest.com": [
+    "sent_episod",
+    "nic"
+   ],
+   "snapchat.com": [
+    "sc_referrer",
+    "share_id"
+   ],
+   "ebay.com": [
+    "mkevt",
+    "mkcid",
+    "mkrid",
+    "campid",
+    "toolid",
+    "customid",
+    "epid",
+    "hash",
+    "_trkparms",
+    "_trksid"
+   ],
+   "aliexpress.com": [
+    "aff_platform",
+    "aff_trace_key",
+    "terminal_id",
+    "biztype",
+    "sourcetype",
+    "btsid",
+    "ws_ab_test",
+    "initiative_id",
+    "origin_design_token"
+   ],
+   "spotify.com": [
+    "si",
+    "context",
+    "nd"
+   ],
+   "threads.net": [
+    "igshid",
+    "igsh",
+    "igsi",
+    "mibextid",
+    "xmt",
+    "slof"
+   ],
+   "threads.com": [
+    "igshid",
+    "igsh",
+    "igsi",
+    "mibextid",
+    "xmt",
+    "slof"
+   ],
+   "twitch.tv": [
+    "tt_content",
+    "tt_medium",
+    "sr",
+    "filter",
+    "referrer"
+   ],
+   "pixiv.net": [
+    "lang"
+   ],
+   "tumblr.com": [
+    "is_related_post",
+    "source"
+   ],
+   "bilibili.com": [
+    "spm_id_from",
+    "vd_source",
+    "from_source",
+    "share_source",
+    "share_medium",
+    "share_plat",
+    "share_session_id",
+    "share_tag",
+    "timestamp",
+    "unique_k",
+    "bbid",
+    "ts"
+   ],
+   "bsky.app": [
+    "ref_src",
+    "ref_url"
+   ],
+   "eightfold.ai": [
+    "domain",
+    "hl"
+   ],
+   "community.samsung.com": [
+    "src"
+   ]
+  },
+  "patterns": {
+   "instagram.com": "^(?!next$)[a-z]{4}$"
+  },
+  "stripAllHosts": [
+   "myworkdayjobs.com",
+   "myworkdaysite.com"
+  ],
+  "stripAllPath": "/job/",
+  "mastodon": [
+   "mastodon.social",
+   "mstdn.jp",
+   "mastodon.cloud",
+   "mstdn.social",
+   "mastodon.world",
+   "mastodon.online",
+   "mas.to",
+   "techhub.social",
+   "mastodon.uno",
+   "infosec.exchange"
+  ],
+  "converters": [
+   "X / Twitter",
+   "Instagram",
+   "YouTube",
+   "TikTok",
+   "Facebook",
+   "Reddit",
+   "Discord",
+   "Threads",
+   "Bluesky",
+   "Twitch",
+   "Spotify",
+   "Pixiv",
+   "Tumblr",
+   "BiliBili",
+   "DeviantArt",
+   "Newgrounds",
+   "Fur Affinity",
+   "Mastodon"
+  ]
+ },
+ "clean": [
+  {
+   "input": "https://x.com/user/status/1234567890?s=20&t=abc",
+   "cleaned": "https://fixupx.com/i/status/1234567890",
+   "platform": "X / Twitter",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "s",
+      "t"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixupx.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://twitter.com/user/status/1234567890?ref_src=twsrc%5Etfw",
+   "cleaned": "https://fixupx.com/i/status/1234567890",
+   "platform": "X / Twitter",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "ref_src"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixupx.com)"
+    }
+   ]
+  },
+  {
+   "input": "x.com/someone/status/42",
+   "cleaned": "https://fixupx.com/i/status/42",
+   "platform": "X / Twitter",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixupx.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://x.com/someone",
+   "cleaned": "https://fixupx.com/someone",
+   "platform": "X / Twitter",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixupx.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.instagram.com/p/ABC123/?igsh=MTIz&utm_source=ig_web_copy_link",
+   "cleaned": "https://www.oginstagram.com/p/ABC123/",
+   "platform": "Instagram",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "igsh",
+      "utm_source"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.oginstagram.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.instagram.com/reel/XYZ/?stkn=abcd&psln=efgh",
+   "cleaned": "https://www.oginstagram.com/reel/XYZ/",
+   "platform": "Instagram",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "stkn",
+      "psln"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.oginstagram.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.instagram.com/accounts/login/?next=%2Fp%2Fabc%2F",
+   "cleaned": "https://www.oginstagram.com/accounts/login/?next=%2Fp%2Fabc%2F",
+   "platform": "Instagram",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.oginstagram.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.tiktok.com/@user/video/7300000000000000000?is_from_webapp=1&sender_device=pc",
+   "cleaned": "https://tnktok.com/@user/video/7300000000000000000",
+   "platform": "TikTok",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "is_from_webapp",
+      "sender_device"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (tnktok.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://vm.tiktok.com/ZMabcdef/",
+   "cleaned": "https://vm.tnktok.com/ZMabcdef/",
+   "platform": "TikTok",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (vm.tnktok.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://vt.tiktok.com/ZSxyz/",
+   "cleaned": "https://vt.tnktok.com/ZSxyz/",
+   "platform": "TikTok",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (vt.tnktok.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=abc&feature=shared",
+   "cleaned": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+   "platform": "YouTube",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "si",
+      "feature"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://youtu.be/dQw4w9WgXcQ?si=xyz",
+   "cleaned": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+   "platform": "YouTube",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted youtu.be to youtube.com"
+    },
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "si"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://youtu.be/dQw4w9WgXcQ?t=42",
+   "cleaned": "https://www.youtube.com/watch?t=42&v=dQw4w9WgXcQ",
+   "platform": "YouTube",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted youtu.be to youtube.com"
+    }
+   ]
+  },
+  {
+   "input": "https://m.youtube.com/watch?v=abc&pp=ygU",
+   "cleaned": "https://www.youtube.com/watch?v=abc",
+   "platform": "YouTube",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted m.youtube.com to www.youtube.com"
+    },
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "pp"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.youtube.com/shorts/abc123?feature=share",
+   "cleaned": "https://koutube.com/shorts/abc123",
+   "platform": "YouTube",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "feature"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (koutube.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.facebook.com/share/p/abc/?mibextid=xyz",
+   "cleaned": "https://www.facebed.com/share/p/abc/",
+   "platform": "Facebook",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "mibextid"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.facebed.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://m.facebook.com/story.php?story_fbid=1&id=2&__tn__=R",
+   "cleaned": "https://www.facebed.com/story.php?story_fbid=1&id=2",
+   "platform": "Facebook",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "__tn__"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.facebed.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.reddit.com/r/test/comments/abc/title/?share_id=xyz&utm_medium=android_app",
+   "cleaned": "https://www.vxreddit.com/r/test/comments/abc/title/",
+   "platform": "Reddit",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "share_id",
+      "utm_medium"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.vxreddit.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://old.reddit.com/r/test/",
+   "cleaned": "https://www.vxreddit.com/r/test/",
+   "platform": "Reddit",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (www.vxreddit.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://canary.discord.com/channels/1/2/3",
+   "cleaned": "https://discord.com/channels/1/2/3",
+   "platform": "Discord",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (discord.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://ptb.discord.com/invite/abc?ref=x",
+   "cleaned": "https://discord.com/invite/abc",
+   "platform": "Discord",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "ref"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (discord.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.threads.net/@user/post/abc?xmt=AQ&slof=1",
+   "cleaned": "https://fixthreads.seria.moe/@user/post/abc",
+   "platform": "Threads",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "xmt",
+      "slof"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixthreads.seria.moe)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.threads.com/@user/post/abc",
+   "cleaned": "https://fixthreads.seria.moe/@user/post/abc",
+   "platform": "Threads",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixthreads.seria.moe)"
+    }
+   ]
+  },
+  {
+   "input": "https://bsky.app/profile/a.bsky.social/post/xyz?ref_src=embed",
+   "cleaned": "https://fxbsky.app/profile/a.bsky.social/post/xyz",
+   "platform": "Bluesky",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "ref_src"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fxbsky.app)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.twitch.tv/somestreamer?sr=a",
+   "cleaned": "https://fxtwitch.seria.moe/somestreamer",
+   "platform": "Twitch",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "sr"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fxtwitch.seria.moe)"
+    }
+   ]
+  },
+  {
+   "input": "https://open.spotify.com/track/abc?si=123&context=x",
+   "cleaned": "https://fxspotify.com/track/abc",
+   "platform": "Spotify",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "si",
+      "context"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fxspotify.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://open.spotify.com/album/abc?si=123",
+   "cleaned": "https://open.spotify.com/album/abc",
+   "platform": "Spotify",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "si"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://open.spotify.com/intl-ja/album/abc",
+   "cleaned": "https://open.spotify.com/intl-ja/album/abc",
+   "platform": "Spotify",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://open.spotify.com/intl-ja/track/abc?si=1",
+   "cleaned": "https://fxspotify.com/intl-ja/track/abc",
+   "platform": "Spotify",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "si"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fxspotify.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.pixiv.net/en/artworks/123?lang=en",
+   "cleaned": "https://phixiv.net/en/artworks/123",
+   "platform": "Pixiv",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "lang"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (phixiv.net)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.tumblr.com/blog/post/123?source=share",
+   "cleaned": "https://tpmblr.com/blog/post/123",
+   "platform": "Tumblr",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "source"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (tpmblr.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.bilibili.com/video/BV1xx?spm_id_from=333&vd_source=abc",
+   "cleaned": "https://vxbilibili.com/video/BV1xx",
+   "platform": "BiliBili",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "spm_id_from",
+      "vd_source"
+     ]
+    },
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (vxbilibili.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.deviantart.com/artist/art/Some-Piece-123",
+   "cleaned": "https://fixdeviantart.com/artist/art/Some-Piece-123",
+   "platform": "DeviantArt",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixdeviantart.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.deviantart.com/artist/gallery",
+   "cleaned": "https://www.deviantart.com/artist/gallery",
+   "platform": "DeviantArt",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://www.newgrounds.com/art/view/artist/piece",
+   "cleaned": "https://fixnewgrounds.com/art/view/artist/piece",
+   "platform": "Newgrounds",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fixnewgrounds.com)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.furaffinity.net/view/12345/",
+   "cleaned": "https://xfuraffinity.net/view/12345/",
+   "platform": "Fur Affinity",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (xfuraffinity.net)"
+    }
+   ]
+  },
+  {
+   "input": "https://www.furaffinity.net/user/someone/",
+   "cleaned": "https://www.furaffinity.net/user/someone/",
+   "platform": "Fur Affinity",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://mastodon.social/@user/112233",
+   "cleaned": "https://fx.zillanlabs.tech/mastodon.social/@user/112233",
+   "platform": "Mastodon",
+   "wasConverted": true,
+   "changes": [
+    {
+     "type": "embed",
+     "label": "Converted to embed-friendly domain (fx.zillanlabs.tech)"
+    }
+   ]
+  },
+  {
+   "input": "https://mastodon.social/about",
+   "cleaned": "https://mastodon.social/about",
+   "platform": "Mastodon",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://www.linkedin.com/posts/abc?trk=public&lipi=xyz&rcm=1",
+   "cleaned": "https://www.linkedin.com/posts/abc",
+   "platform": "LinkedIn",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 3 trackers",
+     "params": [
+      "trk",
+      "lipi",
+      "rcm"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.amazon.com/dp/B000?ref_=nav&tag=foo-20&th=1",
+   "cleaned": "https://www.amazon.com/dp/B000?th=1",
+   "platform": "Amazon",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "ref_",
+      "tag"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.google.com/url?q=https://example.com/page?a=1&sa=D&ust=1",
+   "cleaned": "https://example.com/page?a=1",
+   "platform": "Google Search",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "redirect",
+     "label": "Extracted destination from Google Search"
+    }
+   ]
+  },
+  {
+   "input": "https://www.google.com/search?q=hello+world&oq=hello",
+   "cleaned": "https://www.google.com/search?q=hello+world",
+   "platform": "Google",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "oq"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.substack.com/p/post?r=abc&utm_campaign=post",
+   "cleaned": "https://example.substack.com/p/post",
+   "platform": "Substack",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "r",
+      "utm_campaign"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://github.com/owner/repo?ref=producthunt",
+   "cleaned": "https://github.com/owner/repo",
+   "platform": "GitHub",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "ref"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.pinterest.com/pin/123/?nic=1",
+   "cleaned": "https://www.pinterest.com/pin/123/",
+   "platform": "Pinterest",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "nic"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.snapchat.com/add/user?share_id=abc&sc_referrer=x",
+   "cleaned": "https://www.snapchat.com/add/user",
+   "platform": "Snapchat",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "share_id",
+      "sc_referrer"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&_trksid=p",
+   "cleaned": "https://www.ebay.com/itm/123",
+   "platform": "eBay",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 3 trackers",
+     "params": [
+      "mkevt",
+      "mkcid",
+      "_trksid"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://www.aliexpress.com/item/123.html?aff_platform=x&spm=abc",
+   "cleaned": "https://www.aliexpress.com/item/123.html?spm=abc",
+   "platform": "AliExpress",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "aff_platform"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://company.wd5.myworkdayjobs.com/en-US/External/job/Singapore/Engineer_R123?timeType=1&locationCountry=2",
+   "cleaned": "https://company.wd5.myworkdayjobs.com/en-US/External/job/Singapore/Engineer_R123",
+   "platform": "Workday",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "timeType",
+      "locationCountry"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://company.wd5.myworkdayjobs.com/en-US/External?timeType=1",
+   "cleaned": "https://company.wd5.myworkdayjobs.com/en-US/External?timeType=1",
+   "platform": "Workday",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://acme.eightfold.ai/careers/job/123?domain=acme.com&hl=en",
+   "cleaned": "https://acme.eightfold.ai/careers/job/123",
+   "platform": "Eightfold",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "domain",
+      "hl"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://r1.community.samsung.com/t5/topic/123?src=ShareByUserCM",
+   "cleaned": "https://r1.community.samsung.com/t5/topic/123",
+   "platform": "Samsung Community",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "src"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/page?utm_source=a&utm_creative=b&keep=1",
+   "cleaned": "https://example.com/page?keep=1",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "utm_source",
+      "utm_creative"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/page?UTM_Source=a&FBCLID=b&keep=yes",
+   "cleaned": "https://example.com/page?keep=yes",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "UTM_Source",
+      "FBCLID"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/?_branch_match_id=1&~channel=x&$deeplink_path=a%2Fb&keep=1",
+   "cleaned": "https://example.com/?%24deeplink_path=a%2Fb&keep=1",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "_branch_match_id",
+      "~channel"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/a?keep=1#section-3",
+   "cleaned": "https://example.com/a?keep=1#section-3",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/a?amp=1&q=space%20here",
+   "cleaned": "https://example.com/a?q=space+here",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "amp"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/a?q=a+b&utm_source=x",
+   "cleaned": "https://example.com/a?q=a+b",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "utm_source"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/a?q=caf%C3%A9&gclid=1",
+   "cleaned": "https://example.com/a?q=caf%C3%A9",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "gclid"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/path with space?q=1",
+   "cleaned": "https://example.com/path%20with%20space?q=1",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://Example.COM:443/Path/../Other/./x?fbclid=1",
+   "cleaned": "https://example.com/Other/x",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "fbclid"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com:8080/x?gclid=1",
+   "cleaned": "https://example.com:8080/x",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "gclid"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "http://example.com/x?y=1",
+   "cleaned": "http://example.com/x?y=1",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/already/clean",
+   "cleaned": "https://example.com/already/clean",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/?",
+   "cleaned": "https://example.com/",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/a?empty=&utm_term=1&flag",
+   "cleaned": "https://example.com/a?empty=&flag=",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "utm_term"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://example.com/a?shem=abc,sh/x/discover/m1/4",
+   "cleaned": "https://example.com/a",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "shem"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://shop.example.com/products/x?tw_adid=1&tw_campaign=2&variant=3",
+   "cleaned": "https://shop.example.com/products/x?variant=3",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 2 trackers",
+     "params": [
+      "tw_adid",
+      "tw_campaign"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "ftp://example.com/file",
+   "cleaned": "https://ftp//example.com/file",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "clean",
+     "label": "URL was already clean"
+    }
+   ]
+  },
+  {
+   "input": "not a url at all",
+   "error": "That doesn't look like a valid URL. Please include https://"
+  },
+  {
+   "input": "   ",
+   "error": "Please enter a URL."
+  },
+  {
+   "input": "https://xn--bcher-kva.example/path?ref=1",
+   "cleaned": "https://xn--bcher-kva.example/path",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "ref"
+     ]
+    }
+   ]
+  },
+  {
+   "input": "https://bücher.example/path?ref=1",
+   "cleaned": "https://xn--bcher-kva.example/path",
+   "platform": "General",
+   "wasConverted": false,
+   "changes": [
+    {
+     "type": "trackers",
+     "label": "Removed 1 tracker",
+     "params": [
+      "ref"
+     ]
+    }
+   ]
+  }
+ ],
+ "extract": [
+  {
+   "text": "check this https://x.com/a/status/1 cool",
+   "url": "https://x.com/a/status/1"
+  },
+  {
+   "text": "x.com/user/status/1",
+   "url": "x.com/user/status/1"
+  },
+  {
+   "text": "no link here",
+   "url": null
+  },
+  {
+   "text": "https://example.com/a?b=c",
+   "url": "https://example.com/a?b=c"
+  },
+  {
+   "text": "  example.org  ",
+   "url": "example.org"
+  },
+  {
+   "text": "",
+   "url": null
+  }
+ ],
+ "redirects": [
+  {
+   "a": "https://bit.ly/abc",
+   "b": "https://example.com/page",
+   "meaningful": true,
+   "equivalent": false
+  },
+  {
+   "a": "https://example.com/a",
+   "b": "https://www.example.com/a/",
+   "meaningful": false,
+   "equivalent": true
+  },
+  {
+   "a": "https://example.com/a",
+   "b": "https://example.com/b",
+   "meaningful": false,
+   "equivalent": false
+  },
+  {
+   "a": "not a url",
+   "b": "https://example.com",
+   "meaningful": false,
+   "equivalent": false
+  }
+ ]
+}

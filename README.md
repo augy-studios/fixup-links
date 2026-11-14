@@ -1,14 +1,17 @@
 # Link Fixer
 
 Clean URLs, strip trackers, and swap in embed-friendly domains so link
-previews actually render. This repo has three surfaces sharing the same
-cleanup logic: a web app, a Discord bot, and a Telegram bot.
+previews actually render. This repo has four surfaces sharing the same
+cleanup logic: a web app, the apps for Android and the desktop, a Discord bot,
+and a Telegram bot.
 
 ## Try it
 
 - 🌐 Web app: [fixup.uwuapps.org](https://fixup.uwuapps.org)
 - 🤖 Android app: [latest APK](https://github.com/augy-studios/fixup-links/releases/latest)
-  (share a link to it, or highlight one and pick "Fix link"; see [android/](android))
+  (share a link to it, or highlight one and pick "Fix link"; see [flutter/](flutter))
+- 💻 Windows, macOS and Linux apps: [latest release](https://github.com/augy-studios/fixup-links/releases/latest)
+  (waits in the tray with Fix copied link and Ctrl+K; see [flutter/](flutter))
 - 💬 Discord bot: [Add to a server](https://discord.com/oauth2/authorize?client_id=1524465330091724880)
 - ✈️ Telegram bot: [t.me/uwuFix_bot](https://t.me/uwuFix_bot)
 
@@ -21,6 +24,8 @@ cleanup logic: a web app, a Discord bot, and a Telegram bot.
 | **Redirect following** | ✅ | ✅ | ✅ |
 | **Google Search extraction** | ✅ | ✅ | ✅ |
 | **History** | ✅ local, per-browser | ✅ per-user, paginated | ✅ per-user, paginated + inline picker, delete/clear |
+| **Share history between devices** | ✅ code or QR, device to device | - | - |
+| **Report a bug** | ✅ to Augy on Telegram, with screenshots | - | - |
 | **QR codes** | ✅ | ✅ button on every result | ✅ button on every result |
 | **Batch cleaning** | - | ✅ `/batch` | ✅ `/batch` |
 | **Automatic detection** | - | - | ✅ opt-in per group chat |
@@ -86,6 +91,9 @@ case-insensitive, and the URL fragment (`#section-3`) is always preserved.
 
 - **Web app**: live at [fixup.uwuapps.org](https://fixup.uwuapps.org); see
   [main-site/README.md](main-site/README.md) for details.
+- **Apps**: one Flutter project for Android, Windows, macOS and Linux; see
+  [flutter/README.md](flutter/README.md) to build them, [release/README.md](release/README.md)
+  to release them, and [GOOGLE-PLAY.md](GOOGLE-PLAY.md) for Google Play.
 - **Discord bot**: [invite it to a server](https://discord.com/oauth2/authorize?client_id=1524465330091724880);
   see [discord-bot/README.md](discord-bot/README.md) for features and
   [discord-bot/SETUP.md](discord-bot/SETUP.md) to self-host it.

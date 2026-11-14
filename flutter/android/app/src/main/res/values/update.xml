@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The updater (UpdateActivity.java): a page of its own in Material 3 (Material You). On Android 12
+     and later its colours come from the phone's wallpaper (DynamicColors, in onCreate); before
+     that, from these, the tonal palette of the app's green #2E7D32. Light and dark follow the
+     phone: the dark colours are in values-night/update.xml. -->
+<resources>
+    <style name="UpdateTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/update_primary</item>
+        <item name="colorOnPrimary">@color/update_on_primary</item>
+        <item name="colorPrimaryContainer">@color/update_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/update_on_primary_container</item>
+        <item name="colorSecondary">@color/update_secondary</item>
+        <item name="colorOnSecondary">@color/update_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/update_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/update_on_secondary_container</item>
+        <item name="colorTertiary">@color/update_tertiary</item>
+        <item name="colorOnTertiary">@color/update_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/update_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/update_on_tertiary_container</item>
+        <item name="colorError">@color/update_error</item>
+        <item name="colorOnError">@color/update_on_error</item>
+        <item name="colorErrorContainer">@color/update_error_container</item>
+        <item name="colorOnErrorContainer">@color/update_on_error_container</item>
+        <item name="android:colorBackground">@color/update_background</item>
+        <item name="colorOnBackground">@color/update_on_background</item>
+        <item name="colorSurface">@color/update_surface</item>
+        <item name="colorOnSurface">@color/update_on_surface</item>
+        <item name="colorSurfaceVariant">@color/update_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/update_on_surface_variant</item>
+        <item name="colorOutline">@color/update_outline</item>
+        <item name="colorOutlineVariant">@color/update_outline_variant</item>
+        <item name="colorSurfaceContainerLowest">@color/update_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/update_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/update_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/update_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/update_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/update_surface_bright</item>
+        <item name="colorSurfaceDim">@color/update_surface_dim</item>
+        <item name="colorSurfaceInverse">@color/update_inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/update_inverse_on_surface</item>
+        <item name="colorPrimaryInverse">@color/update_inverse_primary</item>
+        <item name="android:windowBackground">@color/update_surface</item>
+    </style>
+
+    <color name="update_primary">#3C6939</color>
+    <color name="update_on_primary">#FFFFFF</color>
+    <color name="update_primary_container">#BCF0B4</color>
+    <color name="update_on_primary_container">#002204</color>
+    <color name="update_secondary">#52634F</color>
+    <color name="update_on_secondary">#FFFFFF</color>
+    <color name="update_secondary_container">#D6E8CE</color>
+    <color name="update_on_secondary_container">#111F0F</color>
+    <color name="update_tertiary">#38656A</color>
+    <color name="update_on_tertiary">#FFFFFF</color>
+    <color name="update_tertiary_container">#BCEBF0</color>
+    <color name="update_on_tertiary_container">#002023</color>
+    <color name="update_error">#BA1A1A</color>
+    <color name="update_on_error">#FFFFFF</color>
+    <color name="update_error_container">#FFDAD6</color>
+    <color name="update_on_error_container">#410002</color>
+    <color name="update_background">#F7FBF1</color>
+    <color name="update_on_background">#191D17</color>
+    <color name="update_surface">#F7FBF1</color>
+    <color name="update_on_surface">#191D17</color>
+    <color name="update_surface_variant">#DEE5D8</color>
+    <color name="update_on_surface_variant">#424940</color>
+    <color name="update_outline">#72796F</color>
+    <color name="update_outline_variant">#C2C9BD</color>
+    <color name="update_surface_container_lowest">#FFFFFF</color>
+    <color name="update_surface_container_low">#F1F5EB</color>
+    <color name="update_surface_container">#ECEFE6</color>
+    <color name="update_surface_container_high">#E6E9E0</color>
+    <color name="update_surface_container_highest">#E0E4DB</color>
+    <color name="update_surface_bright">#F7FBF1</color>
+    <color name="update_surface_dim">#D8DBD2</color>
+    <color name="update_inverse_surface">#2D322C</color>
+    <color name="update_inverse_on_surface">#EFF2E9</color>
+    <color name="update_inverse_primary">#A1D39A</color>
+</resources>

@@ -1,5 +1,5 @@
 // Tells phones a new version of the Android app is out, the moment it's published: GitHub calls
-// this for the repository's releases (a webhook, android/FIREBASE-SETUP.md), and it pushes
+// this for the repository's releases (a webhook, flutter/FIREBASE-SETUP.md), and it pushes
 // "Version 1.2.0 of uwuFix is out" to the fixup-releases topic, which the app joins when "New
 // versions of the app" is turned on (js/app-notify.js). Tapping it opens the app's update window
 // (MainActivity, UpdateActivity).

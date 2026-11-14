@@ -8,5 +8,10 @@ keystore.properties
 .env.local
 .vercel/
 
-# release/<version>/uwufix-<version>.apk is built by android/build-apk.ps1 and committed, so
-# nothing under release/ is ignored.
+# release/<version>/ holds what flutter/build-apk.ps1 builds (the APK, the AAB, their mapping and
+# symbols), committed, except any file over 100 MB, GitHub's limit, which it lists at the end of
+# this file to go only on the GitHub release.
+
+# The 1.0.x Capacitor app, retired in 1.1.0 for flutter/: what's left of it on disk (its key,
+# google-services.json, node_modules, builds) stays out of git.
+/android/

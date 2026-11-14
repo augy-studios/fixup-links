@@ -1,0 +1,60 @@
+# uwuFix: the app's own screens in Flutter, for Android, Windows, macOS and Linux (README.md),
+# with Android's native parts (Java) and the desktop's reached over a bridge
+# (lib/native/native_bridge.dart).
+name: uwufix
+description: "uwuFix: clean links, strip trackers and fix embeds, natively in Flutter."
+publish_to: 'none'
+
+# The app's version: versionName+versionCode. Raise both for a new version: a phone only takes a
+# higher versionCode as an update. 1.0.0 and 1.0.1 (versionCode 1 and 2) were the Capacitor app,
+# and from 1.1.0 (3) this Flutter one. The desktop apps share the version name.
+version: 1.1.0+3
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  dynamic_color: ^2.1.0
+  shared_preferences: ^2.5.6
+  http: ^1.6.0
+  qr_flutter: ^4.1.0
+  flutter_webrtc: ^1.6.3
+  flutter_svg: ^2.4.0
+  url_launcher: ^6.3.3
+  path_provider: ^2.1.6
+  crypto: ^3.0.8
+  package_info_plus: ^9.0.1
+  # Report a bug (lib/features/bug/): pictures from the device, made into JPEGs.
+  file_selector: ^1.1.0
+  image: ^4.12.0
+  # The desktop apps (lib/desktop/): the window, the tray, notifications, starting at sign-in, an
+  # image on the clipboard, and the "Fix a link" widget's own window. window_manager and
+  # tray_manager stay on the 0.5 API (0.6 on is a rewrite over nativeapi).
+  window_manager: 0.5.1
+  tray_manager: 0.5.0
+  launch_at_startup: ^0.5.1
+  pasteboard: ^0.6.0
+  desktop_multi_window: 0.2.1
+  yaml: ^3.1.4
+  win32_registry: ^2.1.0
+  local_notifier: ^0.1.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    # The desktop's icon (splash, welcome) and its tray icons (lib/desktop/).
+    - assets/desktop/
+  fonts:
+    # The site's font, for the UwU Apps look. Material You uses the phone's own.
+    - family: Jua
+      fonts:
+        - asset: assets/fonts/Jua-Regular.ttf

@@ -1,86 +1,98 @@
 # Releases
 
-The Android app's APKs, each version in a folder of its own, built by `android\build-apk.ps1`
-and committed alongside the code they were built from:
+Each version's Android builds, in a folder of its own, built by `flutter\build-apk.ps1` and
+committed alongside the code they were built from:
 
 ```text
-release/1.0.0/uwufix-1.0.0.apk
+release/1.0.0/uwufix-1.0.0.apk            the WebView app (Capacitor)
 release/1.0.1/uwufix-1.0.1.apk
+release/1.1.0/uwufix-1.1.0.apk            the Flutter app, for GitHub: what phones update to
+release/1.1.0/uwufix-1.1.0.aab            the Flutter app, for Google Play (GOOGLE-PLAY.md)
+release/1.1.0/uwufix-1.1.0-mapping.txt    R8's mapping, to read a Java crash
+release/1.1.0/uwufix-1.1.0-symbols.zip    the Dart symbols, to read a Dart crash
 ...
 ```
 
-Share them through a **GitHub Release**, where anyone can download them from
-<https://github.com/augy-studios/fixup-links/releases>. The app updates itself from there.
+A file over 100 MB, GitHub's limit, isn't committed: the build script lists it in `.gitignore`,
+and it goes only on the GitHub release (or Play).
+
+The desktop apps' installers aren't here. GitHub Actions builds them when a release is published
+(`.github/workflows/build-desktop.yml`) and attaches them to it.
+
+Everything is shared through a **GitHub Release**, from
+<https://github.com/augy-studios/fixup-links/releases>. The apps update themselves from there.
 
 ## Build one
 
-1. For anything after the first release, raise `versionCode` (one higher) and `versionName` in
-   `android\native\app\build.gradle` (`android/README.md`, "Build the APK").
-2. From the project root, in PowerShell:
+1. Raise `version:` in `flutter/pubspec.yaml`: `1.1.0+3` is versionName `1.1.0`, versionCode `3`.
+   Raise both for every release; phones only update to a higher code.
+2. Write what's new in `announcements/` (`announcements/README.md`): `release-notes-<version>.md`
+   for GitHub, `announcement-<version>.md` for the Telegram channel, and
+   `play-release-notes-<version>.md` for Play.
+3. From the project root, in PowerShell:
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File android\build-apk.ps1
+   powershell -ExecutionPolicy Bypass -File flutter\build-apk.ps1        # the APK
+   powershell -ExecutionPolicy Bypass -File flutter\build-apk.ps1 -Aab   # the AAB, for Play
    ```
 
-   It ends with `Done: ...\release\<version>\uwufix-<version>.apk`.
+   Each ends with `Done: ...\release\<version>\uwufix-<version>.apk` (or `.aab`).
 
 ## Put it on GitHub
 
 1. **Deploy the site first** if the release needs anything new from it. The update bar,
-   `api/app-release.js` and the notifications all come from the site.
-2. Commit and push your changes, the new APK included, so the release points at the code it was
-   built from.
+   `api/app-release.js`, the notifications and Report a bug all come from the site.
+2. Commit and push, the new builds included, so the release points at the code it was built from.
 3. Open <https://github.com/augy-studios/fixup-links/releases/new>.
-4. **Choose a tag**: type `android-v<version>`, such as `android-v1.0.0`, and pick **Create new
-   tag on publish**. Leave the target as `main`. Keep to the `android-v` prefix: it's how the
-   app's updater finds its releases.
-5. **Release title**: `uwuFix 1.0.0`.
-6. **Describe this release**: what's new, for the people installing it. For example:
+4. **Choose a tag**: `android-v<version>`, such as `android-v1.1.0`, **Create new tag on
+   publish**, target `main`. Keep to the `android-v` prefix: it's how the apps' updaters find their
+   releases.
+5. **Release title**: `uwuFix 1.1.0`.
+6. **Describe this release**: paste `announcements/release-notes-<version>.md`. The Android
+   app's updates page shows it as cards, so keep to its shape (`announcements/README.md`).
+7. Attach **only the APK** from `release\<version>\`, and wait for it to finish uploading.
+   **Attach it before publishing**: the "new version" notification goes the moment you publish,
+   and only for a release that has its APK. The AAB, mapping and symbols stay off GitHub.
+8. Tick **Set as the latest release**, then **Publish release**.
+9. Publishing starts **Build desktop apps** in the repository's **Actions** tab. In about half an
+   hour it attaches the Windows, macOS and Linux installers and the `latest*.yml` files the
+   desktop apps update from. If it fails, fix it and run it again from **Actions** > **Build
+   desktop apps** > **Run workflow**, with the release's tag: it replaces what's there.
+10. Post `announcements/announcement-<version>.md` in the UwU Apps Telegram channel.
 
-   ```markdown
-   Download `uwufix-1.0.0.apk` on your Android phone and open it. If Android asks, allow
-   installing apps from your browser or Files.
+`https://github.com/augy-studios/fixup-links/releases/latest` always points at the newest one.
 
-   - Share any link to uwuFix, or highlight one and pick "Fix link", to clean it right there
-   - Updates itself, and can tell you when a new version is out
-   ```
+## How devices hear about it
 
-7. Drag the APK from `release\<version>\` into **Attach binaries by dropping them here**, and
-   wait for it to finish uploading. **Attach it before publishing**: the "new version"
-   notification is sent the moment you publish, and only for a release that has its APK.
-8. Tick **Set as the latest release**, then click **Publish release**.
+- **Android, at once**, if they turned on "New versions of the app" under the bell in the Edge
+  Tray: the GitHub webhook calls `main-site/api/push/release.js`, which pushes "Version 1.1.0 of
+  uwuFix is out". Tapping it opens the updates page (`flutter/FIREBASE-SETUP.md` sets this up).
+- **Android, within about 10 minutes**, for everyone else: a bar at the top of the app next time
+  it's opened, read through `main-site/api/app-release.js`, which skips drafts, pre-releases,
+  tags that don't start `android-v`, and releases whose APK hasn't finished uploading.
+- **Android, any time**, from the Edge Tray's **Check for app updates**, which opens the updates
+  page: every version's notes, newest first.
+- **The desktop apps**, once the workflow has attached their files: they check soon after they start,
+  every hour, and on waking from sleep, then download it and offer to restart into it.
+- **Google Play**: Play updates the Play build itself, once you roll the AAB out there.
 
-`https://github.com/augy-studios/fixup-links/releases/latest` always points at the newest one,
-which makes a good link to share.
-
-## How phones hear about it
-
-- **At once**, if they turned on "New versions of the app" under the bell in the Edge Tray: the
-  GitHub webhook calls `main-site/api/push/release.js`, which pushes "Version 1.0.1 of uwuFix is
-  out". Tapping it opens the app's update window (`android/FIREBASE-SETUP.md` sets this up).
-- **Within about 10 minutes**, for everyone else: the app shows a bar at the top of the page
-  next time it's opened. The bar reads the releases through `main-site/api/app-release.js`,
-  which skips drafts, pre-releases, tags that don't start `android-v`, and releases whose APK
-  hasn't finished uploading.
-- **Any time**, from the Edge Tray's download button, "Check for app updates".
-
-**Update** downloads the APK inside the app, checks it against GitHub's checksum, and hands it
-to Android's installer (`UpdateActivity.java`).
+**Update** on Android downloads the APK inside the app, checks it against GitHub's checksum, and
+hands it to Android's installer (`UpdateActivity.java`).
 
 ## Before you share it
 
-- **The repository has to be public** for others to download the APK. A private repository's
-  releases are only visible to people with access to it.
-- **Never upload `android.keystore`, `keystore.properties` or Firebase's service account key.**
-  Only the APK.
+- **Never upload `flutter\android.keystore`, `flutter\keystore.properties`,
+  `google-services.json` or Firebase's service account key.** Only the APK.
+- The repository has to be public for others to download from its releases.
 
 ## If something goes wrong
 
 | What happens | What to do |
 |---|---|
-| "App not installed" on the phone | A copy signed with a different key is installed, such as one from PWABuilder. Uninstall uwuFix, then install again. |
-| "App not installed as package appears to be invalid" | The download didn't finish. Download it again. |
-| Play Protect warns about the app | See "Google's developer verification" in `android/README.md`. |
-| You uploaded the wrong file | On the release, click **Edit**, delete the file with the bin icon, attach the right one, and click **Update release**. The app checks the file is newer and matches GitHub's checksum, so phones won't install a mismatch. |
-| No update bar in the app | The tag doesn't start `android-v`, the release is a draft or pre-release, or it's been under 10 minutes. `https://fixup.uwuapps.org/api/app-release` shows what phones see. |
-| No notification | Check the webhook's **Recent Deliveries** in GitHub: each one shows why it did or didn't send (`android/FIREBASE-SETUP.md`). |
+| "App not installed" on the phone | A copy signed with a different key is installed. Uninstall uwuFix, then install again |
+| "App not installed as package appears to be invalid" | The download didn't finish. Download it again |
+| Play Protect warns about the app | See "Google's developer verification" in `flutter/README.md` |
+| You uploaded the wrong file | On the release, **Edit**, delete the file, attach the right one, **Update release**. The app checks the file is newer and matches GitHub's checksum, so phones won't install a mismatch |
+| No update bar in the app | The tag doesn't start `android-v`, the release is a draft or pre-release, or it's been under 10 minutes. `https://fixup.uwuapps.org/api/app-release` shows what phones see |
+| No notification | The webhook's **Recent Deliveries** in GitHub shows why each did or didn't send (`flutter/FIREBASE-SETUP.md`) |
+| No desktop installers on the release | **Actions** > **Build desktop apps**: open the failed run, read the step that failed, then **Run workflow** with the tag once it's fixed |

@@ -1407,3 +1407,341 @@ body:has(.update-notice) .app-update-notice {
     max-height: 90vh;
   }
 }
+
+/* ===== SHARE HISTORY (js/sync.js) ===== */
+.sync-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-pane[hidden] {
+  display: none;
+}
+
+.sync-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+}
+
+.sync-card[hidden] {
+  display: none;
+}
+
+.sync-code {
+  font-size: 2.2rem;
+  letter-spacing: 0.18em;
+  text-align: center;
+  color: var(--ink);
+  user-select: all;
+}
+
+/* Centred, with its white quiet zone, so a phone pointed at the middle finds it. */
+.sync-qr {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 12px;
+}
+
+.sync-qr img,
+.sync-qr canvas {
+  display: block;
+}
+
+.sync-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.sync-link {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.sync-code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 1.15rem;
+}
+
+.sync-status,
+.sync-note {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--muted-strong);
+}
+
+.sync-status[hidden],
+.sync-note[hidden],
+.sync-approve[hidden],
+.sync-theirs[hidden] {
+  display: none;
+}
+
+.sync-status[data-kind="error"] {
+  color: var(--error);
+}
+
+.sync-status[data-kind="ok"],
+.sync-note[data-kind="ok"] {
+  color: var(--ok);
+}
+
+.sync-approve,
+.sync-theirs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--brand-fill);
+  color: var(--on-brand);
+}
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-pane > .btn-secondary {
+  align-self: flex-start;
+}
+
+/* ===== PAGE TOURS (js/tour.js, page-tour-spec.md) ===== */
+/* Above every window (1000) and the toast (1100). The dim and chalk colours are fixed rather than
+   themed: the tour reads the same over a light or a dark page. */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+}
+
+.tourHole {
+  position: fixed;
+  border-radius: 18px;
+  box-shadow: 0 0 0 200vmax rgba(8, 14, 10, 0.86), 0 0 24px 8px rgba(255, 255, 255, 0.35);
+  transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease;
+  pointer-events: none;
+}
+
+.tourArrow {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.tourLine,
+.tourHead {
+  fill: none;
+  stroke: #f6f1e6;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Drawn in over its own length; the script sets --len. */
+.tourLine {
+  stroke-dasharray: var(--len, 600);
+  stroke-dashoffset: var(--len, 600);
+  animation: tour-draw 0.6s ease forwards;
+}
+
+@keyframes tour-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.tourSkip {
+  position: fixed;
+  top: max(16px, calc(var(--safe-top) + 12px));
+  left: max(16px, calc(var(--safe-left) + 12px));
+  padding: 8px 14px;
+  background: none;
+  border: 0;
+  color: #f6f1e6;
+  font-size: 1.05rem;
+}
+
+/* Placed by the script (§3): left and top set on each step. */
+.tourCard {
+  position: fixed;
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 24px));
+  color: #f6f1e6;
+}
+
+/* No room for an arrow: the card sits on its own backing, over the lit thing. */
+.tourCard.solid {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(8, 14, 10, 0.92);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.tourText {
+  font-size: 1.3rem;
+  line-height: 1.35;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+
+.tourFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.tourNext {
+  background: #f6f1e6;
+  color: #1a221d;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 1rem;
+}
+
+.tourDots {
+  display: flex;
+  gap: 6px;
+}
+
+.tourDots > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(246, 241, 230, 0.4);
+  transition: width 0.2s ease;
+}
+
+.tourDots > .on {
+  width: 20px;
+  background: #f6f1e6;
+}
+
+body.touring {
+  overflow: hidden;
+}
+
+.tourPicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tourPicks .pick {
+  padding: 9px 16px;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.tourPicks .pick:hover {
+  background: var(--brand-fill);
+  color: var(--on-brand);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tourHole {
+    transition: none;
+  }
+
+  .tourLine {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ===== REPORT A BUG (js/bug-report.js) ===== */
+.bugText {
+  height: auto;
+  min-height: 120px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.4;
+}
+
+.bugTrap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.bugStatus {
+  color: var(--ink);
+}
+
+.bugStatus a {
+  color: var(--brand-ink);
+}
+
+.bugShots {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bugShots[hidden] {
+  display: none;
+}
+
+.bugShot {
+  position: relative;
+  width: 72px;
+  height: 96px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+}
+
+.bugShot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  display: block;
+}
+
+.bugShotX {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 16px;
+  line-height: 24px;
+  padding: 0;
+}
+
+.bugShotBtns,
+.bugActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

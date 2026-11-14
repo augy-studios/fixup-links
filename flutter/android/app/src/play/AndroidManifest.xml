@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A Google Play build only (build-apk.ps1 -Aab, app/build.gradle's fixupPlay). The APK on GitHub
+     keeps everything removed here: the updater and its permission. Play updates the app and
+     doesn't allow it to update itself (BuildConfig.PLAY hides the update bar and Check for app
+     updates too). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+    <application>
+        <activity android:name=".UpdateActivity" tools:node="remove" />
+        <receiver android:name=".UpdateActivity$InstallStatus" tools:node="remove" />
+    </application>
+</manifest>

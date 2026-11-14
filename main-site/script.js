@@ -580,8 +580,10 @@ function loadHistory() {
     }
 }
 
+// Every change is told to whoever shows the history (js/sync.js shares it with another device).
 function saveHistory(items) {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    document.dispatchEvent(new CustomEvent('uwufix:history'));
 }
 
 function addToHistory(original, cleaned, platform, title = null) {
@@ -611,6 +613,7 @@ function removeFromHistory(id) {
 
 function clearHistory() {
     localStorage.removeItem(HISTORY_KEY);
+    document.dispatchEvent(new CustomEvent('uwufix:history'));
 }
 
 function updateHistoryEntry(id, updates) {
@@ -933,6 +936,8 @@ async function shareUrl(url) {
 document.addEventListener('DOMContentLoaded', () => {
     // Theme init and modal wiring live in js/theme.js
     renderHistoryList();
+    // History merged in from another device (js/sync.js), or changed here.
+    document.addEventListener('uwufix:history', renderHistoryList);
 
     // ---- History modal ----
     document.getElementById('openHistoryModal').addEventListener('click', () => {
@@ -1007,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- Auto-paste if URL in query string (also handles share_target via ?link=) ----
     // The Android app's quick screen comes in this way too, with ?text= holding what was shared
-    // or highlighted (android/.../FixActivity.java).
+    // or highlighted (FixActivity.java: the WebView app's, and flutter/android's).
     const qp = new URLSearchParams(window.location.search);
     const qText = qp.get('text') || '';
     const qUrl = qp.get('url') || qp.get('link') || extractUrlFromText(qText);
@@ -1039,6 +1044,9 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal('historyModal');
             closeModal('qrModal');
             closeModal('notifyModal');
+            closeModal('syncModal');
+            closeModal('tourModal');
+            closeModal('bugModal');
         }
     });
 });

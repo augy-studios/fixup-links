@@ -1,0 +1,59 @@
+# The signing key and its passwords: never in git. Back them up somewhere safe; an APK signed with
+# a different key can't update one already installed.
+android.keystore
+upload.keystore
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
+upload-keystore.properties
+
+# Firebase's settings for the app (FIREBASE-SETUP.md): not secret, but your project's own.
+google-services.json
+# A Firebase service account key, if one is ever downloaded here by mistake: it belongs in Vercel
+# only (FIREBASE-SETUP.md).
+*firebase-adminsdk*.json
+
+# Built apps. The release ones are copied to release/<version>/ at the project root.
+*.apk
+*.aab
+*.idsig
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ and Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter and Dart: the packages fetched (pubspec.lock is kept), and everything built.
+**/doc/api/
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+app.*.symbols
+app.*.map.json
+/android/app/debug
+/android/app/profile
+/android/app/release
+.widget_preview/
+
+# The installers' work folders (installers/).
+/dist/

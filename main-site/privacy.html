@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Privacy | uwuFix</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="What uwuFix, its website and its apps, does with your data.">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/UFX-main.png">
+    <!-- uwuFix's privacy policy: the site, the apps for Android, Windows, macOS and Linux, and the
+         Google Play listing's privacy policy link (GOOGLE-PLAY.md). Served at /privacy. -->
+    <style>
+        :root {
+            --bg: #fdf6fa;
+            --ink: #2b2230;
+            --muted: #6c5f72;
+            --brand: #b0306a;
+            --card: #ffffff;
+            --border: #ecdbe5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #17121a;
+                --ink: #f3eaf1;
+                --muted: #b9a9b8;
+                --brand: #ff8fc0;
+                --card: #221a26;
+                --border: #3a2d3f;
+            }
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        main {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 32px 16px 64px;
+        }
+
+        h1 {
+            font-size: 1.9rem;
+            margin: 0 0 4px;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin: 32px 0 8px;
+        }
+
+        p,
+        li {
+            color: var(--ink);
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        a {
+            color: var(--brand);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            font-size: 0.95rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            vertical-align: top;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .wrap {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>Privacy</h1>
+        <p class="muted">uwuFix, by Augy Studios (UwU Apps). Last updated 14 November 2026.</p>
+
+        <p>uwuFix cleans links. It has no accounts, shows no ads, and keeps your history on your own device.
+            This page says what leaves your device, and why. It covers the website at fixup.uwuapps.org and the
+            uwuFix apps for Android, Windows, macOS and Linux. The Telegram and Discord bots have their own
+            notes in their <a href="https://github.com/augy-studios/fixup-links">source code's README files</a>.
+        </p>
+
+        <h2>What stays on your device</h2>
+        <p>Your history of cleaned links, your look and colour, and which tours you've seen are kept on your device
+            only. Uninstalling the app, or clearing the site's data in your browser, deletes them.</p>
+
+        <h2>What leaves your device</h2>
+        <div class="wrap">
+            <table>
+                <tr>
+                    <th>When</th>
+                    <th>What is sent</th>
+                    <th>To</th>
+                </tr>
+                <tr>
+                    <td>You clean a link (when online)</td>
+                    <td>The link, so the server can follow its redirects and read its page's title. It is not kept.
+                    </td>
+                    <td>uwuFix's server (Vercel), then the link's own site</td>
+                </tr>
+                <tr>
+                    <td>You use Share history</td>
+                    <td>Your history goes straight to the other device you paired with, encrypted. A pairing
+                        service only sees a random code and your IP address, to connect the two.</td>
+                    <td>Your other device; the PeerJS pairing service (0.peerjs.com) and Google's and Cloudflare's STUN servers, which tell each device its own address</td>
+                </tr>
+                <tr>
+                    <td>You send a bug report</td>
+                    <td>What you type, the contact you give (if any), the pictures you add, and the app's version,
+                        your device's model and system version, the page you were on and your language.</td>
+                    <td>Augy, on Telegram, through uwuFix's server</td>
+                </tr>
+                <tr>
+                    <td>You turn on notifications (Android)</td>
+                    <td>A Firebase Cloud Messaging token, so Google can deliver them. uwuFix's server keeps no list
+                        of devices.</td>
+                    <td>Google (Firebase Cloud Messaging)</td>
+                </tr>
+                <tr>
+                    <td>The app checks for updates (not the Google Play version)</td>
+                    <td>A request for the newest version's number, and the download if you update.</td>
+                    <td>uwuFix's server and GitHub</td>
+                </tr>
+                <tr>
+                    <td>You visit the website</td>
+                    <td>Page views, counted by Google Analytics with its cookies. The apps do not use Google
+                        Analytics or any other analytics.</td>
+                    <td>Google Analytics</td>
+                </tr>
+            </table>
+        </div>
+
+        <h2>What uwuFix doesn't do</h2>
+        <ul>
+            <li>No ads, and no advertising ID.</li>
+            <li>No accounts, and no database of people or devices.</li>
+            <li>No selling or sharing of your data with anyone, beyond the services above that make the
+                features work.</li>
+            <li>No reading your clipboard in the background: only when you tap paste, or Fix copied link.</li>
+        </ul>
+
+        <h2>Bug reports</h2>
+        <p>A report stays in Augy's Telegram chat so the bug can be fixed. To have one deleted, email
+            <a href="mailto:augy@augystudios.com">augy@augystudios.com</a> with its report number.</p>
+
+        <h2>Children</h2>
+        <p>uwuFix isn't made for children, and doesn't knowingly collect anything from them.</p>
+
+        <h2>Changes and contact</h2>
+        <p>If this changes, this page will say so, with a new date at the top. Questions:
+            <a href="mailto:augy@augystudios.com">augy@augystudios.com</a>.</p>
+        <p><a href="/">Back to uwuFix</a></p>
+    </main>
+</body>
+
+</html>

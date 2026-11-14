@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- uwuFix's .msi, uwufix-<version>.msi (docs/flutter-desktop-app-spec.md §10): x64, per user, for
+     Group Policy and msiexec. A MajorUpgrade with a fixed UpgradeCode, so each version replaces
+     the last. An .msi install can't update itself: the app says when there's a new version
+     (lib/desktop/updater.dart).
+
+     WiX 5, built by .github/workflows/build-desktop.yml:
+       wix build -arch x64 -d Version=1.1.0 -d AppDir=<Release folder> -d IconPath=<app_icon.ico> -o uwufix-1.1.0.msi uwufix.wxs -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="uwuFix" Manufacturer="UwU Apps" Version="$(Version)" UpgradeCode="7A3E1C52-8D4B-4F6A-9E21-5B0C7D3F8A61" Scope="perUser" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of uwuFix is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="app.ico" SourceFile="$(IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="app.ico" />
+    <Property Id="ARPURLINFOABOUT" Value="https://fixup.uwuapps.org" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="uwuFix" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(AppDir)\**" />
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="StartMenu" Name="uwuFix" Target="[INSTALLFOLDER]uwuFix.exe" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" />
+        <RegistryValue Root="HKCU" Key="Software\UwU Apps\uwuFix" Name="msi" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Component Id="LinkScheme" Directory="INSTALLFOLDER" Guid="3C9F0B6E-2A71-4D85-B4E3-9F1A6C2D7E40">
+      <RegistryKey Root="HKCU" Key="Software\Classes\uwu">
+        <RegistryValue Value="URL:uwu" Type="string" KeyPath="yes" />
+        <RegistryValue Name="URL Protocol" Value="" Type="string" />
+        <RegistryValue Key="shell\open\command" Value="&quot;[INSTALLFOLDER]uwuFix.exe&quot; &quot;%1&quot;" Type="string" />
+      </RegistryKey>
+    </Component>
+
+    <Feature Id="Main" Title="uwuFix">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="LinkScheme" />
+    </Feature>
+  </Package>
+</Wix>

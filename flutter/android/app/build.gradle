@@ -1,0 +1,94 @@
+plugins {
+    id "com.android.application"
+    // Flutter's Gradle plugin, after Android's: the Dart side (flutter/lib/) and its plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// A Google Play build (build-apk.ps1 -Aab, which passes fixupPlay): no updater of its own, as Play
+// updates the app and doesn't allow one (src/play/AndroidManifest.xml, BuildConfig.PLAY).
+def play = project.hasProperty("fixupPlay")
+
+android {
+    namespace = "org.uwuapps.fixup"
+    compileSdk = rootProject.ext.compileSdkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        applicationId = "org.uwuapps.fixup"
+        minSdk = rootProject.ext.minSdkVersion
+        targetSdk = rootProject.ext.targetSdkVersion
+        // From pubspec.yaml's version (1.1.0+3 is versionName 1.1.0, versionCode 3): raise it
+        // there for a new version.
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+        buildConfigField "boolean", "PLAY", play ? "true" : "false"
+    }
+
+    // Signed with the same key as every version before, from flutter/keystore.properties and
+    // flutter/android.keystore, which are kept out of git (flutter/README.md). Without them, a
+    // build for trying out is signed with the debug key, which build-apk.ps1 refuses.
+    def keystoreProps = new Properties()
+    def keystoreFile = rootProject.file('../keystore.properties')
+    if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+    signingConfigs {
+        release {
+            if (keystoreProps.storeFile) {
+                storeFile = rootProject.file("../${keystoreProps.storeFile}")
+                storePassword = keystoreProps.storePassword
+                keyAlias = keystoreProps.keyAlias
+                keyPassword = keystoreProps.keyPassword
+            }
+        }
+    }
+    buildTypes {
+        release {
+            // R8: the app's code shrunk, optimised and its names obfuscated, as Google Play
+            // measures (Android vitals' "DEX code optimisation"), and for a smaller app. What it
+            // mustn't rename is in proguard-rules.pro. Unused resources go too.
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            signingConfig = keystoreProps.storeFile ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+}
+
+if (play) {
+    android.sourceSets.release.manifest.srcFile "src/play/AndroidManifest.xml"
+}
+
+// A release for phones' processors only (ARM, 32 and 64 bit): plugins' native libraries bring x86
+// copies for emulators, which a phone never uses. A debug build keeps them, for an emulator.
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.add("lib/x86/**")
+        variant.packaging.jniLibs.excludes.add("lib/x86_64/**")
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "com.google.android.material:material:$materialVersion"
+    implementation "com.google.firebase:firebase-messaging:$firebaseMessagingVersion"
+}
+
+// Firebase is set up for this build: the server can push to it (FIREBASE-SETUP.md). Without
+// google-services.json the app builds and works, but gets no notifications.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.lifecycle("google-services.json not found: building without notifications (FIREBASE-SETUP.md).")
+}

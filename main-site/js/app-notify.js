@@ -2,7 +2,7 @@
    switches, new versions of the app and news from uwuFix. Each is an FCM topic the app joins
    (FixupPlugin.setTopic), so the server keeps no list of phones: new versions are pushed by
    api/push/release.js when a release is published, and news is sent from the Firebase console
-   (android/FIREBASE-SETUP.md).
+   (flutter/FIREBASE-SETUP.md).
 
    Turning one on asks Android's notification permission first (Android 13 and later), through
    Capacitor's PushNotifications plugin. Nothing is asked until a switch is turned on.

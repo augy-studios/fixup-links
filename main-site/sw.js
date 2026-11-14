@@ -1,6 +1,6 @@
 // Bump on every change to anything this worker serves. It is the only thing
 // the browser compares, so an unchanged version means nobody sees the update.
-const CACHE = 'uwufix-v45';
+const CACHE = 'uwufix-v46';
 const ASSETS = [
   '/',
   '/index.html',
@@ -14,6 +14,11 @@ const ASSETS = [
   '/js/sw-update.js',
   '/js/app-update.js',
   '/js/app-notify.js',
+  '/js/history-merge.js',
+  '/js/p2p.js',
+  '/js/sync.js',
+  '/js/tour.js',
+  '/js/bug-report.js',
   '/manifest.json',
   '/UFX-main.png',
   '/UFX-192.png',
@@ -45,6 +50,9 @@ self.addEventListener('message', (event) => {
   if (type === 'skip-waiting') {
     event.waitUntil(self.skipWaiting().then(() => self.clients.claim()));
   }
+
+  // Report a bug's "site uwufix-v46" (js/bug-report.js): which version of the site this is.
+  if (type === 'version' && event.ports?.[0]) event.ports[0].postMessage(CACHE);
 });
 
 // Only ever this worker's own cache. A bare caches.match() searches every
@@ -59,6 +67,11 @@ self.addEventListener('fetch', e => {
   // The API answers live: a cached /api/app-release would hide every new version of the
   // Android app, and /api/resolve's redirects and titles change. Offline, the page skips them.
   if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
+
+  // Share history's pairing (js/p2p.js): PeerJS and its broker answer live. A cached copy of the
+  // library buys nothing offline, as pairing needs the network anyway, and an old one talking to
+  // a live broker is worse than a clear "could not load".
+  if (url.hostname.endsWith('peerjs.com') || url.pathname.includes('/peerjs/')) return;
 
   // Network-first for Google Fonts
   if (url.hostname.includes('fonts.g')) {

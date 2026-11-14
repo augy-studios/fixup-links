@@ -1,0 +1,3 @@
+Jua (assets/fonts/Jua-Regular.ttf), the site's own font, from Google Fonts
+(https://fonts.google.com/specimen/Jua): Copyright 2017 Woowahan Brothers, under the SIL Open
+Font License 1.1, https://openfontlicense.org/open-font-license-official-text/.

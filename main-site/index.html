@@ -141,6 +141,14 @@
                     title="Check for app updates" hidden>
                     <span data-icon="download"></span>
                 </button>
+                <button id="bugBtn" class="glass-btn" type="button" aria-haspopup="dialog" aria-label="Report a bug"
+                    title="Report a bug">
+                    <span data-icon="bug"></span>
+                </button>
+                <button id="tourBtn" class="glass-btn" type="button" aria-haspopup="dialog"
+                    aria-label="Show me around" title="Show me around">
+                    <span data-icon="help"></span>
+                </button>
                 <button class="glass-btn" id="themeBtn" type="button" aria-haspopup="dialog" aria-label="Theme"
                     title="Theme">
                     <span data-icon="sun"></span>
@@ -155,6 +163,11 @@
             <div class="modal-header">
                 <span class="modal-title">History</span>
                 <div class="modal-header-actions">
+                    <button class="btn btn-sm btn-secondary" id="openSyncBtn" type="button" aria-haspopup="dialog"
+                        title="Share history with your other devices">
+                        <span data-icon="devices"></span>
+                        Share
+                    </button>
                     <button class="btn btn-sm btn-danger" id="clearHistoryBtn" aria-label="Clear all history">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                             stroke-linecap="round" stroke-linejoin="round">
@@ -640,6 +653,133 @@
         </div>
     </div>
 
+    <!-- Share history (js/sync.js): your history between two devices, straight from one to the
+         other over WebRTC (js/p2p.js). One shows a code, the other enters it. -->
+    <div class="modal-backdrop hidden" id="syncModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="syncModalTitle">
+            <div class="modal-head">
+                <h2 id="syncModalTitle">Share history</h2>
+                <button class="icon-btn small" type="button" data-close-modal="syncModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <div class="mode-toggle sync-tabs" id="syncTabs">
+                <button class="mode-btn active" type="button" data-sync-mode="host" aria-pressed="true">Show a code</button>
+                <button class="mode-btn" type="button" data-sync-mode="guest" aria-pressed="false">Enter a code</button>
+            </div>
+
+            <div id="syncHost" class="sync-pane">
+                <div id="syncHostCard" class="sync-card">
+                    <p class="sync-code" id="syncCode" aria-label="Code"></p>
+                    <div class="sync-qr" id="syncQr" aria-label="QR code of the link"></div>
+                    <div class="sync-link-row">
+                        <a class="sync-link" id="syncLink" href="#" target="_blank" rel="noopener"></a>
+                        <button class="icon-btn small" type="button" id="syncCopyLink" aria-label="Copy the link"
+                            title="Copy the link">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <p class="sync-status" id="syncHostStatus" role="status" aria-live="polite" hidden></p>
+                <div class="sync-approve" id="syncApprove" role="alertdialog" aria-labelledby="syncApproveText" hidden>
+                    <p id="syncApproveText"></p>
+                    <div class="sync-actions">
+                        <button class="btn btn-sm btn-primary" type="button" id="syncApproveYes">Add them</button>
+                        <button class="btn btn-sm btn-secondary" type="button" id="syncApproveNo">Not now</button>
+                    </div>
+                </div>
+                <p class="sync-note" id="syncHostNote" role="status" aria-live="polite" hidden></p>
+                <button class="btn btn-sm btn-secondary" type="button" id="syncNewCode">New code</button>
+            </div>
+
+            <div id="syncGuest" class="sync-pane" hidden>
+                <form class="sync-join" id="syncJoinForm" autocomplete="off">
+                    <label class="input-label" for="syncCodeInput">The code on the other device</label>
+                    <div class="input-row">
+                        <input class="url-input sync-code-input" id="syncCodeInput" inputmode="text"
+                            autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="BCD234" />
+                        <button class="btn btn-primary" type="submit" id="syncJoin">Join</button>
+                    </div>
+                </form>
+                <p class="sync-status" id="syncGuestStatus" role="status" aria-live="polite" hidden></p>
+                <p class="sync-status" id="syncStale" data-kind="error" hidden>The connection looks stale. If
+                    nothing changes, check both are still on the same wifi.</p>
+                <div class="sync-theirs" id="syncTheirs" hidden>
+                    <p id="syncTheirsText"></p>
+                    <div class="sync-actions">
+                        <button class="btn btn-sm btn-primary" type="button" id="syncTake">Add theirs to mine</button>
+                        <button class="btn btn-sm btn-secondary" type="button" id="syncSend">Send mine to them</button>
+                    </div>
+                </div>
+                <p class="sync-note" id="syncGuestNote" role="status" aria-live="polite" hidden></p>
+                <button class="btn btn-sm btn-secondary" type="button" id="syncLeave" hidden>Leave</button>
+            </div>
+
+            <p class="mode-note" id="syncNetNote">Both devices have to be on the same network: the same wifi, or
+                one on the other's hotspot. Your history goes straight from one to the other, through no server;
+                pairing tells each device the other's internet address.</p>
+        </div>
+    </div>
+
+    <!-- Report a bug, from the Edge Tray: js/bug-report.js, sent by api/bug-report.js to Augy on
+         Telegram. As sgbus-timings' own. -->
+    <div id="bugModal" class="modal-backdrop hidden">
+        <form class="modal glass" id="bugForm" role="dialog" aria-modal="true" aria-labelledby="bugTitle" novalidate>
+            <div class="modal-head">
+                <h2 id="bugTitle">Report a bug</h2>
+                <button class="icon-btn small" type="button" data-close-modal="bugModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <label class="modal-section-label" for="bugText">What went wrong?</label>
+            <textarea id="bugText" class="url-input bugText" rows="5" maxlength="2000" required
+                placeholder="What you did, what happened, and what you expected"></textarea>
+            <label class="modal-section-label" for="bugContact">How to reach you (optional)</label>
+            <input id="bugContact" class="url-input" type="text" maxlength="200" autocomplete="off" spellcheck="false"
+                placeholder="Telegram @name or email, for an answer" />
+            <!-- Pictures, up to three: from the device, or the page under this window (js/bug-report.js) -->
+            <p class="modal-section-label">Pictures (optional)</p>
+            <div id="bugShots" class="bugShots"></div>
+            <div class="bugShotBtns">
+                <button id="bugAddPic" class="btn btn-sm btn-secondary" type="button"><span data-icon="plus"></span> Add
+                    pictures</button>
+                <button id="bugScreenshot" class="btn btn-sm btn-secondary" type="button"><span data-icon="camera"></span>
+                    Screenshot this page</button>
+            </div>
+            <input id="bugPicFile" type="file" accept="image/*" multiple hidden />
+            <p class="mode-note">Up to 3. Screenshot this page takes the whole page, top to bottom, as it is under this
+                window.</p>
+            <!-- Never seen or filled in by a person: a bot that fills it in is ignored -->
+            <div class="bugTrap" aria-hidden="true"><label>Website <input id="bugWebsite" type="text" name="website"
+                        tabindex="-1" autocomplete="off" /></label></div>
+            <p class="mode-note">Sent with it, to help find the bug: <span id="bugDetails"></span></p>
+            <p id="bugStatus" class="mode-note bugStatus" role="status" hidden></p>
+            <div class="bugActions">
+                <button id="bugSend" class="btn btn-primary" type="submit"><span data-icon="send"></span> Send</button>
+                <button class="btn btn-secondary" type="button" data-close-modal="bugModal">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Show me around (js/tour.js): each page's tour again, from the Edge Tray. -->
+    <div class="modal-backdrop hidden" id="tourModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="tourModalTitle">
+            <div class="modal-head">
+                <h2 id="tourModalTitle">Show me around</h2>
+                <button class="icon-btn small" type="button" data-close-modal="tourModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <div id="tourPicks" class="tourPicks"></div>
+            <p class="mode-note">Each page shows you around the first time you open it. Pick one to see its tour
+                again.</p>
+        </div>
+    </div>
+
     <!-- Notifications, from the bell in the Edge Tray: the Android app only (js/app-notify.js) -->
     <div class="modal-backdrop hidden" id="notifyModal">
         <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="notifyModalTitle">
@@ -671,6 +811,11 @@
     <script src="/js/theme.js"></script>
     <script src="/js/tray.js"></script>
     <script src="/script.js"></script>
+    <script src="/js/history-merge.js"></script>
+    <script src="/js/p2p.js"></script>
+    <script src="/js/sync.js"></script>
+    <script src="/js/tour.js"></script>
+    <script src="/js/bug-report.js"></script>
     <script src="/js/sw-update.js"></script>
     <script src="/js/app-update.js"></script>
     <script src="/js/app-notify.js"></script>

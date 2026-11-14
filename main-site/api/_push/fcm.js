@@ -1,7 +1,7 @@
-// Pushes to the Android app (android/) through Firebase Cloud Messaging, to a topic: the app
+// Pushes to the Android app (flutter/) through Firebase Cloud Messaging, to a topic: the app
 // joins fixup-releases and fixup-news when you turn them on with the bell in the Edge Tray
 // (FixupPlugin.setTopic), so there's no list of phones to keep. api/push/release.js sends new
-// versions here; news goes from the Firebase console (android/FIREBASE-SETUP.md).
+// versions here; news goes from the Firebase console (flutter/FIREBASE-SETUP.md).
 //
 // FCM's HTTP v1 API, with an OAuth token made from the Firebase project's service account:
 // FIREBASE_SERVICE_ACCOUNT holds its JSON key, as downloaded or base64'd. The token is signed

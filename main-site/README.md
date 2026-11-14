@@ -31,9 +31,12 @@ Clean URLs, remove trackers, and fix embeds - all in your browser.
 - **History** - Keeps a local log of cleaned URLs with page titles fetched automatically for easier identification; supports per-entry deletion
 - **QR Code** - Generate a QR code for any cleaned URL with one click
 - **Themes** - Multiple color themes, in light, dark, or time-based mode (light 09:00 to 18:00 on the device clock, dark otherwise)
-- **Edge Tray** - The Telegram, Discord, coffee and theme buttons sit in a column pinned to the top right, tucked off the edge with its arrow tab and remembered per browser (`js/tray.js`, spec in `edge-tray-spec.md` at the repo root)
+- **Edge Tray** - The Telegram, Discord, coffee, Report a bug, Show me around and theme buttons sit in a column pinned to the top right, tucked off the edge with its arrow tab and remembered per browser (`js/tray.js`, spec in `docs/edge-tray-spec.md`)
+- **Share history** - Send your history to another device, or take theirs, with a six-letter code or QR code: the two connect directly (PeerJS over WebRTC, STUN only), nothing is stored on a server, and the host says yes before anything is added to its history (`js/p2p.js`, `js/sync.js`, `js/history-merge.js`; spec in `docs/STUN-p2p-spec.md`)
+- **Page tours** - A short tour the first time you open the site and each page, lighting each thing it talks about and scrolling to it; **Show me around** in the Edge Tray plays any of them again (`js/tour.js`; spec in `docs/page-tour-spec.md`)
+- **Report a bug** - What went wrong, an optional contact, and up to three pictures (**Screenshot this page** takes the whole page), sent to Augy on Telegram with a report ID like `20261114-K7QM` to quote (`js/bug-report.js`, `api/bug-report.js`). Setup: [BUG-REPORT-SETUP.md](BUG-REPORT-SETUP.md)
 - **PWA** - Installable as a progressive web app, works offline, and appears in your system share sheet so you can send URLs directly from other apps. When a new version has downloaded, a bar at the top offers to reload; nothing updates until you press it
-- **Android app** - The same site in an APK (`android/`), which adds uwuFix to Android's share sheet and the text selection menu ("Fix link", with Replace in place for links in editable text), updates itself from GitHub Releases, and has opt-in notifications for new versions and news. The page talks to it through `js/app-bridge.js`; everything app-only stays hidden in a browser. See `android/README.md`
+- **Apps** - uwuFix for Android, Windows, macOS and Linux (`flutter/`, from 1.1.0), with the site's features in the device's own screens: Android's share sheet and text selection menu ("Fix link", with Replace in place), Material You or the UwU Apps look, updates from GitHub Releases with an updates page, and opt-in notifications for new versions and news. See `flutter/README.md`
 - **No ads** - The site loads no ad scripts
 
 ## How to Use

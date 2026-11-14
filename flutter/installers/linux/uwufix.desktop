@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=uwuFix
+GenericName=Link cleaner
+Comment=Clean links, strip trackers and fix embeds
+Exec=/opt/uwuFix/uwufix %u
+Icon=uwufix
+Terminal=false
+Categories=Utility;Network;
+Keywords=link;url;tracker;embed;clean;
+MimeType=x-scheme-handler/uwu;
+StartupWMClass=org.uwuapps.fixup
+Actions=paste;history;
+
+[Desktop Action paste]
+Name=Fix copied link
+Exec=/opt/uwuFix/uwufix --task=paste
+
+[Desktop Action history]
+Name=History
+Exec=/opt/uwuFix/uwufix --task=history

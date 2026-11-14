@@ -1,0 +1,217 @@
+# Builds uwuFix's desktop apps (flutter/: the same Flutter app as Android's) on each platform's own
+# machine, and attaches the installers and the update files the apps read to the release:
+#
+#   Windows   uwufix-<v>-setup.exe (x64 and Arm64 in one), uwufix-<v>.msi (x64), latest.yml
+#   macOS     uwufix-<v>-mac-arm64 / -mac-x64 .dmg and .zip, latest-mac.yml
+#   Linux     .deb, .rpm and .AppImage for x64 and arm64, latest-linux.yml, latest-linux-arm64.yml
+#
+# Runs when a release is published (android-v<version>, release/README.md), from its tag. Run by
+# hand with a tag, it builds that tag and attaches them, making a draft release if there's none;
+# with no tag, it builds main and keeps the files on the run for a week, to try a build.
+#
+# The Arm builds (Windows Arm64, Linux arm64) don't hold the others up: if one fails, the release
+# goes out without it.
+name: Build desktop apps
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and attach to, such as android-v1.1.0 (empty: build main, keep as artifacts)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+concurrency:
+  group: desktop-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+          - os: windows-11-arm
+            arch: arm64
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - name: Test
+        if: matrix.arch == 'x64'
+        run: flutter test
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: flutter/build/windows/${{ matrix.arch }}/runner/Release
+          retention-days: 2
+
+  windows-installers:
+    name: Windows installers
+    needs: windows
+    if: ${{ !cancelled() }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: windows-*
+          path: flutter/build/payload
+      - name: Version
+        run: |
+          $v = [regex]::Match((Get-Content pubspec.yaml -Raw), '(?m)^version:\s*([0-9.]+)').Groups[1].Value
+          "VERSION=$v" | Out-File -Append $env:GITHUB_ENV
+      - name: NSIS (.exe)
+        run: |
+          New-Item -ItemType Directory -Force ..\dist | Out-Null
+          $x64 = (Resolve-Path build\payload\windows-x64).Path
+          $args = @("/DVERSION=$env:VERSION", "/DX64=$x64", "/DOUT=$((Resolve-Path ..\dist).Path)\uwufix-$env:VERSION-setup.exe")
+          if (Test-Path build\payload\windows-arm64\uwuFix.exe) { $args += "/DARM64=$((Resolve-Path build\payload\windows-arm64).Path)" }
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" @args installers\windows\uwufix.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'makensis failed' }
+      - name: WiX (.msi)
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          $app = (Resolve-Path build\payload\windows-x64).Path
+          $icon = (Resolve-Path windows\runner\resources\app_icon.ico).Path
+          wix build -arch x64 -d "Version=$env:VERSION" -d "AppDir=$app" -d "IconPath=$icon" -o "..\dist\uwufix-$env:VERSION.msi" installers\windows\uwufix.wxs
+          if ($LASTEXITCODE -ne 0) { throw 'wix build failed' }
+          Remove-Item ..\dist\*.wixpdb -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-windows
+          path: dist
+          retention-days: 7
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: Package
+        run: |
+          VERSION=$(sed -n 's/^version: *\([0-9.]*\).*/\1/p' pubspec.yaml)
+          sh installers/macos/package.sh "$VERSION" ../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: dist
+          retention-days: 7
+
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config rpm libayatana-appindicator3-dev libnotify-dev libfuse2t64 file
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package
+        run: |
+          VERSION=$(sed -n 's/^version: *\([0-9.]*\).*/\1/p' pubspec.yaml)
+          sh installers/linux/package.sh "$VERSION" ../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-linux-${{ matrix.arch }}
+          path: dist
+          retention-days: 7
+
+  publish:
+    name: Attach to the release
+    needs: [windows-installers, macos, linux]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - name: Update files
+        run: |
+          VERSION=$(sed -n 's/^version: *\([0-9.]*\).*/\1/p' flutter/pubspec.yaml)
+          python3 flutter/installers/write_latest_yml.py "$VERSION" dist
+          ls -la dist
+      - name: Upload
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "uwuFix ${TAG#android-v}" --notes "Desktop apps for ${TAG}."
+          fi
+          gh release upload "$TAG" dist/* --clobber
+      - name: Keep on the run
+        if: env.TAG == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: uwufix-desktop
+          path: dist
+          retention-days: 7

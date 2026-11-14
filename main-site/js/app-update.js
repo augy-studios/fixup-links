@@ -1,4 +1,4 @@
-/* The Android app's update bar: in the app (android/), when GitHub has a newer version of it
+/* The Android app's update bar: in the app 1.0.x (the WebView app, before 1.1.0's flutter/), when GitHub has a newer version of it
    than the one running. The app says its version (js/app-bridge.js), and /api/app-release the
    newest one. Update opens the app's update window (UpdateActivity.java), which downloads the
    APK and hands it to Android's own installer.

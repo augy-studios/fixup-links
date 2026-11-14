@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The updater (UpdateActivity.java): the app's icon, what's happening, and what's new in each
+     release on a timeline, with its two buttons over the bottom of the page. The changelog's rows
+     are update_release.xml, update_label.xml, update_group.xml and update_item.xml. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/update_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/update_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/update_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.card.MaterialCardView
+                    style="?attr/materialCardViewFilledStyle"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    app:cardBackgroundColor="?attr/colorSurfaceContainerLowest"
+                    app:cardCornerRadius="32dp">
+
+                    <!-- The square icon filling the circle, its green to the edge. -->
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:importantForAccessibility="no"
+                        android:scaleType="centerCrop"
+                        android:src="@mipmap/ic_launcher" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/update_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:accessibilityHeading="true"
+                        android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/update_subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- What's under way, or what went wrong: hidden while there's nothing to say. -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/update_status"
+                style="?attr/materialCardViewFilledStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+                app:cardCornerRadius="28dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:id="@+id/update_status_tile"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp">
+
+                            <ImageView
+                                android:id="@+id/update_status_icon"
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                android:importantForAccessibility="no" />
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/update_message"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_weight="1"
+                            android:accessibilityLiveRegion="polite"
+                            android:minHeight="40dp"
+                            android:gravity="center_vertical"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"
+                            android:textColor="?attr/colorOnSurface" />
+                    </LinearLayout>
+
+                    <!-- Material 3 Expressive's wavy progress (WavyProgressView.java). -->
+                    <org.uwuapps.fixup.WavyProgressView
+                        android:id="@+id/update_progress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Each release, newest first, as update_release.xml. -->
+            <LinearLayout
+                android:id="@+id/update_releases"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Behind the status bar, so the changelog doesn't scroll up under the clock: as tall as the
+         bar (UpdateActivity's insets). -->
+    <View
+        android:id="@+id/update_status_bar"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_gravity="top"
+        android:background="?attr/colorSurface" />
+
+    <!-- Over the bottom of the page, the changelog fading out under them. The first is the step
+         on, the second the way out. -->
+    <LinearLayout
+        android:id="@+id/update_buttons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/update_primary"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            app:cornerRadius="32dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/update_secondary"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="12dp"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            app:cornerRadius="32dp" />
+    </LinearLayout>
+</FrameLayout>
