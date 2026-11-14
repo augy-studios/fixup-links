@@ -124,7 +124,7 @@ In Play Console, **Create app** ([setup][release]):
 | Field | Answer |
 |---|---|
 | App name | `uwuFix` |
-| Default language | English (United States) – en-US, matching the release notes' `<en-US>` tag |
+| Default language | English (United Kingdom) – en-GB, matching the release notes' `<en-GB>` tag |
 | App or game | App |
 | Free or paid | Free |
 | Declarations | Accept the Developer Programme Policies and US export laws |

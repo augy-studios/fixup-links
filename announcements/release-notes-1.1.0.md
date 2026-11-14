@@ -43,7 +43,7 @@ Your history and settings stay when you update.
 - **Updates itself**, and tells you when a new version is out.
 
 ### Everywhere
-- **Share history between devices**: in **History**, tap **Share**. One device shows a code and a QR code, the other enters it, and your links go straight from one to the other, through no server. Works between the website, phones and computers, in any mix, on the same wifi or a hotspot.
+- **Share history between devices**: in **History**, tap **Share**. One device shows a code and a QR code, the other enters it, and your links go straight from one to the other, through no server. Works between the website, phones and computers, in any mix, on the same Wi-Fi or a hotspot.
 - **A tour of each page**: the first time you open a page, it shows you around in a few steps. **Show me around** in the Edge Tray has each tour again.
 - **Report a bug**: in the Edge Tray (and the desktop's Help menu). Say what went wrong, add pictures or **Screenshot a page**, which takes the whole page top to bottom, and it reaches Augy on Telegram. You get a report number to quote.
 

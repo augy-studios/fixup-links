@@ -8,6 +8,11 @@ What's said about each release, kept in one place, as sgbus-timings keeps its ow
 | `announcement-<version>.md` | A post in the UwU Apps Telegram channel, as it is |
 | `play-release-notes-<version>.md` | Google Play's **Release notes** box, from 1.1.0 (GOOGLE-PLAY.md) |
 
+## Language
+
+Everything here is in British English (en-GB): colour, optimised, licence, Wi-Fi, and dates as
+14 November 2026. Play's notes go in an `<en-GB>` block, the store listing's default language.
+
 ## Writing the release notes
 
 The Android app's updates page (flutter/android/.../UpdateActivity.java) shows every release's
@@ -48,6 +53,6 @@ link. No Markdown; Telegram shows it as it is.
 
 ## Writing Play's notes
 
-At most 500 characters per language, between `<en-US>` and `</en-US>` tags (one block per language
+At most 500 characters per language, between `<en-GB>` and `</en-GB>` tags (one block per language
 the listing has). Only what the Play build has: it has no updater of its own, so nothing about
 updating.
