@@ -297,6 +297,15 @@ async function runTour(page, name, shotPrefix) {
     await context.close();
   }
 
+  // Vercel's own routing, which this test's server stands in for: with cleanUrls, index.html is
+  // served at "/", not "/index.html", so a catch-all rewrite to "/index.html" 404s every other
+  // path, /join?id= among them.
+  {
+    const cfg = JSON.parse(fs.readFileSync(path.join(SITE, 'vercel.json'), 'utf8'));
+    const all = (cfg.rewrites || []).find((r) => r.source === '/(.*)');
+    ok('every page path reaches the page on Vercel (join links)', all && !(cfg.cleanUrls && /\.html$/.test(all.destination)), all && all.destination);
+  }
+
   // The server's report ID: the day in Singapore, then four letters.
   {
     const api = await import(require('url').pathToFileURL(path.join(SITE, 'api', 'bug-report.js')).href);
