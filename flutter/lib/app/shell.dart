@@ -3,6 +3,8 @@
 // what's open, then "Press back again to exit", and the second press sends the app to the
 // background rather than closing it.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../features/history/history_page.dart';
@@ -88,18 +90,20 @@ class _PhoneShellState extends State<PhoneShell> {
           const AppUpdateBar(),
           Expanded(
             child: Stack(children: [
-              // Room for the Edge Tray while it's out, as the site makes it; tucked away, only the
-              // brand line steps in, clear of its tab.
+              // Room for the Edge Tray while it's out, as the site makes it: its room replaces the
+              // page's own right padding rather than adding to it. Tucked away, only the brand
+              // line steps in, clear of its tab.
               Positioned.fill(
                 child: ValueListenableBuilder(
                   valueListenable: EdgeTray.open,
                   builder: (context, open, _) {
-                    final room = EdgeTray.roomFor(MediaQuery.sizeOf(context).width);
+                    final room = EdgeTray.roomFor(context);
+                    final extra = math.max(0.0, room - HomePage.sidePadding);
                     return AnimatedPadding(
-                      duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 340),
-                      curve: const Cubic(0.2, 0.8, 0.2, 1),
-                      padding: EdgeInsets.only(right: room),
-                      child: HomePage(trailingSpace: room > 0 ? 0 : 30),
+                      duration: MediaQuery.of(context).disableAnimations ? Duration.zero : EdgeTray.time,
+                      curve: EdgeTray.ease,
+                      padding: EdgeInsets.only(right: extra),
+                      child: HomePage(trailingSpace: EdgeTray.brandStepFor(context, HomePage.sidePadding + extra)),
                     );
                   },
                 ),

@@ -20,8 +20,11 @@ class HomePage extends StatelessWidget {
     this.long = false,
   });
 
-  /// Room at the right for the Edge Tray, on a phone.
+  /// How far the brand line steps in from the right, clear of the Edge Tray's tab, on a phone.
   final double trailingSpace;
+
+  /// The page's own padding at each side.
+  static const sidePadding = 16.0;
   final bool showHistoryButton;
 
   /// The whole page in one column, not scrolling: the desktop's long screenshot.
@@ -38,7 +41,10 @@ class HomePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
+              // Steps in and out with the tray, at its pace.
+              AnimatedPadding(
+                duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 340),
+                curve: const Cubic(0.2, 0.8, 0.2, 1),
                 padding: EdgeInsets.only(right: trailingSpace),
                 child: const _Brand(),
               ),
@@ -91,7 +97,7 @@ class HomePage extends StatelessWidget {
         ),
       ),
     ];
-    final padding = EdgeInsets.fromLTRB(16, pad.top + 14, 16, pad.bottom + 24);
+    final padding = EdgeInsets.fromLTRB(sidePadding, pad.top + 14, sidePadding, pad.bottom + 24);
     if (long)
       return Padding(
         padding: padding,
