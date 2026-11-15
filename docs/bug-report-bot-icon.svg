@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+  <!-- Icon for the Report a bug Telegram bot (see main-site/BUG-REPORT-SETUP.md). Same sticker style as main-site/UFX-512.png. -->
+    <clipPath id="badge"><circle cx="256" cy="270" r="168"/></clipPath>
+    <clipPath id="shell"><ellipse cx="0" cy="22" rx="74" ry="88"/></clipPath>
+  </defs>
+  <!-- backdrop: the main app's mint -->
+  <rect width="512" height="512" fill="#ccffcc"/>
+
+  <!-- round badge, shaded on the left like the main logo -->
+  <circle cx="256" cy="270" r="168" fill="#f8ae46"/>
+  <g clip-path="url(#badge)">
+    <circle cx="272" cy="270" r="166" fill="#f8d250"/>
+  </g>
+  <circle cx="256" cy="270" r="168" fill="none" stroke="#000" stroke-width="8"/>
+
+  <!-- the report: a page with a folded corner -->
+  <g transform="rotate(-10 220 240)">
+    <path d="M140 118 H262 L302 158 V352 Q302 362 292 362 H150 Q140 362 140 352 Z" fill="#ffffff" stroke="#000" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M262 118 V150 Q262 158 270 158 H302" fill="#e4e4e4" stroke="#000" stroke-width="8" stroke-linejoin="round"/>
+    <g stroke="#b9c2be" stroke-width="10" stroke-linecap="round">
+      <line x1="166" y1="150" x2="236" y2="150"/>
+      <line x1="166" y1="186" x2="276" y2="186"/>
+      <line x1="166" y1="222" x2="276" y2="222"/>
+      <line x1="166" y1="258" x2="250" y2="258"/>
+    </g>
+  </g>
+
+  <!-- the bug -->
+  <g transform="translate(312 304) rotate(-24) scale(0.82)">
+    <!-- legs -->
+    <g fill="none" stroke="#000" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-62 -18 L-98 -34 L-112 -62"/>
+      <path d="M62 -18 L98 -34 L112 -62"/>
+      <path d="M-72 22 L-114 22 L-130 4"/>
+      <path d="M72 22 L114 22 L130 4"/>
+      <path d="M-62 66 L-96 90 L-102 120"/>
+      <path d="M62 66 L96 90 L102 120"/>
+    </g>
+    <!-- antennae -->
+    <g fill="none" stroke="#000" stroke-width="8" stroke-linecap="round">
+      <path d="M-18 -100 Q-30 -138 -58 -146"/>
+      <path d="M18 -100 Q30 -138 58 -146"/>
+    </g>
+    <circle cx="-60" cy="-146" r="11" fill="#494a47" stroke="#000" stroke-width="6"/>
+    <circle cx="60" cy="-146" r="11" fill="#494a47" stroke="#000" stroke-width="6"/>
+    <!-- head -->
+    <circle cx="0" cy="-74" r="42" fill="#494a47" stroke="#000" stroke-width="8"/>
+    <circle cx="-17" cy="-86" r="12" fill="#fff"/>
+    <circle cx="17" cy="-86" r="12" fill="#fff"/>
+    <circle cx="-15" cy="-89" r="5.5" fill="#000"/>
+    <circle cx="19" cy="-89" r="5.5" fill="#000"/>
+    <!-- shell -->
+    <ellipse cx="0" cy="22" rx="74" ry="88" fill="#ef6b5b"/>
+    <g clip-path="url(#shell)">
+      <ellipse cx="0" cy="22" rx="74" ry="88" fill="#d64f42"/>
+      <ellipse cx="12" cy="18" rx="72" ry="90" fill="#ef6b5b"/>
+      <circle cx="-38" cy="-8" r="15" fill="#2b2b2a"/>
+      <circle cx="40" cy="-14" r="13" fill="#2b2b2a"/>
+      <circle cx="-44" cy="52" r="13" fill="#2b2b2a"/>
+      <circle cx="42" cy="44" r="16" fill="#2b2b2a"/>
+      <circle cx="-14" cy="94" r="11" fill="#2b2b2a"/>
+      <circle cx="22" cy="96" r="10" fill="#2b2b2a"/>
+      <path d="M30 -48 Q54 -38 62 -10" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity="0.75"/>
+    </g>
+    <line x1="0" y1="-62" x2="0" y2="110" stroke="#000" stroke-width="8"/>
+    <ellipse cx="0" cy="22" rx="74" ry="88" fill="none" stroke="#000" stroke-width="8"/>
+  </g>
+
+  <!-- sparkles, as on the main logo -->
+  <g fill="#fedc00" stroke="#000" stroke-width="5" stroke-linejoin="round">
+    <path d="M404 64 Q408 92 432 96 Q408 100 404 128 Q400 100 376 96 Q400 92 404 64 Z"/>
+    <path d="M440 132 Q443 150 458 152 Q443 154 440 172 Q437 154 422 152 Q437 150 440 132 Z"/>
+  </g>
+</svg>

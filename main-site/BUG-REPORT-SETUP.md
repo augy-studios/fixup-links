@@ -27,6 +27,10 @@ an email to augy@augystudios.com instead.
 1. In Telegram, open **@BotFather** and send `/newbot`.
 2. Name it (e.g. `uwuFix bug reports`) and give it a username ending in `bot`.
 3. BotFather answers with its token, like `123456789:AAH...`. That's `BUG_REPORT_BOT_TOKEN`.
+4. Optional: send `/setuserpic`, pick the bot, and send
+   [`docs/bug-report-bot-icon.png`](../docs/bug-report-bot-icon.png) as a photo, so its reports
+   are easy to tell apart from @uwuFix_bot's. The drawing it's made from is
+   [`docs/bug-report-bot-icon.svg`](../docs/bug-report-bot-icon.svg).
 
 > [!WARNING]
 > The token is a password: anyone with it can send as the bot. Paste it only into Vercel and your
