@@ -104,21 +104,64 @@ const DESKTOP = [
   ]],
 ];
 
+// The pictures' colours: deep takes on the app's seven (theme.dart's swatches), each with its pale
+// tint for the words. Picture i runs from EDGES[i] on its left to EDGES[i + 1] on its right, so in
+// Play's row each one carries on in the colour the last left off with, round the wheel and home to
+// green; the night one lands on indigo and midnight.
+const EDGES = [
+  { bg: '#1f6b3d', ink: '#ccffcc' }, // green (Classic)
+  { bg: '#146b74', ink: '#ccffff' }, // teal (Not green 5)
+  { bg: '#7a2f86', ink: '#ffccff' }, // plum (Not green 4)
+  { bg: '#a3304f', ink: '#ffcccc' }, // berry (Not green 1)
+  { bg: '#a8561a', ink: '#ffffcc' }, // amber (Not green 3)
+  { bg: '#3b3f9e', ink: '#ccccff' }, // indigo (Not green 2)
+  { bg: '#1c2357', ink: '#ccccff' }, // midnight
+  { bg: '#146b74', ink: '#ccffff' }, // teal
+  { bg: '#1f6b3d', ink: '#ccffcc' }, // green again
+];
+const SWATCHES = ['#ccffcc', '#ffcccc', '#ccccff', '#ffffcc', '#ffccff', '#ccffff'];
+const palette = (i) => ({ a: EDGES[i].bg, b: EDGES[i + 1].bg, inkA: EDGES[i].ink, inkB: EDGES[i + 1].ink, i });
+
 const css = `
 @font-face { font-family: Jua; src: url("${jua}"); }
 * { margin: 0; box-sizing: border-box; }
-body { width: var(--w); height: var(--h); overflow: hidden; font-family: Jua, sans-serif; background: #1f6b3d; position: relative; }
-.hill { position: absolute; border-radius: 50%; background: #1b5e36; }
-h1 { position: absolute; left: 0; right: 0; text-align: center; color: #ccffcc; white-space: pre-line; line-height: 1.12; letter-spacing: 0.01em; }
+body { width: var(--w); height: var(--h); overflow: hidden; font-family: Jua, sans-serif; position: relative;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(255,255,255,0.14), transparent 45%),
+    radial-gradient(ellipse at 90% 45%, rgba(255,255,255,0.08), transparent 40%),
+    linear-gradient(115deg, var(--a) 15%, var(--b) 85%); }
+.hill { position: absolute; border-radius: 50%; background: rgba(0,0,0,0.13); }
+.dot { position: absolute; border-radius: 50%; }
+h1 { position: absolute; left: 0; right: 0; text-align: center; white-space: pre-line; line-height: 1.12; letter-spacing: 0.01em; }
+h1 span { background: linear-gradient(90deg, var(--inkA), var(--inkB)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .device { position: absolute; background: #111; box-shadow: 0 30px 80px rgba(0,0,0,0.35); }
 .device img { position: absolute; display: block; }
 .status { position: absolute; display: flex; justify-content: space-between; align-items: center; font-family: Roboto, "Segoe UI", sans-serif; color: #1a1f1c; }
-.note { position: absolute; color: #ccffcc; white-space: pre-line; text-align: center; line-height: 1.12; transform: translateY(-50%); }
+.note { position: absolute; white-space: pre-line; text-align: center; line-height: 1.12; transform: translateY(-50%); }
 svg.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-svg.arrows path { fill: none; stroke: #ccffcc; stroke-linecap: round; stroke-linejoin: round; }
+svg.arrows path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 `;
 
-function page({ w, h, shot, marks, headline, notes: given, kind }) {
+// A scatter of soft dots in the swatches' tints, the same for a picture each time it's drawn, kept
+// clear of the words and the device (`avoid`: [left, top, right, bottom] boxes).
+function dots(w, h, seed, avoid) {
+  let s = seed * 9301 + 49297;
+  const rand = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const unit = Math.min(w, h);
+  const out = [];
+  for (let tries = 0; tries < 200 && out.length < 12; tries++) {
+    const d = unit * (0.012 + rand() * 0.035);
+    const x = rand() * w, y = rand() * h;
+    const ring = rand() < 0.4;
+    const c = SWATCHES[Math.floor(rand() * SWATCHES.length)];
+    const o = 0.18 + rand() * 0.2;
+    if (avoid.some(([l, t, r, b]) => x + d / 2 > l && x - d / 2 < r && y + d / 2 > t && y - d / 2 < b)) continue;
+    out.push(`<div class="dot" style="left:${x - d / 2}px; top:${y - d / 2}px; width:${d}px; height:${d}px; opacity:${o}; ${ring ? `border:${Math.max(4, d * 0.18)}px solid ${c}` : `background:${c}`}"></div>`);
+  }
+  return out.join('');
+}
+
+function page({ w, h, shot, marks, headline, notes: given, kind, pal }) {
   // Where the device goes, and the screen inside it.
   let dev;
   const phone = kind === 'phone' || kind.startsWith('tablet');
@@ -142,7 +185,7 @@ function page({ w, h, shot, marks, headline, notes: given, kind }) {
     }
     const py = (dev.y + dev.bezel + ty * dev.screenH) / h;
     const y = Math.min(0.92, Math.max(0.3, n.y ?? py + (n.dy ?? 0)));
-    return { ...n, tx, ty, y, x: n.side === 'r' ? 0.9 : 0.1 };
+    return { ...n, tx, ty, y, x: n.side === 'r' ? 0.9 : 0.1, ink: n.side === 'r' ? pal.inkB : pal.inkA };
   });
   const head = phone ? { top: 120, size: kind === 'phone' ? 190 : 180 } : { top: 40, size: 140 };
   const noteSize = kind === 'phone' ? 70 : phone ? 58 : 66;
@@ -153,15 +196,20 @@ function page({ w, h, shot, marks, headline, notes: given, kind }) {
         <span>9:41</span><span>▾ ◢ ▮</span></div>`
     : '';
   return `<!doctype html><html><head><style>${css}</style></head>
-  <body style="--w:${w}px; --h:${h}px">
+  <body style="--w:${w}px; --h:${h}px; --a:${pal.a}; --b:${pal.b}; --inkA:${pal.inkA}; --inkB:${pal.inkB}">
     <div class="hill" style="left:${-w * 0.3}px; top:${h * 0.55}px; width:${w * 1.1}px; height:${h * 0.9}px"></div>
-    <div class="hill" style="left:${w * 0.45}px; top:${h * 0.7}px; width:${w}px; height:${h}px; background:#195632"></div>
-    <h1 style="top:${head.top}px; font-size:${head.size}px">${headline}</h1>
+    <div class="hill" style="left:${w * 0.45}px; top:${h * 0.7}px; width:${w}px; height:${h}px; background:rgba(0,0,0,0.2)"></div>
+    ${dots(w, h, pal.i + 1, [
+      [0, 0, w, dev.y - 10],
+      [dev.x - 20, dev.y - 20, dev.x + dev.w + 20, dev.y + dev.h + 20],
+      ...notes.map((n) => (n.x < 0.5 ? [0, n.y * h - 0.1 * h, dev.x, n.y * h + 0.1 * h] : [dev.x + dev.w, n.y * h - 0.1 * h, w, n.y * h + 0.1 * h])),
+    ])}
+    <h1 style="top:${head.top}px; font-size:${head.size}px"><span>${headline}</span></h1>
     <div class="device" style="left:${dev.x}px; top:${dev.y}px; width:${dev.w}px; height:${dev.h}px; border-radius:${dev.radius}px">
       <img src="${shot}" style="left:${dev.bezel}px; top:${dev.bezel}px; width:${dev.screenW}px; height:${dev.screenH}px; border-radius:${Math.max(4, dev.radius - dev.bezel)}px; object-fit:cover; object-position:top">
     </div>
     ${status}
-    ${notes.map((n, i) => `<div class="note" id="n${i}" style="${n.x < 0.5 ? 'left' : 'right'}:24px; width:${gutter - 24}px; top:${n.y * h}px; font-size:${noteSize}px">${n.text}</div>`).join('')}
+    ${notes.map((n, i) => `<div class="note" id="n${i}" style="${n.x < 0.5 ? 'left' : 'right'}:24px; width:${gutter - 24}px; top:${n.y * h}px; font-size:${noteSize}px; color:${n.ink}">${n.text}</div>`).join('')}
     <svg class="arrows" viewBox="0 0 ${w} ${h}"><defs><filter id="chalk"><feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></defs><g id="arrows" filter="url(#chalk)"></g></svg>
     <script>
       // A headline that doesn't fit above the device shrinks till it does.
@@ -186,10 +234,10 @@ function page({ w, h, shot, marks, headline, notes: given, kind }) {
         const bow = (i % 2 ? -1 : 1) * 0.22;
         const mx = (sx + tx) / 2 - dy * bow, my = (sy + ty) / 2 + dx * bow;
         const ang = Math.atan2(ty - my, tx - mx), head = Math.min(60, len * 0.25);
-        const sw = ${phone ? 9 : 7};
+        const sw = ${phone ? 9 : 7}, ink = 'style="stroke:' + n.ink + '" ';
         g.insertAdjacentHTML('beforeend',
-          '<path stroke-width="' + sw + '" d="M' + sx + ',' + sy + ' Q' + mx + ',' + my + ' ' + tx + ',' + ty + '"/>' +
-          '<path stroke-width="' + sw + '" d="M' + (tx + Math.cos(ang + 2.5) * head) + ',' + (ty + Math.sin(ang + 2.5) * head) + ' L' + tx + ',' + ty + ' L' + (tx + Math.cos(ang - 2.5) * head) + ',' + (ty + Math.sin(ang - 2.5) * head) + '"/>');
+          '<path ' + ink + 'stroke-width="' + sw + '" d="M' + sx + ',' + sy + ' Q' + mx + ',' + my + ' ' + tx + ',' + ty + '"/>' +
+          '<path ' + ink + 'stroke-width="' + sw + '" d="M' + (tx + Math.cos(ang + 2.5) * head) + ',' + (ty + Math.sin(ang + 2.5) * head) + ' L' + tx + ',' + ty + ' L' + (tx + Math.cos(ang - 2.5) * head) + ',' + (ty + Math.sin(ang - 2.5) * head) + '"/>');
       });
     </script>
   </body></html>`;
@@ -198,15 +246,22 @@ function page({ w, h, shot, marks, headline, notes: given, kind }) {
 const graphic = `<!doctype html><html><head><style>
 @font-face { font-family: Jua; src: url("${jua}"); }
 * { margin: 0; box-sizing: border-box; }
-body { width: 1024px; height: 500px; overflow: hidden; background: #ccffcc; font-family: Jua, sans-serif; position: relative; }
-.hill { position: absolute; border-radius: 50%; background: #b8f0bd; }
+body { width: 1024px; height: 500px; overflow: hidden; font-family: Jua, sans-serif; position: relative;
+  background: radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.6), transparent 50%), linear-gradient(110deg, #ccffcc 0%, #ccffff 45%, #dcd6ff 80%, #ffd6f5 100%); }
+.hill { position: absolute; border-radius: 50%; background: #ffd9d0; }
+.dot { position: absolute; border-radius: 50%; }
 .logo { position: absolute; left: 70px; top: 70px; width: 360px; height: 360px; border-radius: 80px; box-shadow: 0 18px 40px rgba(31,107,61,0.25); }
 h1 { position: absolute; left: 480px; top: 120px; font-size: 92px; color: #1f6b3d; }
 .pill { position: absolute; left: 480px; top: 250px; padding: 14px 28px; border-radius: 22px; background: #ffd27a; border: 5px solid #1f6b3d; color: #1f6b3d; font-size: 34px; }
 .links { position: absolute; left: 484px; top: 352px; font-size: 26px; color: #2e6b47; letter-spacing: 0.01em; }
 </style></head><body>
   <div class="hill" style="left:-200px; top:300px; width:900px; height:500px"></div>
-  <div class="hill" style="left:560px; top:330px; width:800px; height:500px; background:#aee8b4"></div>
+  <div class="hill" style="left:560px; top:330px; width:800px; height:500px; background:#fff3b8"></div>
+  <div class="dot" style="left:445px; top:40px; width:26px; height:26px; background:#ffb3c7"></div>
+  <div class="dot" style="left:900px; top:60px; width:44px; height:44px; border:7px solid #b3b8ff"></div>
+  <div class="dot" style="left:960px; top:200px; width:18px; height:18px; background:#ffd27a"></div>
+  <div class="dot" style="left:30px; top:28px; width:20px; height:20px; background:#9fe8c0"></div>
+  <div class="dot" style="left:840px; top:150px; width:16px; height:16px; background:#f0a8ff"></div>
   <img class="logo" src="${logo}">
   <h1>uwuFix</h1>
   <div class="pill">Clean links. Fix embeds.</div>
@@ -226,15 +281,15 @@ async function render(html, w, h, out) {
 }
 
 for (const [kind, folder] of [['phone', 'phone-assets'], ['tablet7', join('tablet-assets', '7-inch')], ['tablet10', join('tablet-assets', '10-inch')]]) {
-  for (const [file, shot, headline, notes] of PHONE) {
+  for (const [i, [file, shot, headline, notes]] of PHONE.entries()) {
     const src = `${kind}-${shot}`;
     if (!existsSync(join(shots, `${src}.png`))) continue;
-    await render(page({ w: 1620, h: 2880, shot: img(src), marks: marksOf(src), headline, notes, kind }), 1620, 2880, join(docs, folder, `${file}.png`));
+    await render(page({ w: 1620, h: 2880, shot: img(src), marks: marksOf(src), headline, notes, kind, pal: palette(i) }), 1620, 2880, join(docs, folder, `${file}.png`));
   }
 }
-for (const [file, shot, headline, notes] of DESKTOP) {
+for (const [i, [file, shot, headline, notes]] of DESKTOP.entries()) {
   if (!existsSync(join(shots, `${shot}.png`))) continue;
-  await render(page({ w: 2880, h: 1620, shot: img(shot), marks: marksOf(shot), headline, notes, kind: 'desktop' }), 2880, 1620, join(docs, 'desktop-assets', `${file}.png`));
+  await render(page({ w: 2880, h: 1620, shot: img(shot), marks: marksOf(shot), headline, notes, kind: 'desktop', pal: palette(i) }), 2880, 1620, join(docs, 'desktop-assets', `${file}.png`));
 }
 await render(graphic, 1024, 500, join(docs, 'feature-graphic.png'));
 await browser.close();
