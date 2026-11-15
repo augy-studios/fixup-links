@@ -487,6 +487,7 @@ class _WinButtonState extends State<_WinButton> {
         button: true,
         label: widget.tip,
         child: MouseRegion(
+          cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _hover = true),
           onExit: (_) => setState(() => _hover = false),
           child: GestureDetector(
