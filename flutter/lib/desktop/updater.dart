@@ -32,7 +32,8 @@ import 'desktop.dart';
 import 'notify.dart';
 import 'settings.dart';
 
-const releasesLatest = 'https://github.com/augy-studios/fixup-links/releases/latest';
+const releasesLatest =
+    'https://github.com/augy-studios/fixup-links/releases/latest';
 const _download = '$releasesLatest/download/';
 
 class UpdateFile {
@@ -55,10 +56,16 @@ class UpdateFile {
         if (f is! Map) continue;
         final url = '${f['url'] ?? ''}';
         if (url.isEmpty || (want != null && !want(url))) continue;
-        return UpdateFile(version, url, '${f['sha512'] ?? ''}', (f['size'] as num?)?.toInt() ?? 0);
+        return UpdateFile(
+          version,
+          url,
+          '${f['sha512'] ?? ''}',
+          (f['size'] as num?)?.toInt() ?? 0,
+        );
       }
       final path = '${y['path'] ?? ''}';
-      if (path.isNotEmpty && (want == null || want(path))) return UpdateFile(version, path, '${y['sha512'] ?? ''}', 0);
+      if (path.isNotEmpty && (want == null || want(path)))
+        return UpdateFile(version, path, '${y['sha512'] ?? ''}', 0);
     } catch (_) {}
     return null;
   }
@@ -80,12 +87,20 @@ class DesktopUpdater implements UpdateBackend {
     if (Desktop.fromSource) return InstallKind.source;
     final exe = File(Platform.resolvedExecutable);
     if (Platform.isWindows) {
-      return File('${exe.parent.path}\\Uninstall uwuFix.exe').existsSync() ? InstallKind.nsis : InstallKind.other;
+      return File('${exe.parent.path}\\Uninstall uwuFix.exe').existsSync()
+          ? InstallKind.nsis
+          : InstallKind.other;
     }
-    if (Platform.isLinux) return Platform.environment.containsKey('APPIMAGE') ? InstallKind.appImage : InstallKind.other;
+    if (Platform.isLinux)
+      return Platform.environment.containsKey('APPIMAGE')
+          ? InstallKind.appImage
+          : InstallKind.other;
     if (Platform.isMacOS) {
       final app = _macBundle;
-      if (app == null || app.path.startsWith('/Volumes/') || app.path.contains('AppTranslocation')) return InstallKind.other;
+      if (app == null ||
+          app.path.startsWith('/Volumes/') ||
+          app.path.contains('AppTranslocation'))
+        return InstallKind.other;
       try {
         final probe = File('${app.parent.path}/.uwufix-write-test');
         probe.writeAsStringSync('');
@@ -116,20 +131,34 @@ class DesktopUpdater implements UpdateBackend {
   }
 
   bool _want(String name) {
-    if (Platform.isMacOS) return name.endsWith('.zip') && name.contains(_arm ? '-mac-arm64' : '-mac-x64');
+    if (Platform.isMacOS)
+      return name.endsWith('.zip') &&
+          name.contains(_arm ? '-mac-arm64' : '-mac-x64');
     if (Platform.isLinux) return name.endsWith('.AppImage');
     return name.endsWith('.exe');
   }
 
   @override
-  bool get canInstall => const {InstallKind.nsis, InstallKind.appImage, InstallKind.mac}.contains(kind);
+  bool get canInstall => const {
+    InstallKind.nsis,
+    InstallKind.appImage,
+    InstallKind.mac,
+  }.contains(kind);
 
   /// The newest version's update file, or null if this is it.
-  Future<UpdateFile?> find({Duration timeout = const Duration(seconds: 15)}) async {
+  Future<UpdateFile?> find({
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     if (kind == InstallKind.source) return null;
-    final r = await http.get(Uri.parse('$_download$_ymlName'), headers: {'user-agent': Desktop.userAgent}).timeout(timeout);
+    final r = await http
+        .get(
+          Uri.parse('$_download$_ymlName'),
+          headers: {'user-agent': Desktop.userAgent},
+        )
+        .timeout(timeout);
     if (r.statusCode == 404) return null; // no release with desktop files yet
-    if (r.statusCode != 200) throw HttpException('GitHub replied ${r.statusCode}');
+    if (r.statusCode != 200)
+      throw HttpException('GitHub replied ${r.statusCode}');
     final f = UpdateFile.parse(r.body, want: _want);
     if (f == null || !AppUpdate.newer(f.version, running)) return null;
     return _found = f;
@@ -138,18 +167,24 @@ class DesktopUpdater implements UpdateBackend {
   @override
   Future<({String version, String page})?> latest() async {
     final f = await find();
-    return f == null ? null : (version: f.version, page: '$releasesLatest');
+    return f == null ? null : (version: f.version, page: releasesLatest);
   }
 
   @override
-  Future<void> download(void Function(double? progress, String? detail) progress) async {
+  Future<void> download(
+    void Function(double? progress, String? detail) progress,
+  ) async {
     final f = _found ?? await find();
     if (f == null) return;
-    final dir = Directory('${Directory.systemTemp.path}${Platform.pathSeparator}uwufix-update')..createSync(recursive: true);
+    final dir = Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}uwufix-update',
+    )..createSync(recursive: true);
     final out = File('${dir.path}${Platform.pathSeparator}${f.file}');
-    final req = http.Request('GET', Uri.parse('$_download${f.file}'))..headers['user-agent'] = Desktop.userAgent;
+    final req = http.Request('GET', Uri.parse('$_download${f.file}'))
+      ..headers['user-agent'] = Desktop.userAgent;
     final res = await http.Client().send(req);
-    if (res.statusCode != 200) throw HttpException('GitHub replied ${res.statusCode}');
+    if (res.statusCode != 200)
+      throw HttpException('GitHub replied ${res.statusCode}');
     final total = res.contentLength ?? f.size;
     final sink = out.openWrite();
     final digest = _Sink();
@@ -159,24 +194,41 @@ class DesktopUpdater implements UpdateBackend {
       sink.add(chunk);
       hasher.add(chunk);
       done += chunk.length;
-      progress(total > 0 ? done / total : null, total > 0 ? '${_mb(done)} of ${_mb(total)}' : _mb(done));
+      progress(
+        total > 0 ? done / total : null,
+        total > 0 ? '${_mb(done)} of ${_mb(total)}' : _mb(done),
+      );
     }
     await sink.close();
     hasher.close();
     if (f.sha512.isNotEmpty && base64.encode(digest.value!.bytes) != f.sha512) {
       out.deleteSync();
-      throw const FormatException('The download doesn’t match the file on GitHub.');
+      throw const FormatException(
+        'The download doesn’t match the file on GitHub.',
+      );
     }
     if (Platform.isMacOS) {
       // Unpacked now, so quitting only has to swap it in.
       final unpacked = Directory('${dir.path}/unpacked');
       if (unpacked.existsSync()) unpacked.deleteSync(recursive: true);
       unpacked.createSync();
-      final r = await Process.run('ditto', ['-x', '-k', out.path, unpacked.path]);
-      if (r.exitCode != 0) throw const FormatException('The update wouldn’t unpack.');
+      final r = await Process.run('ditto', [
+        '-x',
+        '-k',
+        out.path,
+        unpacked.path,
+      ]);
+      if (r.exitCode != 0)
+        throw const FormatException('The update wouldn’t unpack.');
     }
     _downloaded = out;
-    _say(f.version, 'ready', 'uwuFix ${f.version} is ready', 'Click to restart and update. Otherwise it updates the next time you quit.', 'update');
+    _say(
+      f.version,
+      'ready',
+      'uwuFix ${f.version} is ready',
+      'Click to restart and update. Otherwise it updates the next time you quit.',
+      'update',
+    );
   }
 
   static String _mb(int bytes) => '${(bytes / 1000000).toStringAsFixed(1)} MB';
@@ -189,18 +241,29 @@ class DesktopUpdater implements UpdateBackend {
     if (file == null) return;
     switch (kind) {
       case InstallKind.nsis:
-        await Process.start(file.path, ['/S', '--updated', if (reopen) '--force-run'], mode: ProcessStartMode.detached);
+        await Process.start(file.path, [
+          '/S',
+          '--updated',
+          if (reopen) '--force-run',
+        ], mode: ProcessStartMode.detached);
       case InstallKind.appImage:
         final target = Platform.environment['APPIMAGE']!;
         final next = File('$target.new');
         await file.copy(next.path);
         await Process.run('chmod', ['+x', next.path]);
         next.renameSync(target);
-        if (reopen) await Process.start(target, const [], mode: ProcessStartMode.detached);
+        if (reopen)
+          await Process.start(
+            target,
+            const [],
+            mode: ProcessStartMode.detached,
+          );
       case InstallKind.mac:
         final app = _macBundle!;
         final unpacked = Directory('${file.parent.path}/unpacked');
-        final newApp = unpacked.listSync().whereType<Directory>().firstWhere((d) => d.path.endsWith('.app'));
+        final newApp = unpacked.listSync().whereType<Directory>().firstWhere(
+          (d) => d.path.endsWith('.app'),
+        );
         // Waits for this process to end, swaps the bundles (keeping the old if the move fails),
         // clears the quarantine flag and reopens it.
         final script = File('${file.parent.path}/swap.sh')
@@ -211,7 +274,9 @@ mv "\$OLD" "\$OLD.old" && if mv "${newApp.path}" "\$OLD"; then rm -rf "\$OLD.old
 xattr -dr com.apple.quarantine "\$OLD" 2>/dev/null
 ${reopen ? 'open "\$OLD"' : ''}
 ''');
-        await Process.start('/bin/sh', [script.path], mode: ProcessStartMode.detached);
+        await Process.start('/bin/sh', [
+          script.path,
+        ], mode: ProcessStartMode.detached);
       default:
         return;
     }
@@ -219,12 +284,23 @@ ${reopen ? 'open "\$OLD"' : ''}
   }
 
   /// Once per version, and only while New versions of the app is on (or when asked).
-  void _say(String version, String what, String title, String body, String payload, {bool asked = false}) {
+  void _say(
+    String version,
+    String what,
+    String title,
+    String body,
+    String payload, {
+    bool asked = false,
+  }) {
     if (!asked && DeskSettings.get('updateNotices') == false) return;
-    final said = Map<String, dynamic>.from((DeskSettings.get('updateSaid') as Map?) ?? const {});
+    final said = Map<String, dynamic>.from(
+      (DeskSettings.get('updateSaid') as Map?) ?? const {},
+    );
     final list = [...((said[version] as List?) ?? const [])];
     if (!asked && list.contains(what)) return;
-    DeskSettings.set('updateSaid', {version: [...list, what]});
+    DeskSettings.set('updateSaid', {
+      version: [...list, what],
+    });
     DeskNotify.show(title, body, payload: payload);
   }
 
@@ -237,14 +313,26 @@ ${reopen ? 'open "\$OLD"' : ''}
       AppUpdate.I.version = f.version;
       AppUpdate.I.page = releasesLatest;
       if (!canInstall) {
-        _say(f.version, 'out', 'uwuFix ${f.version} is out', 'Click to download it from GitHub.', 'release');
+        _say(
+          f.version,
+          'out',
+          'uwuFix ${f.version} is out',
+          'Click to download it from GitHub.',
+          'release',
+        );
         AppUpdate.I.check();
         return;
       }
       try {
         await AppUpdate.I.update();
       } catch (_) {
-        _say(f.version, 'failed', 'Couldn’t download uwuFix ${f.version}', 'It tries again within the hour, or click to download it from GitHub.', 'release');
+        _say(
+          f.version,
+          'failed',
+          'Couldn’t download uwuFix ${f.version}',
+          'It tries again within the hour, or click to download it from GitHub.',
+          'release',
+        );
       }
     } catch (_) {
       // Offline: says nothing unless asked.

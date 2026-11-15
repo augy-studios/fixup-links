@@ -29,13 +29,17 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   String _step = 'checking';
   String? _version;
   double? _progress;
   String? _detail;
   bool _later = false;
-  late final _bob = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..repeat(reverse: true);
+  late final _bob = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat(reverse: true);
 
   @override
   void initState() {
@@ -76,17 +80,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       _progress = 0;
     });
     AppUpdate.I.version = found.version;
-    final listener = () {
+    Null listener() {
       if (!mounted) return;
       setState(() {
         _progress = AppUpdate.I.progress;
         _detail = AppUpdate.I.detail;
       });
-    };
+    }
+
     AppUpdate.I.addListener(listener);
     await AppUpdate.I.update();
     AppUpdate.I.removeListener(listener);
-    if (_later || !mounted) return; // the app's open: Restart's in the update bar and the tray
+    if (_later || !mounted)
+      return; // the app's open: Restart's in the update bar and the tray
     if (widget.updater.ready) {
       setState(() => _step = 'installing');
       await widget.updater.install();
@@ -123,44 +129,96 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final reduce = MediaQuery.of(context).disableAnimations;
     final (title, line) = switch (_step) {
       'checking' => ('Checking for updates…', null),
-      'downloading' => ('Downloading update', _version == null ? null : 'Version $_version${_detail == null ? '' : '\n$_detail'}'),
+      'downloading' => (
+        'Downloading update',
+        _version == null
+            ? null
+            : 'Version $_version${_detail == null ? '' : '\n$_detail'}',
+      ),
       'installing' => ('Installing update…', null),
       _ => ('Starting…', null),
     };
     return Theme(
-      data: ThemeData(brightness: dark ? Brightness.dark : Brightness.light, colorSchemeSeed: accent, useMaterial3: true),
+      data: ThemeData(
+        brightness: dark ? Brightness.dark : Brightness.light,
+        colorSchemeSeed: accent,
+        useMaterial3: true,
+      ),
       child: Scaffold(
         backgroundColor: bg,
         body: DragToMoveArea(
           child: SizedBox.expand(
             child: Padding(
               padding: const EdgeInsets.all(28),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                AnimatedBuilder(
-                  animation: _bob,
-                  builder: (_, child) => Transform.translate(offset: Offset(0, reduce ? 0 : -6 * Curves.easeInOut.transform(_bob.value)), child: child),
-                  child: ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.asset('assets/desktop/icon.png', width: 96, height: 96)),
-                ),
-                const SizedBox(height: 26),
-                Semantics(liveRegion: true, child: Text(title, textAlign: TextAlign.center, style: TextStyle(color: ink, fontSize: 16, fontWeight: FontWeight.w600))),
-                if (line != null) ...[
-                  const SizedBox(height: 6),
-                  Text(line, textAlign: TextAlign.center, style: TextStyle(color: ink.withValues(alpha: 0.7), fontSize: 13)),
-                ],
-                const SizedBox(height: 18),
-                if (_step == 'checking' || _step == 'downloading' || _step == 'installing')
-                  WavyProgress(value: _step == 'downloading' ? _progress : null, color: accent, trackColor: accent.withValues(alpha: 0.2), semanticsLabel: title),
-                if (_step == 'downloading') ...[
-                  const SizedBox(height: 14),
-                  TextButton(
-                    onPressed: () {
-                      _later = true;
-                      widget.onDone();
-                    },
-                    child: const Text('Later'),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _bob,
+                    builder: (_, child) => Transform.translate(
+                      offset: Offset(
+                        0,
+                        reduce
+                            ? 0
+                            : -6 * Curves.easeInOut.transform(_bob.value),
+                      ),
+                      child: child,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/desktop/icon.png',
+                        width: 96,
+                        height: 96,
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 26),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (line != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      line,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: ink.withValues(alpha: 0.7),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  if (_step == 'checking' ||
+                      _step == 'downloading' ||
+                      _step == 'installing')
+                    WavyProgress(
+                      value: _step == 'downloading' ? _progress : null,
+                      color: accent,
+                      trackColor: accent.withValues(alpha: 0.2),
+                      semanticsLabel: title,
+                    ),
+                  if (_step == 'downloading') ...[
+                    const SizedBox(height: 14),
+                    TextButton(
+                      onPressed: () {
+                        _later = true;
+                        widget.onDone();
+                      },
+                      child: const Text('Later'),
+                    ),
+                  ],
                 ],
-              ]),
+              ),
             ),
           ),
         ),

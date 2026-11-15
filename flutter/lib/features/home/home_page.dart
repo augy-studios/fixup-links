@@ -43,7 +43,9 @@ class HomePage extends StatelessWidget {
             children: [
               // Steps in and out with the tray, at its pace.
               AnimatedPadding(
-                duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 340),
+                duration: MediaQuery.of(context).disableAnimations
+                    ? Duration.zero
+                    : const Duration(milliseconds: 340),
                 curve: const Cubic(0.2, 0.8, 0.2, 1),
                 padding: EdgeInsets.only(right: trailingSpace),
                 child: const _Brand(),
@@ -97,12 +99,18 @@ class HomePage extends StatelessWidget {
         ),
       ),
     ];
-    final padding = EdgeInsets.fromLTRB(sidePadding, pad.top + 14, sidePadding, pad.bottom + 24);
-    if (long)
+    final padding = EdgeInsets.fromLTRB(
+      sidePadding,
+      pad.top + 14,
+      sidePadding,
+      pad.bottom + 24,
+    );
+    if (long) {
       return Padding(
         padding: padding,
         child: Column(mainAxisSize: MainAxisSize.min, children: children),
       );
+    }
     return ListView(padding: padding, children: children);
   }
 }
