@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../features/bug/bug_report.dart';
 import '../theme/theme.dart';
 import '../widgets/glass.dart';
+import '../widgets/pointer.dart';
 import 'nav.dart';
 import 'quick.dart';
 import 'shell.dart';
@@ -59,17 +60,21 @@ class _UwuFixAppState extends State<UwuFixApp> with WidgetsBindingObserver {
             // Text as large as the device asks, up to twice, so layouts hold.
             // Report a bug's Screenshot a page draws what's in the RepaintBoundary, and its button
             // floats over it, outside, so it isn't in the picture.
-            builder: (context, child) => MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 2,
-              child: Stack(children: [
-                // A desktop's glass lies over its backdrop (widgets/glass.dart).
-                Positioned.fill(child: RepaintBoundary(key: AppNav.shotKey, child: GlassBackdrop(child: child!))),
-                ValueListenableBuilder(
-                  valueListenable: AppNav.shooting,
-                  builder: (context, on, _) => on ? const ShotBar() : const SizedBox.shrink(),
-                ),
-              ]),
-            ),
+            builder: (context, child) {
+              final app = MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 2,
+                child: Stack(children: [
+                  // A desktop's glass lies over its backdrop (widgets/glass.dart).
+                  Positioned.fill(child: RepaintBoundary(key: AppNav.shotKey, child: GlassBackdrop(child: child!))),
+                  ValueListenableBuilder(
+                    valueListenable: AppNav.shooting,
+                    builder: (context, on, _) => on ? const ShotBar() : const SizedBox.shrink(),
+                  ),
+                ]),
+              );
+              // The pointing hand over buttons on a computer (widgets/pointer.dart).
+              return onDesktop ? PointerOverButtons(child: app) : app;
+            },
             home: widget.home ?? (isQuick ? const QuickScreen() : widget.desktopShell ?? const PhoneShell()),
           );
         },

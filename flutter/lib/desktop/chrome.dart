@@ -12,7 +12,8 @@
 // - the desktop's keyboard shortcuts, and on macOS its own menu bar;
 // - full screen with F11, the title bar and rail hidden.
 //
-// In a desktop's glass (theme/theme.dart's Glass) the title bar is clear over the backdrop, and
+// In a desktop's glass (theme/theme.dart's Glass) the title bar is clear over the backdrop (in
+// Fluent 2, plain white in a light theme and plain black in a dark one), and
 // the rail and the page sit on it as each desktop has them: Fluent 2's pages on a layer a shade
 // lighter than the Mica beside the rail, macOS Tahoe's rail a pane of glass floating inside the
 // window's edge, and Frosted Glass's rail a frosted pane down the side.
@@ -426,9 +427,15 @@ class _TitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final fx = context.fx;
     final scheme = Theme.of(context).colorScheme;
-    // A desktop's glass: clear, over the backdrop, as Fluent 2's and macOS's title bars are.
-    final bar = fx.glass != null ? Colors.transparent : (fx.uwu ? fx.brandFill : scheme.surfaceContainer);
-    final ink = fx.glass != null ? fx.ink : (bar.computeLuminance() > 0.45 ? const Color(0xFF121815) : Colors.white);
+    // Fluent 2: plain white in a light theme and plain black in a dark one. The other desktop
+    // glass: clear, over the backdrop, as macOS's title bar is.
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bar = switch (fx.glass) {
+      Glass.fluent => dark ? Colors.black : Colors.white,
+      null => fx.uwu ? fx.brandFill : scheme.surfaceContainer,
+      _ => Colors.transparent,
+    };
+    final ink = bar == Colors.transparent ? fx.ink : (bar.computeLuminance() > 0.45 ? const Color(0xFF121815) : Colors.white);
     Widget btn(IconData icon, String tip, VoidCallback? onTap) => Tooltip(
           message: tip,
           waitDuration: const Duration(milliseconds: 400),

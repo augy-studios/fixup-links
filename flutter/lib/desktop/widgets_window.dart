@@ -23,6 +23,7 @@ import '../data/history.dart';
 import '../data/linkfix.dart';
 import '../data/store.dart';
 import '../theme/theme.dart';
+import '../widgets/pointer.dart';
 import 'desktop.dart';
 import 'settings.dart';
 
@@ -178,6 +179,7 @@ class _WidgetAppState extends State<_WidgetApp> with WindowListener {
     final ink = dark ? const Color(0xFFEEF2EF) : const Color(0xFF121815);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => PointerOverButtons(child: child!),
       theme: ThemeData(brightness: dark ? Brightness.dark : Brightness.light, colorSchemeSeed: const Color(0xFF1F6B3D), useMaterial3: true, visualDensity: VisualDensity.compact),
       home: Scaffold(
         backgroundColor: bg,

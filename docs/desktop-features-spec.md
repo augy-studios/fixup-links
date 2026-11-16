@@ -227,8 +227,9 @@ The `.exe` install is told apart by the uninstaller it leaves beside the app.
 ### The title bar and command bar
 
 The system's title bar is replaced by the app's own, 40 px tall, in the app's current brand
-colour (writing light or dark by contrast with it), and draggable where there's nothing to
-click. Double-clicking it maximises or restores. Left to right:
+colour (writing light or dark by contrast with it); in Fluent 2, plain white in a light theme and
+plain black in a dark one, and in the other desktop glass clear over the backdrop. It's draggable
+where there's nothing to click. Double-clicking it maximises or restores. Left to right:
 
 | Part | What it does |
 |---|---|
