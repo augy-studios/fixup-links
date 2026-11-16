@@ -1,7 +1,14 @@
 // The app's two looks, switchable in Look (features/look/look_page.dart):
 //
-//   Material You   the phone's own palette from its wallpaper (Android 12 and later) and its own
-//                  font, as Android's own apps have it. The default on Android.
+//   the device's   on a phone, Material You: the phone's own palette from its wallpaper (Android
+//                  12 and later) and its own font, as Android's own apps have it. The default on
+//                  Android. On a computer, its desktop's own glass instead (Glass), as near to
+//                  iOS's Liquid Glass as each desktop's own design language goes:
+//                    Windows   Fluent 2: Mica behind the window, Acrylic on what floats over it
+//                    macOS     macOS Tahoe: the window's vibrancy, and rounder, clearer glass on it
+//                    Linux     Frosted Glass, after Deepin's DDE and COSMIC: a blurred backdrop
+//                              where the desktop blurs behind windows, frosted panes on it
+//                  each with the computer's accent colour and its own font.
 //   UwU Apps       the site's look: its seven brand colours, its pale surfaces, Jua, and light,
 //                  dark or by the clock. The default on the desktop, which can take the computer's
 //                  accent colour for its highlights instead (useSystemAccent).
@@ -11,6 +18,7 @@
 // across. Widgets read colours from context.fx, never literals.
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
@@ -54,12 +62,21 @@ class Fx extends ThemeExtension<Fx> {
     required this.warn,
     required this.error,
     required this.uwu,
+    this.glass,
   });
 
   final Color bg, surface, surfaceStrong, border, ink, muted, brandInk, brandFill, brandFillStrong, onBrand, ok, warn, error;
 
   /// The UwU Apps look (glass cards and Jua), rather than Material You's.
   final bool uwu;
+
+  /// The desktop's own glass, when that's the look (bg is then the opaque colour behind it, for
+  /// screenshots and where the system draws no backdrop).
+  final Glass? glass;
+
+  /// See-through surfaces with an edge, the UwU Apps look's or a desktop's glass, rather than
+  /// Material You's flat tonal ones.
+  bool get glassy => uwu || glass != null;
 
   @override
   Fx copyWith() => this;
@@ -83,6 +100,7 @@ class Fx extends ThemeExtension<Fx> {
       warn: c(warn, other.warn),
       error: c(error, other.error),
       uwu: t < 0.5 ? uwu : other.uwu,
+      glass: t < 0.5 ? glass : other.glass,
     );
   }
 }
@@ -93,6 +111,129 @@ extension FxContext on BuildContext {
 
 /// Whether this is the desktop app (Windows, macOS, Linux), not a phone or a test.
 bool get onDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux) && !Platform.environment.containsKey('FLUTTER_TEST');
+
+/// A desktop's own glass: the second look on a computer, in place of Material You. Each as its
+/// desktop's design language draws it, and each pushed as far towards iOS's Liquid Glass as that
+/// language goes: clear panes that blur what's behind them, a bright edge where light catches
+/// them, the accent colour for what's pressed.
+enum Glass {
+  /// Windows 11's Fluent 2: Mica behind the window (the wallpaper, blurred and tinted), Acrylic on
+  /// what floats over it, 8 px corners on the window and a little rounder on cards here.
+  fluent(
+    label: 'Fluent 2',
+    about: 'Windows 11’s own look: Mica behind the window, Acrylic on what floats over it, and your accent colour.',
+    card: 12,
+    control: 8,
+    blur: 30,
+    light: Color(0xFFF3F3F3),
+    dark: Color(0xFF202020),
+    paneLight: 0.62,
+    paneDark: 0.055,
+    edge: 0.5,
+    veil: 0.0, // Mica is tinted already
+    accent: Color(0xFF005FB8),
+    font: 'Segoe UI Variable Text',
+  ),
+
+  /// macOS Tahoe's Liquid Glass: the window's vibrancy behind, and on it clear, deeply rounded
+  /// panes with a bright rim, capsule buttons.
+  tahoe(
+    label: 'macOS Tahoe',
+    about: 'macOS Tahoe’s Liquid Glass: the desktop through the window, clear rounded panes, and your accent colour.',
+    card: 22,
+    control: 999,
+    blur: 24,
+    light: Color(0xFFF2F2F7),
+    dark: Color(0xFF1C1C1E),
+    paneLight: 0.45,
+    paneDark: 0.07,
+    edge: 0.9,
+    veil: 0.2,
+    accent: Color(0xFF007AFF),
+    font: null, // the system's (San Francisco)
+  ),
+
+  /// Deepin's DDE and COSMIC's frosted glass: the desktop blurred behind the window where its
+  /// compositor does that (KWin and Deepin's, by X11's blur hint), frosted panes on it.
+  frosted(
+    label: 'Frosted Glass',
+    about: 'Deepin’s and COSMIC’s frosted glass: the desktop blurred behind the window, frosted panes, and your accent colour.',
+    card: 16,
+    control: 10,
+    blur: 26,
+    light: Color(0xFFF0F2F5),
+    dark: Color(0xFF1D2024),
+    paneLight: 0.55,
+    paneDark: 0.06,
+    edge: 0.7,
+    veil: 0.5, // a compositor's blur is untinted
+    accent: Color(0xFF0081FF),
+    font: null, // the system's
+  );
+
+  const Glass({
+    required this.label,
+    required this.about,
+    required this.card,
+    required this.control,
+    required this.blur,
+    required this.light,
+    required this.dark,
+    required this.paneLight,
+    required this.paneDark,
+    required this.edge,
+    required this.veil,
+    required this.accent,
+    required this.font,
+  });
+
+  /// Its name in Look, and what it is.
+  final String label, about;
+
+  /// Corner radii: cards and panes, and buttons and fields (999: a capsule).
+  final double card, control;
+
+  /// How far a pane blurs what's behind it (a Gaussian sigma).
+  final double blur;
+
+  /// The window's colour where nothing's behind it, light and dark.
+  final Color light, dark;
+
+  /// How much white a pane is, light and dark: lower is clearer.
+  final double paneLight, paneDark;
+
+  /// How bright a pane's rim catches the light, 0 to 1.
+  final double edge;
+
+  /// How much of the window's colour lies over the system's backdrop, so text reads on it.
+  final double veil;
+
+  /// The accent when the computer gives none.
+  final Color accent;
+
+  /// Its font, or null for the system's.
+  final String? font;
+
+  /// This computer's, if it's a computer.
+  static Glass? get current {
+    if (override != null) return override;
+    if (!onDesktop) return null;
+    if (Platform.isWindows) return fluent;
+    if (Platform.isMacOS) return tahoe;
+    return frosted;
+  }
+
+  /// For tests and screenshots: a desktop's glass where there's no desktop.
+  static Glass? override;
+}
+
+/// The accent, as ink that reads on glass: deep enough on light, light enough on dark (as Fluent
+/// 2 shades the Windows accent, and macOS its controls').
+Color accentInk(Color accent, bool dark) {
+  final h = HSLColor.fromColor(accent);
+  final l = dark ? math.max(h.lightness, 0.68) : math.min(h.lightness, 0.42);
+  return h.withLightness(l).withSaturation(math.min(h.saturation, 0.95)).toColor();
+}
 
 /// What draws the characters a look's font hasn't: an ellipsis or a middle dot in Jua, emoji in
 /// page titles. Whichever of these the device has.
@@ -119,15 +260,38 @@ class AppLook extends ChangeNotifier {
   /// For tests and screenshots: the clock.
   static DateTime Function() now = DateTime.now;
 
-  bool get materialYou {
+  /// The device's own look rather than the UwU Apps look: Material You on a phone, its desktop's
+  /// glass on a computer. Kept as the site keeps it ('you' or 'uwu'), and 'glass' for a desktop's,
+  /// which a phone reads as Material You; a computer reads 'you' (its Material You, from before it
+  /// had glass) as glass.
+  bool get deviceLook {
     final v = Store.I.get(lookKey);
-    if (v == 'you') return true;
+    if (v == 'you' || v == 'glass') return true;
     if (v == 'uwu') return false;
     return !onDesktop; // Material You on Android, the UwU Apps look on the desktop
   }
 
-  set materialYou(bool on) {
-    Store.I.put(lookKey, on ? 'you' : 'uwu');
+  set deviceLook(bool on) {
+    Store.I.put(lookKey, on ? (Glass.current != null ? 'glass' : 'you') : 'uwu');
+    notifyListeners();
+  }
+
+  /// Material You, the phone's look.
+  bool get materialYou => deviceLook && Glass.current == null;
+
+  /// The desktop's glass, when that's the look.
+  Glass? get glass => deviceLook ? Glass.current : null;
+
+  /// The device's own look's name: Material You, Fluent 2, macOS Tahoe or Frosted Glass.
+  String get deviceLookName => Glass.current?.label ?? 'Material You';
+
+  /// Whether the system draws the window's backdrop (Mica, macOS's vibrancy, the compositor's
+  /// blur), told by desktop/backdrop.dart. Without it the glass is drawn over a backdrop of its own.
+  bool get backdrop => _backdrop;
+  bool _backdrop = false;
+  set backdrop(bool on) {
+    if (on == _backdrop) return;
+    _backdrop = on;
     notifyListeners();
   }
 
@@ -207,7 +371,11 @@ class AppLook extends ChangeNotifier {
 
   void refresh() => notifyListeners();
 
-  ThemeData theme(Brightness b) => materialYou ? _you(b) : _uwu(b);
+  ThemeData theme(Brightness b) {
+    final g = glass;
+    if (g != null) return _glass(b, g);
+    return materialYou ? _you(b) : _uwu(b);
+  }
 
   // ---------- Material You ----------
 
@@ -238,6 +406,155 @@ class AppLook extends ChangeNotifier {
       visualDensity: onDesktop ? VisualDensity.compact : VisualDensity.standard,
       extensions: [fx],
       snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  // ---------- A desktop's glass (Fluent 2, macOS Tahoe, Frosted Glass) ----------
+
+  ThemeData _glass(Brightness b, Glass g) {
+    final dark = b == Brightness.dark;
+    final base = dark ? g.dark : g.light;
+    final accent = systemAccent ?? g.accent;
+    final brandInk = accentInk(accent, dark);
+    // White or near-black on the accent, whichever reads better (Fluent 2's dark accent buttons
+    // take black text).
+    final lum = brandInk.computeLuminance();
+    final onAccent = (lum + 0.05) / 0.05 > 1.05 / (lum + 0.05) ? const Color(0xFF111111) : Colors.white;
+    final ink = dark ? const Color(0xFFF5F5F7) : const Color(0xFF1C1C1E);
+    final muted = dark ? const Color(0xFFA1A1A6) : const Color(0xFF5E5E63);
+    // Panes are white: plenty over light, a breath of it over dark. Cards are a little stronger.
+    final surface = Colors.white.withValues(alpha: dark ? g.paneDark : g.paneLight);
+    final surfaceStrong = Colors.white.withValues(alpha: dark ? g.paneDark + 0.06 : math.min(g.paneLight + 0.22, 0.9));
+    final border = dark ? const Color(0x1FFFFFFF) : const Color(0x16000000);
+    // What's chosen: the accent, see-through.
+    final fill = brandInk.withValues(alpha: dark ? 0.30 : 0.16);
+    // Menus, dialogs and sheets, over whatever's there: near enough opaque to read.
+    final solid = Color.alphaBlend(surfaceStrong, base);
+    final fx = Fx(
+      bg: base,
+      surface: surface,
+      surfaceStrong: surfaceStrong,
+      border: border,
+      ink: ink,
+      muted: muted,
+      brandInk: brandInk,
+      brandFill: fill,
+      brandFillStrong: brandInk,
+      onBrand: ink,
+      ok: dark ? const Color(0xFF4ADE80) : const Color(0xFF0F7234),
+      warn: dark ? const Color(0xFFFBBF24) : const Color(0xFFA24B08),
+      error: dark ? const Color(0xFFFF6961) : const Color(0xFFC42B1C),
+      uwu: false,
+      glass: g,
+    );
+    final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: b).copyWith(
+      primary: brandInk,
+      onPrimary: onAccent,
+      primaryContainer: Color.alphaBlend(fill, solid),
+      onPrimaryContainer: ink,
+      secondaryContainer: fill,
+      onSecondaryContainer: ink,
+      surface: base,
+      onSurface: ink,
+      onSurfaceVariant: muted,
+      surfaceContainerLowest: Color.alphaBlend(surface, base),
+      surfaceContainerLow: Color.alphaBlend(surface, base),
+      surfaceContainer: solid,
+      surfaceContainerHigh: solid,
+      surfaceContainerHighest: solid,
+      outlineVariant: border,
+      error: fx.error,
+    );
+    final capsule = g.control >= 999;
+    final controlShape = capsule ? const StadiumBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(g.control)) as OutlinedBorder;
+    final fieldRadius = BorderRadius.circular(capsule ? 12 : g.control);
+    final font = g.font;
+    final fallback = [if (g == Glass.fluent) 'Segoe UI', ...fontFallback];
+    // A style of the glass's font, or of the platform's where it's the system's (as Flutter's own
+    // typography picks it: San Francisco, Segoe UI, the Linux desktop's sans).
+    final body = Typography.material2021(platform: defaultTargetPlatform).black.bodyMedium!;
+    TextStyle text([double? size, Color? color]) => body.copyWith(fontFamily: font ?? body.fontFamily, fontFamilyFallback: fallback, fontSize: size, color: color);
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme,
+      fontFamily: font,
+      fontFamilyFallback: fallback,
+      // The window shows through: the system's backdrop, or the glass's own (GlassBackdrop).
+      scaffoldBackgroundColor: Colors.transparent,
+      canvasColor: solid,
+      visualDensity: onDesktop ? VisualDensity.compact : VisualDensity.standard,
+      // Highlights on hover and press, as the desktops have, not Android's ripple.
+      splashFactory: NoSplash.splashFactory,
+      hoverColor: ink.withValues(alpha: 0.05),
+      highlightColor: ink.withValues(alpha: 0.08),
+      extensions: [fx],
+      dividerTheme: DividerThemeData(color: border, space: 1),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: Colors.transparent,
+        indicatorColor: fill,
+        indicatorShape: controlShape,
+        selectedIconTheme: IconThemeData(color: brandInk),
+        unselectedIconTheme: IconThemeData(color: ink.withValues(alpha: 0.8)),
+      ),
+      navigationBarTheme: NavigationBarThemeData(backgroundColor: surface, indicatorColor: fill, indicatorShape: controlShape),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: solid,
+        contentTextStyle: text(14, ink),
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(g.card, 16)), side: BorderSide(color: border)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(backgroundColor: brandInk, foregroundColor: onAccent, shape: controlShape, elevation: 0),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(backgroundColor: surfaceStrong, foregroundColor: ink, side: BorderSide(color: border), shape: controlShape),
+      ),
+      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: brandInk, shape: controlShape)),
+      iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(shape: capsule ? const CircleBorder() : controlShape)),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          backgroundColor: surface,
+          selectedBackgroundColor: fill,
+          selectedForegroundColor: ink,
+          foregroundColor: ink,
+          side: BorderSide(color: border),
+          shape: controlShape,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: surface,
+        selectedColor: fill,
+        side: BorderSide(color: border),
+        shape: controlShape,
+      ),
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(g.card), side: BorderSide(color: border)),
+      ),
+      listTileTheme: ListTileThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(capsule ? 12 : g.control)), selectedColor: brandInk),
+      dialogTheme: DialogThemeData(
+        backgroundColor: solid,
+        elevation: 12,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(g.card + 4), side: BorderSide(color: border)),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(backgroundColor: solid),
+      popupMenuTheme: PopupMenuThemeData(
+        color: solid,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(g.card, 14)), side: BorderSide(color: border)),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(color: solid, borderRadius: BorderRadius.circular(capsule ? 10 : g.control), border: Border.all(color: border)),
+        textStyle: text(12.5, ink),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surfaceStrong,
+        border: OutlineInputBorder(borderRadius: fieldRadius, borderSide: BorderSide(color: border)),
+        enabledBorder: OutlineInputBorder(borderRadius: fieldRadius, borderSide: BorderSide(color: border)),
+        focusedBorder: OutlineInputBorder(borderRadius: fieldRadius, borderSide: BorderSide(color: brandInk, width: 2)),
+      ),
     );
   }
 

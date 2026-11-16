@@ -5,7 +5,8 @@
 //   Start when I sign in   switch
 //   Follow system theme    switch; off, the Theme row decides
 //   Theme                  Light, Dark, Time-based (greyed while Follow system theme is on)
-//   Look                   UwU Apps (the default on the desktop) or Material You
+//   Look                   UwU Apps (the default on the desktop) or the desktop's own glass:
+//                          Fluent 2, macOS Tahoe or Frosted Glass (theme/theme.dart's Glass)
 //   Brand colour           the site's colours, or System accent
 //
 // It previews as you pick. Get started applies everything through the same settings the app's own
@@ -28,7 +29,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final look = AppLook.I;
   late final String _wasMode = look.modePreference;
   late final String _wasSwatch = look.swatchId;
-  late final bool _wasYou = look.materialYou;
+  late final bool _wasDevice = look.deviceLook;
   late final bool _wasAccent = look.useSystemAccent;
   bool _login = true;
   bool _applied = false;
@@ -47,7 +48,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (!_applied) {
       look.modePreference = _wasMode;
       look.swatchId = _wasSwatch;
-      look.materialYou = _wasYou;
+      look.deviceLook = _wasDevice;
       look.useSystemAccent = _wasAccent;
     }
     super.dispose();
@@ -144,13 +145,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               Icons.palette_outlined,
               'Look',
               DropdownButton<bool>(
-                value: look.materialYou,
+                value: look.deviceLook,
                 underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(value: false, child: Text('UwU Apps')),
-                  DropdownMenuItem(value: true, child: Text('Material You')),
+                items: [
+                  const DropdownMenuItem(value: false, child: Text('UwU Apps')),
+                  DropdownMenuItem(value: true, child: Text(look.deviceLookName)),
                 ],
-                onChanged: (v) => look.materialYou = v!,
+                onChanged: (v) => look.deviceLook = v!,
               ),
             ),
             row(

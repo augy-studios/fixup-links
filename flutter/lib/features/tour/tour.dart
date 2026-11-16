@@ -178,7 +178,7 @@ class Tours {
     'look': [
       TourStep(
         'look.style',
-        () => 'Material You takes its colours from your device; UwU Apps is the website’s own look.',
+        () => '${AppLook.I.deviceLookName} takes its colours from your device; UwU Apps is the website’s own look.',
       ),
       TourStep(
         'look.mode',

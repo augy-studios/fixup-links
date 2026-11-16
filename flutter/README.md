@@ -11,7 +11,7 @@ by themselves on the first open (`lib/data/migrate.dart`).
 
 | | Android (`org.uwuapps.fixup`) | Windows, macOS, Linux |
 |---|---|---|
-| **Look** | Material You by default (colours from the wallpaper, the phone's font), or the UwU Apps look in **Look** | The UwU Apps look by default, with the computer's accent colour if wanted, or Material You |
+| **Look** | Material You by default (colours from the wallpaper, the phone's font), or the UwU Apps look in **Look** | The UwU Apps look by default, with the computer's accent colour if wanted, or the desktop's own glass, as near to iOS's Liquid Glass as each goes: **Fluent 2** (Mica and Acrylic) on Windows, **macOS Tahoe** on a Mac, **Frosted Glass** (after Deepin's DDE and COSMIC) on Linux |
 | **Getting a link in** | Share to uwuFix, **Fix link** in the text menu (with Replace in place), widgets, `uwu://fix/` links, the site's own links | Ctrl+K command bar, the tray's **Fix copied link**, Fix a link widgets, `uwu://fix/` links, Jump List (Windows) and Dock menu (macOS) |
 | **Updates** | From GitHub Releases, with its own updates page (every version's notes, wavy progress bars). The Google Play build has none: Play updates it | From GitHub Releases (`latest*.yml`, as Electron's updater reads), restarting into the new version |
 | **Notifications** | Opt-in, by Firebase Cloud Messaging: new versions and news (`FIREBASE-SETUP.md`) | A notification when a new version is out |
@@ -34,7 +34,7 @@ flutter/
     sync/                     PeerJS's wire protocol in Dart, for Share history with the site
     desktop/                  window, title bar, tray, updater, widgets, screenshots, welcome
     native/native_bridge.dart the channel to Android's Java, and the desktop's answers
-    theme/                    Material You and the UwU Apps look
+    theme/                    Material You, the desktop's glass, and the UwU Apps look
   android/                    the Gradle project; Java plugins in app/src/main/java/org/uwuapps/fixup/
   windows/ macos/ linux/      the desktop runners
   installers/                 NSIS and WiX (Windows), dmg (macOS), deb, rpm, AppImage (Linux)
@@ -130,3 +130,11 @@ which writes the Play listing's pictures to `docs/phone-assets/`, `docs/tablet-a
 - **A new page**: its id in `AppNav.pages` (`lib/app/nav.dart`), `pageFor` in
   `lib/app/shell.dart`, the desktop's rail in `lib/desktop/chrome.dart`, and its tour in
   `lib/features/tour/tour.dart`.
+- **The desktop's glass** (Fluent 2, macOS Tahoe, Frosted Glass): each one's corners, blur, panes
+  and accent in `Glass` (`lib/theme/theme.dart`), its panes and backdrop in
+  `lib/widgets/glass.dart`. The system's backdrop behind the window (Mica, macOS's vibrancy, the
+  Linux compositor's blur) is asked for by `lib/desktop/backdrop.dart` and drawn by each runner;
+  where there's none, the app draws its own. `SHOTS=glass flutter test test/shots/` draws all three,
+  light and dark, into `build/shots/`. Linux's Wayland blur uses `ext-background-effect-v1`, its
+  client code in `linux/runner/` made with `wayland-scanner client-header` and `private-code` from
+  wayland-protocols' `staging/ext-background-effect/ext-background-effect-v1.xml`.

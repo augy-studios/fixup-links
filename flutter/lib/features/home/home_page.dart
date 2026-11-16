@@ -245,11 +245,11 @@ class CleanerCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: fx.uwu
+                    color: fx.glassy
                         ? fx.surfaceStrong
                         : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
-                    border: fx.uwu ? Border.all(color: fx.border) : null,
+                    border: fx.glassy ? Border.all(color: fx.border) : null,
                   ),
                   child: SelectableText(
                     f.cleaned!,
@@ -446,13 +446,13 @@ class PlatformsCard extends StatelessWidget {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: fx.uwu
+                      color: fx.glassy
                           ? fx.surfaceStrong
                           : Theme.of(context)
                                 .colorScheme
                                 .surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(999),
-                      border: fx.uwu ? Border.all(color: fx.border) : null,
+                      border: fx.glassy ? Border.all(color: fx.border) : null,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

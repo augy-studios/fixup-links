@@ -16,6 +16,8 @@ import 'package:uwufix/features/bug/bug_report.dart';
 import 'package:uwufix/features/home/fixer.dart';
 import 'package:uwufix/features/tour/tour.dart';
 import 'package:uwufix/native/native_bridge.dart';
+import 'package:uwufix/theme/theme.dart';
+import 'package:uwufix/widgets/glass.dart';
 
 Future<void> _app(WidgetTester t, {Size size = const Size(412, 892), Map<String, String> store = const {}}) async {
   Store.memory({...store});
@@ -118,6 +120,55 @@ void main() {
     await t.tap(find.text('Dark'));
     await t.pumpAndSettle();
     expect(Store.I.get('uwufix.mode'), 'dark');
+  });
+
+  group('a desktop\'s glass in place of Material You', () {
+    tearDown(() {
+      Glass.override = null;
+      AppLook.I.backdrop = false;
+    });
+
+    for (final (glass, name) in const [(Glass.fluent, 'Fluent 2'), (Glass.tahoe, 'macOS Tahoe'), (Glass.frosted, 'Frosted Glass')]) {
+      testWidgets('Look offers $name and UwU Apps', (t) async {
+        Glass.override = glass;
+        await _app(t, store: {'tour.welcome': 'done', 'tour.pages': '["look"]', 'uwufix.look': 'uwu'});
+        AppNav.showPage('look');
+        await t.pumpAndSettle();
+        expect(find.text('Material You'), findsNothing);
+        await t.tap(find.text(name));
+        await t.pumpAndSettle();
+        expect(Store.I.get('uwufix.look'), 'glass');
+        final fx = Theme.of(t.element(find.text(name))).extension<Fx>()!;
+        expect(fx.glass, glass);
+        expect(fx.uwu, isFalse);
+        // The glass's own backdrop behind it, until the system draws one.
+        expect(find.byType(GlassBackdrop), findsOneWidget);
+        expect(find.byType(GlassPane), findsWidgets);
+      });
+    }
+
+    testWidgets('a computer reads Material You from before as its glass, and a phone reads glass as Material You', (t) async {
+      Glass.override = Glass.tahoe;
+      Store.memory({'uwufix.look': 'you'});
+      expect(AppLook.I.glass, Glass.tahoe);
+      expect(AppLook.I.materialYou, isFalse);
+      Glass.override = null;
+      Store.memory({'uwufix.look': 'glass'});
+      expect(AppLook.I.materialYou, isTrue);
+      expect(AppLook.I.glass, isNull);
+    });
+
+    testWidgets('over the system\'s backdrop the window is left clear', (t) async {
+      Glass.override = Glass.fluent;
+      await _app(t, store: {'tour.welcome': 'done', 'uwufix.look': 'glass'});
+      final context = t.element(find.byType(PhoneShell));
+      expect(Theme.of(context).scaffoldBackgroundColor.a, 0);
+      AppLook.I.backdrop = true;
+      await t.pumpAndSettle();
+      // Mica is tinted already: no veil over it.
+      final veil = t.widget<ColoredBox>(find.descendant(of: find.byType(GlassBackdrop), matching: find.byType(ColoredBox)).first);
+      expect(veil.color.a, 0);
+    });
   });
 
   testWidgets('Report a bug sends the report and says its ID', (t) async {

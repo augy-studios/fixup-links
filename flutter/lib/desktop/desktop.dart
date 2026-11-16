@@ -11,7 +11,9 @@
 // - starting at sign-in, one copy at a time, uwu://fix links shared with UwU Apps' other apps
 //   (links_desktop.dart), the Jump List and the Dock's menu (the runners);
 // - Fix a link widgets on the desktop, each a small window of its own (widgets_window.dart);
-// - new versions told by notification (notify.dart).
+// - new versions told by notification (notify.dart);
+// - the system's backdrop behind the window in the desktop's glass look: Mica, the vibrancy, the
+//   compositor's blur (backdrop.dart).
 //
 // What doesn't fit uwuFix is left out: it has no live item to count down in the tray, no map and
 // no location, and no earlier desktop app to take over from.
@@ -35,6 +37,7 @@ import '../features/tour/tour.dart';
 import '../features/update/update_bar.dart';
 import '../native/native_bridge.dart';
 import '../theme/theme.dart';
+import 'backdrop.dart';
 import 'chrome.dart';
 import 'host.dart';
 import 'links_desktop.dart';
@@ -155,6 +158,7 @@ Future<void> desktopMain(List<String> args) async {
   await Native.start();
   await AppLook.I.readDevice();
   await windowManager.ensureInitialized();
+  GlassWindow.I.start();
   await DeskNotify.init(shortcut: !Desktop.fromSource);
   if (!Desktop.fromSource) registerLinkScheme();
   await _startAtSignIn();
@@ -300,6 +304,7 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
     await windowManager.setPreventClose(true);
     await windowManager.setTitle(Desktop.name);
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
+    await GlassWindow.I.apply(again: true);
     await windowManager.setResizable(false);
     await windowManager.setMinimumSize(const Size(300, 360));
     await windowManager.setSize(const Size(300, 360));
@@ -320,6 +325,7 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
 
   Future<void> showWelcome() async {
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: Desktop.mac);
+    await GlassWindow.I.apply(again: true);
     await windowManager.setResizable(true);
     await windowManager.setMinimumSize(const Size(620, 560));
     if (await windowManager.isMaximized()) await windowManager.unmaximize();
@@ -341,6 +347,7 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
       return;
     }
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: Desktop.mac);
+    await GlassWindow.I.apply(again: true);
     await windowManager.setResizable(true);
     await windowManager.setMinimumSize(Desktop.minSize);
     final s = DeskSettings.read();
@@ -396,6 +403,10 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
     _boundsTimer?.cancel();
     _boundsTimer = Timer(const Duration(milliseconds: 500), Desktop.keepBounds);
   }
+
+  // Leaving full screen puts Windows' frame back as it was, without the backdrop's.
+  @override
+  void onWindowLeaveFullScreen() => GlassWindow.I.apply(again: true);
 
   @override
   void onWindowMoved() => _kept();

@@ -27,6 +27,7 @@ import '../../app/nav.dart';
 import '../../data/store.dart';
 import '../../native/native_bridge.dart';
 import '../../theme/theme.dart';
+import '../../widgets/glass.dart';
 
 const _email = 'augy@augystudios.com';
 const _maxShots = 3;
@@ -240,7 +241,9 @@ class _ShotBarState extends State<ShotBar> {
   Future<void> _take() async {
     setState(() => _busy = true);
     try {
-      final shot = await _wholePage();
+      final fx = context.fx;
+      var shot = await _wholePage();
+      if (shot != null && fx.glass != null) shot = await flattenShot(shot, fx.bg);
       final png = await shot?.toByteData(format: ui.ImageByteFormat.png);
       shot?.dispose();
       final jpeg = png == null ? null : await compute(BugReport.pageJpeg, png.buffer.asUint8List());

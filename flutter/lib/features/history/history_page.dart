@@ -143,8 +143,8 @@ class _Row extends StatelessWidget {
     final fx = context.fx;
     final e = entry;
     return Material(
-      color: fx.uwu ? fx.surfaceStrong : Theme.of(context).colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: fx.uwu ? BorderSide(color: fx.border) : BorderSide.none),
+      color: fx.glassy ? fx.surfaceStrong : Theme.of(context).colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: fx.glassy ? BorderSide(color: fx.border) : BorderSide.none),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,

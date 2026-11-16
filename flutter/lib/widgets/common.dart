@@ -1,11 +1,12 @@
-// Shared pieces: the site's glass card in the UwU Apps look (a Material card in Material You's),
-// a small inline SVG icon, and a button with a tooltip.
+// Shared pieces: the site's glass card in the UwU Apps look (a pane of a desktop's glass in that
+// look, a Material card in Material You's), a small inline SVG icon, and a button with a tooltip.
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/theme.dart';
+import 'glass.dart';
 
-/// The site's .card.glass, or a Material You filled card.
+/// The site's .card.glass, a pane of a desktop's glass, or a Material You filled card.
 class GlassCard extends StatelessWidget {
   const GlassCard({super.key, required this.child, this.padding = const EdgeInsets.all(20)});
   final Widget child;
@@ -14,6 +15,10 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fx = context.fx;
+    if (fx.glass != null) {
+      // Over the system's backdrop there's nothing of the app's behind it to blur.
+      return GlassPane(blur: !AppLook.I.backdrop, child: Padding(padding: padding, child: child));
+    }
     if (!fx.uwu) {
       return Card.filled(
         margin: EdgeInsets.zero,
@@ -66,8 +71,8 @@ class RoundButton extends StatelessWidget {
       message: label,
       waitDuration: const Duration(milliseconds: 400),
       child: Material(
-        color: fx.uwu ? fx.surfaceStrong : Theme.of(context).colorScheme.surfaceContainerHigh,
-        shape: CircleBorder(side: fx.uwu ? BorderSide(color: fx.border) : BorderSide.none),
+        color: fx.glassy ? fx.surfaceStrong : Theme.of(context).colorScheme.surfaceContainerHigh,
+        shape: CircleBorder(side: fx.glassy ? BorderSide(color: fx.border) : BorderSide.none),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,

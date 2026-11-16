@@ -16,6 +16,8 @@ import 'package:path_provider/path_provider.dart';
 import '../data/history.dart';
 import '../features/history/history_page.dart';
 import '../features/home/home_page.dart';
+import '../theme/theme.dart';
+import '../widgets/glass.dart';
 import 'notify.dart';
 
 bool _busy = false;
@@ -28,6 +30,7 @@ Future<String?> takeScreenshot(GlobalKey content, {required String page, bool lo
     final ctx = content.currentContext;
     if (ctx == null) return null;
     final ratio = MediaQuery.devicePixelRatioOf(ctx);
+    final fx = ctx.fx;
     ui.Image image;
     if (long && (page == 'home' || page == 'history')) {
       final box = ctx.findRenderObject()! as RenderBox;
@@ -36,6 +39,7 @@ Future<String?> takeScreenshot(GlobalKey content, {required String page, bool lo
       final boundary = ctx.findRenderObject()! as RenderRepaintBoundary;
       image = await boundary.toImage(pixelRatio: ratio);
     }
+    if (fx.glass != null) image = await flattenShot(image, fx.bg);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     if (data == null) return null;
     final bytes = data.buffer.asUint8List();

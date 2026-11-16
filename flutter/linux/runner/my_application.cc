@@ -6,6 +6,8 @@
 // - No title bar of the system's: the app draws its own (window_manager hides the decorations),
 //   and the window shows once the Dart side has drawn and sized it.
 // - The Fix a link widgets' windows (desktop_multi_window) get the plugins they use.
+// - A window that can be clear, for Frosted Glass's blur behind it (glass.cc), which the Dart side
+//   asks for over the app's channel as "setBackdrop".
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
@@ -18,11 +20,13 @@
 #include <window_manager/window_manager_plugin.h>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "glass.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
   GtkWindow* window;
+  FlView* view;
   FlMethodChannel* channel;
 };
 
@@ -35,16 +39,34 @@ static void register_sub_window_plugins(FlPluginRegistry* registry) {
   url_launcher_plugin_register_with_registrar(url);
 }
 
+// The Dart side's asks of the window: Frosted Glass's backdrop on or off.
+static void on_method_call(FlMethodChannel* channel, FlMethodCall* call, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (g_strcmp0(fl_method_call_get_name(call), "setBackdrop") == 0) {
+    FlValue* args = fl_method_call_get_args(call);
+    FlValue* on = args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP ? fl_value_lookup_string(args, "on") : nullptr;
+    const gboolean want = on != nullptr && fl_value_get_type(on) == FL_VALUE_TYPE_BOOL && fl_value_get_bool(on);
+    g_autoptr(FlValue) result = fl_value_new_bool(glass_set_backdrop(self->window, self->view, want));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  fl_method_call_respond(call, response, nullptr);
+}
+
 static void create_window(MyApplication* self) {
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   gtk_window_set_title(window, "uwuFix");
   gtk_window_set_default_size(window, 300, 360);
+  glass_prepare(window);
   self->window = window;
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(project, self->dart_entrypoint_arguments);
 
   FlView* view = fl_view_new(project);
+  self->view = view;
   GdkRGBA background_color;
   gdk_rgba_parse(&background_color, "#EEF2F0");
   fl_view_set_background_color(view, &background_color);
@@ -61,6 +83,7 @@ static void create_window(MyApplication* self) {
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   self->channel = fl_method_channel_new(fl_engine_get_binary_messenger(engine), "org.uwuapps.fixup/desktop",
                                         FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(self->channel, on_method_call, self, nullptr);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -137,6 +160,7 @@ static void my_application_class_init(MyApplicationClass* klass) {
 
 static void my_application_init(MyApplication* self) {
   self->window = nullptr;
+  self->view = nullptr;
   self->channel = nullptr;
 }
 

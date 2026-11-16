@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../features/bug/bug_report.dart';
 import '../theme/theme.dart';
+import '../widgets/glass.dart';
 import 'nav.dart';
 import 'quick.dart';
 import 'shell.dart';
@@ -61,7 +62,8 @@ class _UwuFixAppState extends State<UwuFixApp> with WidgetsBindingObserver {
             builder: (context, child) => MediaQuery.withClampedTextScaling(
               maxScaleFactor: 2,
               child: Stack(children: [
-                Positioned.fill(child: RepaintBoundary(key: AppNav.shotKey, child: child!)),
+                // A desktop's glass lies over its backdrop (widgets/glass.dart).
+                Positioned.fill(child: RepaintBoundary(key: AppNav.shotKey, child: GlassBackdrop(child: child!))),
                 ValueListenableBuilder(
                   valueListenable: AppNav.shooting,
                   builder: (context, on, _) => on ? const ShotBar() : const SizedBox.shrink(),

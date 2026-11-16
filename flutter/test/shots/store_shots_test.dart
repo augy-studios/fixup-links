@@ -4,6 +4,7 @@
 //
 //   SHOTS=all flutter test test/shots/            every shot, into build/shots/
 //   SHOTS=phone-home,desktop flutter test test/shots/   only those (by the start of their names)
+//   SHOTS=glass flutter test test/shots/          the desktop's glass looks, to look at
 //
 // Skipped unless SHOTS is set, so `flutter test` on CI stays quick.
 import 'dart:io';
@@ -54,6 +55,9 @@ Future<void> _fonts() async {
   // What a device falls back to for characters Jua hasn't, and emoji: Windows' own stand in.
   if (File('C:/Windows/Fonts/segoeui.ttf').existsSync()) await _font('Segoe UI', ['C:/Windows/Fonts/segoeui.ttf']);
   if (File('C:/Windows/Fonts/seguiemj.ttf').existsSync()) await _font('Segoe UI Emoji', ['C:/Windows/Fonts/seguiemj.ttf']);
+  // Fluent 2's font (the glass shots), or Roboto standing in for it off Windows.
+  const segoeVariable = 'C:/Windows/Fonts/SegUIVar.ttf';
+  await _font('Segoe UI Variable Text', File(segoeVariable).existsSync() ? [segoeVariable] : roboto);
 }
 
 // Sam's history: real links, as people fix them.
@@ -255,6 +259,39 @@ void main() {
     await _shot(t, 'desktop-platforms', size, 2, _store(look: 'you'), () => const DesktopShell(), padding: EdgeInsets.zero, then: (t) async {
       await t.scrollUntilVisible(find.text('Supported Platforms'), 300, scrollable: find.byType(Scrollable).last);
     });
+  }, skip: _only == null);
+
+  // The desktop apps' own glass looks, Fluent 2, macOS Tahoe and Frosted Glass, over the backdrop
+  // they draw where the system draws none, with each one's own accent: for checking by eye, not
+  // for the store (Play's desktop pictures are of the Android app on a Chromebook).
+  testWidgets('glass screens', timeout: const Timeout(Duration(minutes: 8)), (t) async {
+    const size = Size(1440, 900);
+    addTearDown(() => Glass.override = null);
+    Future<void> ownAccent(WidgetTester t) async {
+      AppLook.I.systemAccent = null;
+      AppLook.I.refresh();
+      await _settle(t, 4);
+    }
+
+    for (final g in Glass.values) {
+      Glass.override = g;
+      for (final mode in const ['light', 'dark']) {
+        await _shot(t, 'glass-${g.name}-$mode', size, 2, _store(look: 'glass', mode: mode), () => const DesktopShell(), padding: EdgeInsets.zero, then: (t) async {
+          await ownAccent(t);
+          await _fix(t, 'https://www.reddit.com/r/singapore/comments/1gq2abc/hawker_tips/?share_id=Xy7&utm_medium=android_app');
+        });
+      }
+      await _shot(t, 'glass-${g.name}-look', size, 2, _store(look: 'glass'), () => const DesktopShell(), padding: EdgeInsets.zero, then: (t) async {
+        await ownAccent(t);
+        AppNav.showPage('look');
+      });
+      await _shot(t, 'glass-${g.name}-command', size, 2, _store(look: 'glass', mode: 'dark'), () => const DesktopShell(), padding: EdgeInsets.zero, then: (t) async {
+        await ownAccent(t);
+        await t.tap(find.byType(TextField).first);
+        await _settle(t, 4);
+        await t.enterText(find.byType(TextField).first, 'red');
+      });
+    }
   }, skip: _only == null);
 }
 

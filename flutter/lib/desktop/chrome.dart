@@ -11,6 +11,11 @@
 //   remembered, leaving the cleaner the whole window;
 // - the desktop's keyboard shortcuts, and on macOS its own menu bar;
 // - full screen with F11, the title bar and rail hidden.
+//
+// In a desktop's glass (theme/theme.dart's Glass) the title bar is clear over the backdrop, and
+// the rail and the page sit on it as each desktop has them: Fluent 2's pages on a layer a shade
+// lighter than the Mica beside the rail, macOS Tahoe's rail a pane of glass floating inside the
+// window's edge, and Frosted Glass's rail a frosted pane down the side.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -35,6 +40,7 @@ import '../features/tour/tour.dart';
 import '../features/update/update_bar.dart';
 import '../theme/theme.dart';
 import '../widgets/common.dart';
+import '../widgets/glass.dart';
 import 'desktop.dart';
 import 'screenshot.dart';
 
@@ -205,10 +211,36 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
                   if (_page == 'sync') _pageWidget('sync', wide: false),
                 ]);
               }
-              final body = RepaintBoundary(key: _content, child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: content));
+              Widget body = RepaintBoundary(key: _content, child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: content));
+              Widget side = _Rail(page: _page, extended: railWide, onToggle: toggleRail);
+              final glass = fx.glass;
+              switch (glass) {
+                case Glass.fluent:
+                  // The page on a layer over the Mica, its corner by the rail rounded.
+                  body = DecoratedBox(
+                    decoration: ShapeDecoration(
+                      color: fx.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(topLeft: Radius.circular(rail ? glass!.control : 0)),
+                        side: BorderSide(color: fx.border),
+                      ),
+                    ),
+                    child: body,
+                  );
+                case Glass.tahoe:
+                  side = Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 2, 0, 8),
+                    child: GlassPane(blur: !AppLook.I.backdrop, child: side),
+                  );
+                case Glass.frosted:
+                  side = ColoredBox(color: fx.surface, child: side);
+                case null:
+                  break;
+              }
+              final divider = glass == null || glass == Glass.frosted;
               return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                if (rail) _Rail(page: _page, extended: railWide, onToggle: toggleRail),
-                if (rail) VerticalDivider(width: 1, color: fx.border),
+                if (rail) side,
+                if (rail && divider) VerticalDivider(width: 1, color: fx.border),
                 Expanded(child: body),
               ]);
             }),
@@ -394,8 +426,9 @@ class _TitleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final fx = context.fx;
     final scheme = Theme.of(context).colorScheme;
-    final bar = fx.uwu ? fx.brandFill : scheme.surfaceContainer;
-    final ink = bar.computeLuminance() > 0.45 ? const Color(0xFF121815) : Colors.white;
+    // A desktop's glass: clear, over the backdrop, as Fluent 2's and macOS's title bars are.
+    final bar = fx.glass != null ? Colors.transparent : (fx.uwu ? fx.brandFill : scheme.surfaceContainer);
+    final ink = fx.glass != null ? fx.ink : (bar.computeLuminance() > 0.45 ? const Color(0xFF121815) : Colors.white);
     Widget btn(IconData icon, String tip, VoidCallback? onTap) => Tooltip(
           message: tip,
           waitDuration: const Duration(milliseconds: 400),
@@ -605,16 +638,22 @@ class _CommandBarState extends State<_CommandBar> {
     _overlay = OverlayEntry(builder: (context) {
       final list = _commands;
       final fx = context.fx;
+      // In a desktop's glass, Acrylic: what's under it blurred, the window's colour over that.
+      Widget surface({required Widget child}) => fx.glass != null
+          ? GlassPane(radius: fx.glass!.card.clamp(8, 16), color: fx.bg.withValues(alpha: 0.78), child: child)
+          : Material(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+              color: fx.uwu ? Color.alphaBlend(fx.surfaceStrong, Theme.of(context).scaffoldBackgroundColor) : Theme.of(context).colorScheme.surfaceContainerHigh,
+              child: child,
+            );
       return Positioned(
         width: 520,
         child: CompositedTransformFollower(
           link: _link,
           offset: const Offset(0, 36),
           showWhenUnlinked: false,
-          child: Material(
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
-            color: fx.uwu ? Color.alphaBlend(fx.surfaceStrong, Theme.of(context).scaffoldBackgroundColor) : Theme.of(context).colorScheme.surfaceContainerHigh,
+          child: surface(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: ListView(shrinkWrap: true, padding: const EdgeInsets.symmetric(vertical: 6), children: [
@@ -670,7 +709,13 @@ class _CommandBarState extends State<_CommandBar> {
           },
           child: ValueListenableBuilder(
             valueListenable: AppNav.page,
-            builder: (context, page, _) => TextField(
+            builder: (context, page, _) {
+              // In a desktop's glass, a pane of it (a capsule in macOS Tahoe's).
+              final fx = context.fx;
+              final g = fx.glass;
+              final radius = BorderRadius.circular(g == null ? 8 : (g.control >= 999 ? 15 : g.control));
+              final rest = g == null ? BorderSide.none : BorderSide(color: fx.border);
+              return TextField(
               controller: _field,
               focusNode: _focus,
               onSubmitted: _run,
@@ -679,17 +724,18 @@ class _CommandBarState extends State<_CommandBar> {
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
-                fillColor: widget.ink.withValues(alpha: 0.08),
+                fillColor: g == null ? widget.ink.withValues(alpha: 0.08) : fx.surfaceStrong,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 prefixIcon: Icon(Icons.search, size: 16, color: widget.ink.withValues(alpha: 0.7)),
                 prefixIconConstraints: const BoxConstraints(minWidth: 32),
                 hintText: widget.flash ?? '${_titles[page] ?? 'uwuFix'}  ·  Ctrl+K to search, or paste a link',
                 hintStyle: TextStyle(color: widget.ink.withValues(alpha: widget.flash == null ? 0.65 : 1), fontSize: 13),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: widget.ink.withValues(alpha: 0.4))),
+                border: OutlineInputBorder(borderRadius: radius, borderSide: rest),
+                enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: rest),
+                focusedBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: g == null ? widget.ink.withValues(alpha: 0.4) : fx.brandInk)),
               ),
-            ),
+            );
+            },
           ),
         ),
       ),

@@ -1,5 +1,7 @@
 // Look: which of the app's two looks (theme/theme.dart), light or dark, and the brand colour, as
 // the site's Theme window has the last two. On the desktop, also the computer's accent colour.
+// The device's own look is Material You on a phone, and on a computer its desktop's glass: Fluent
+// 2 on Windows, macOS Tahoe on a Mac, Frosted Glass on Linux.
 import 'package:flutter/material.dart';
 
 import '../../theme/theme.dart';
@@ -22,6 +24,7 @@ class LookPage extends StatelessWidget {
               child: Text(t, style: TextStyle(color: fx.muted, fontSize: 14)),
             );
         final pref = look.modePreference;
+        final glass = Glass.current;
         return ListView(
           padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.paddingOf(context).bottom + 24),
           children: [
@@ -33,18 +36,18 @@ class LookPage extends StatelessWidget {
                   TourTarget(
                     id: 'look.style',
                     child: SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(value: true, label: Text('Material You'), icon: Icon(Icons.palette_outlined)),
-                        ButtonSegment(value: false, label: Text('UwU Apps'), icon: Icon(Icons.favorite_border)),
+                      segments: [
+                        ButtonSegment(value: true, label: Text(look.deviceLookName), icon: Icon(glass == null ? Icons.palette_outlined : Icons.blur_on)),
+                        const ButtonSegment(value: false, label: Text('UwU Apps'), icon: Icon(Icons.favorite_border)),
                       ],
-                      selected: {look.materialYou},
-                      onSelectionChanged: (s) => look.materialYou = s.first,
+                      selected: {look.deviceLook},
+                      onSelectionChanged: (s) => look.deviceLook = s.first,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    look.materialYou
-                        ? (onDesktop ? 'Colours from your computer’s accent colour, as its own apps have them.' : 'Colours from your wallpaper and your phone’s own font, as Android’s own apps have them.')
+                    look.deviceLook
+                        ? (glass?.about ?? 'Colours from your wallpaper and your phone’s own font, as Android’s own apps have them.')
                         : 'The website’s own look: its brand colours, and the Jua font.',
                     style: TextStyle(color: fx.muted, fontSize: 13.5),
                   ),
@@ -72,7 +75,7 @@ class LookPage extends StatelessWidget {
                     Text('Following the clock: light from 09:00 to 18:00. Currently ${AppLook.daylight(AppLook.now()) ? 'light' : 'dark'}.',
                         style: TextStyle(color: fx.muted, fontSize: 13.5)),
                   ],
-                  if (onDesktop) ...[
+                  if (onDesktop && !look.deviceLook) ...[
                     label('Accent'),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -106,9 +109,9 @@ class LookPage extends StatelessWidget {
                       ]),
                     ),
                   ),
-                  if (look.materialYou) ...[
+                  if (look.deviceLook) ...[
                     const SizedBox(height: 8),
-                    Text('Material You uses your device’s colours: the brand colour shows in the UwU Apps look.', style: TextStyle(color: fx.muted, fontSize: 13.5)),
+                    Text('${look.deviceLookName} uses your device’s colours: the brand colour shows in the UwU Apps look.', style: TextStyle(color: fx.muted, fontSize: 13.5)),
                   ],
                 ]),
               ),

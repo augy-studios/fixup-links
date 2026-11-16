@@ -33,6 +33,10 @@ class FlutterWindow : public Win32Window {
 
   // The app's own channel to the Dart side (lib/desktop/desktop.dart).
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
+
+  // Mica behind the window, for the Fluent 2 look (lib/desktop/backdrop.dart), light or dark;
+  // whether it's on.
+  bool SetBackdrop(bool on, bool dark);
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_
