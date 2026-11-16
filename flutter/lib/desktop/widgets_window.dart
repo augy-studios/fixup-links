@@ -91,6 +91,9 @@ Future<void> reopenWidgetWindows() async {
 Future<void> runWidgetWindow(int windowId, Map<String, dynamic> args) async {
   await Store.open();
   await windowManager.ensureInitialized();
+  // window_manager makes its taskbar handle (Windows) only here, and setSkipTaskbar uses it
+  // unchecked: without this, it crashed the app as each widget opened.
+  await windowManager.waitUntilReadyToShow();
   await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
   await windowManager.setSkipTaskbar(true);
   await windowManager.setMinimumSize(const Size(200, 110));
