@@ -64,8 +64,9 @@ class UpdateFile {
         );
       }
       final path = '${y['path'] ?? ''}';
-      if (path.isNotEmpty && (want == null || want(path)))
+      if (path.isNotEmpty && (want == null || want(path))) {
         return UpdateFile(version, path, '${y['sha512'] ?? ''}', 0);
+      }
     } catch (_) {}
     return null;
   }
@@ -91,16 +92,18 @@ class DesktopUpdater implements UpdateBackend {
           ? InstallKind.nsis
           : InstallKind.other;
     }
-    if (Platform.isLinux)
+    if (Platform.isLinux) {
       return Platform.environment.containsKey('APPIMAGE')
           ? InstallKind.appImage
           : InstallKind.other;
+    }
     if (Platform.isMacOS) {
       final app = _macBundle;
       if (app == null ||
           app.path.startsWith('/Volumes/') ||
-          app.path.contains('AppTranslocation'))
+          app.path.contains('AppTranslocation')) {
         return InstallKind.other;
+      }
       try {
         final probe = File('${app.parent.path}/.uwufix-write-test');
         probe.writeAsStringSync('');
@@ -131,9 +134,10 @@ class DesktopUpdater implements UpdateBackend {
   }
 
   bool _want(String name) {
-    if (Platform.isMacOS)
+    if (Platform.isMacOS) {
       return name.endsWith('.zip') &&
           name.contains(_arm ? '-mac-arm64' : '-mac-x64');
+    }
     if (Platform.isLinux) return name.endsWith('.AppImage');
     return name.endsWith('.exe');
   }
@@ -157,8 +161,9 @@ class DesktopUpdater implements UpdateBackend {
         )
         .timeout(timeout);
     if (r.statusCode == 404) return null; // no release with desktop files yet
-    if (r.statusCode != 200)
+    if (r.statusCode != 200) {
       throw HttpException('GitHub replied ${r.statusCode}');
+    }
     final f = UpdateFile.parse(r.body, want: _want);
     if (f == null || !AppUpdate.newer(f.version, running)) return null;
     return _found = f;
@@ -183,8 +188,9 @@ class DesktopUpdater implements UpdateBackend {
     final req = http.Request('GET', Uri.parse('$_download${f.file}'))
       ..headers['user-agent'] = Desktop.userAgent;
     final res = await http.Client().send(req);
-    if (res.statusCode != 200)
+    if (res.statusCode != 200) {
       throw HttpException('GitHub replied ${res.statusCode}');
+    }
     final total = res.contentLength ?? f.size;
     final sink = out.openWrite();
     final digest = _Sink();
@@ -218,8 +224,9 @@ class DesktopUpdater implements UpdateBackend {
         out.path,
         unpacked.path,
       ]);
-      if (r.exitCode != 0)
+      if (r.exitCode != 0) {
         throw const FormatException('The update wouldn’t unpack.');
+      }
     }
     _downloaded = out;
     _say(
@@ -252,12 +259,13 @@ class DesktopUpdater implements UpdateBackend {
         await file.copy(next.path);
         await Process.run('chmod', ['+x', next.path]);
         next.renameSync(target);
-        if (reopen)
+        if (reopen) {
           await Process.start(
             target,
             const [],
             mode: ProcessStartMode.detached,
           );
+        }
       case InstallKind.mac:
         final app = _macBundle!;
         final unpacked = Directory('${file.parent.path}/unpacked');

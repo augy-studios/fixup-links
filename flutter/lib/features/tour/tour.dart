@@ -40,8 +40,9 @@ class TourTarget extends StatefulWidget {
 
   static Rect? rectOfContext(BuildContext c) {
     final box = c.findRenderObject() as RenderBox?;
-    if (box == null || !box.attached || !box.hasSize || box.size.isEmpty)
+    if (box == null || !box.attached || !box.hasSize || box.size.isEmpty) {
       return null;
+    }
     // Not offstage (a page of the desktop's stack that isn't on show, say).
     var hidden = false;
     c.visitAncestorElements((e) {
@@ -178,7 +179,8 @@ class Tours {
     'look': [
       TourStep(
         'look.style',
-        () => '${AppLook.I.deviceLookName} takes its colours from your device; UwU Apps is the website’s own look.',
+        () =>
+            '${AppLook.I.deviceLookName} takes its colours from your device; UwU Apps is the website’s own look.',
       ),
       TourStep(
         'look.mode',
@@ -233,8 +235,9 @@ class Tours {
       // Not over a window someone opened meanwhile.
       if (AppNav.navigatorKey.currentState?.canPop() == true &&
           !onDesktop &&
-          id == start)
+          id == start) {
         return;
+      }
       start_(id);
     });
   }

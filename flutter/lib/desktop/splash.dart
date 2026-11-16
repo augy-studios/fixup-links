@@ -91,8 +91,9 @@ class _SplashScreenState extends State<SplashScreen>
     AppUpdate.I.addListener(listener);
     await AppUpdate.I.update();
     AppUpdate.I.removeListener(listener);
-    if (_later || !mounted)
+    if (_later || !mounted) {
       return; // the app's open: Restart's in the update bar and the tray
+    }
     if (widget.updater.ready) {
       setState(() => _step = 'installing');
       await widget.updater.install();
