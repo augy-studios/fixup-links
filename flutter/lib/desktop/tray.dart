@@ -88,7 +88,12 @@ class Tray with TrayListener {
   @override
   void onTrayIconRightMouseDown() async {
     await _rebuild();
-    await trayManager.popUpContextMenu();
+    // Windows only closes a tray menu on a click outside it when the menu's window is in front
+    // (TrackPopupMenu's rule), so bring ours there first; without it the menu, and the tray's
+    // overflow flyout behind it, stay open. It's the window's focus, not showing it: a hidden
+    // window stays hidden.
+    // ignore: deprecated_member_use
+    await trayManager.popUpContextMenu(bringAppToFront: Platform.isWindows);
   }
 
   @override
