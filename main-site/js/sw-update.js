@@ -19,49 +19,62 @@
   // For this page view only. Never stored: "Not now" means not now.
   var dismissed = false;
 
-  function t(key) {
-    return COPY[key] || key;
+  function translate(key) {
+    if (COPY[key]) {
+      return COPY[key];
+    }
+    return key;
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (ch) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
     });
   }
 
+  /** Shows the "new version is ready" bar while a worker waits (and Not now wasn't pressed), or removes it. */
   function render() {
     var existing = document.querySelector('.update-notice');
 
     if (!waitingWorker || dismissed) {
-      if (existing) existing.remove();
+      if (existing) {
+        existing.remove();
+      }
       return;
     }
 
-    var bar = existing || document.createElement('div');
+    var bar = existing;
+    if (!bar) {
+      bar = document.createElement('div');
+    }
     bar.className = 'update-notice';
     bar.setAttribute('role', 'status');
-    bar.setAttribute('aria-label', t('update.label'));
+    bar.setAttribute('aria-label', translate('update.label'));
     bar.innerHTML =
       '<div class="update-notice-inner">' +
-        '<p>' + escapeHtml(t('update.ready')) + '</p>' +
+        '<p>' + escapeHtml(translate('update.ready')) + '</p>' +
         '<button type="button" class="btn btn-sm btn-primary" data-sw-update>' +
-          escapeHtml(t('update.reload')) +
+          escapeHtml(translate('update.reload')) +
         '</button>' +
         '<button type="button" class="btn btn-sm btn-secondary" data-sw-later>' +
-          escapeHtml(t('update.later')) +
+          escapeHtml(translate('update.later')) +
         '</button>' +
       '</div>';
 
     bar.querySelector('[data-sw-update]').addEventListener('click', function () {
       // The only place anything asks for skipWaiting. The reload happens once
       // the new worker has taken over, not here.
-      if (!waitingWorker) return;
+      if (!waitingWorker) {
+        return;
+      }
       // An uncontrolled page (after a hard refresh) may never see
       // controllerchange, so reload when the new worker is active instead.
       // Either way the old worker is gone and the new one serves the reload.
       var promoting = waitingWorker;
       promoting.addEventListener('statechange', function () {
-        if (promoting.state === 'activated') reloadOnce();
+        if (promoting.state === 'activated') {
+          reloadOnce();
+        }
       });
       promoting.postMessage('skip-waiting');
     });
@@ -71,17 +84,24 @@
       render();
     });
 
-    if (!existing) document.body.prepend(bar);
+    if (!existing) {
+      document.body.prepend(bar);
+    }
   }
 
   function reloadOnce() {
-    if (reloading) return;
+    if (reloading) {
+      return;
+    }
     reloading = true;
     window.location.reload();
   }
 
+  /** Shows the bar for a worker already waiting, or one that finishes installing later, and looks for updates on coming back to the tab. */
   function watchForUpdate() {
-    if (!registration) return;
+    if (!registration) {
+      return;
+    }
 
     // A worker already waiting when the page opened: the ordinary case on the
     // next visit after a deploy. Tested against the active worker, not
@@ -95,14 +115,20 @@
 
     registration.addEventListener('updatefound', function () {
       var installing = registration.installing;
-      if (!installing) return;
+      if (!installing) {
+        return;
+      }
       // No active worker means a first install, which has no previous version
       // on screen to protect and nothing to prompt about.
       var isUpdate = !!registration.active;
 
       installing.addEventListener('statechange', function () {
         if (installing.state === 'installed' && isUpdate) {
-          waitingWorker = registration.waiting || installing;
+          if (registration.waiting) {
+            waitingWorker = registration.waiting;
+          } else {
+            waitingWorker = installing;
+          }
           render();
         }
       });
@@ -111,18 +137,22 @@
     // A tab left open for days never navigates, so the browser never looks for
     // a new worker on its own. Coming back to the tab is the moment to ask.
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState !== 'visible' || !navigator.onLine) return;
+      if (document.visibilityState !== 'visible' || !navigator.onLine) {
+        return;
+      }
       registration.update().catch(function () {});
     });
   }
 
   function registerWorker() {
-    if (!('serviceWorker' in navigator)) return;
+    if (!('serviceWorker' in navigator)) {
+      return;
+    }
 
     navigator.serviceWorker
       .register(SW_URL)
-      .then(function (reg) {
-        registration = reg;
+      .then(function (newRegistration) {
+        registration = newRegistration;
         watchForUpdate();
       })
       .catch(function (cause) {
@@ -136,6 +166,9 @@
   }
 
   // On load, so precaching does not compete with the page's own first fetches.
-  if (document.readyState === 'complete') registerWorker();
-  else window.addEventListener('load', registerWorker, { once: true });
+  if (document.readyState === 'complete') {
+    registerWorker();
+  } else {
+    window.addEventListener('load', registerWorker, { once: true });
+  }
 })();

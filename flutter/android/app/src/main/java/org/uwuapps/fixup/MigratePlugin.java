@@ -27,52 +27,71 @@ public class MigratePlugin extends Plugin {
 
     private static final String DUMP = "(function(){var o={};try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);o[k]=localStorage.getItem(k);}}catch(e){}return JSON.stringify(o);})()";
 
+    /**
+     * Reads the site's old localStorage on the main thread with a hidden WebView: a blank page
+     * loaded as if it were the site, then a script that copies out every key and value. Answers
+     * { found, items }, with nothing found when this phone has no WebView at all.
+     */
     @SuppressLint("SetJavaScriptEnabled")
     @PluginMethod
     public void read(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            WebView web;
+            WebView webView;
             try {
-                web = new WebView(getActivity());
-            } catch (RuntimeException e) {
+                webView = new WebView(getActivity());
+            } catch (RuntimeException exception) {
                 // No WebView on this phone at all (it's being updated, say): nothing to read.
-                JSObject out = new JSObject();
-                out.put("found", false);
-                out.put("items", new JSObject());
-                call.resolve(out);
+                JSObject result = new JSObject();
+                result.put("found", false);
+                result.put("items", new JSObject());
+                call.resolve(result);
                 return;
             }
-            web.getSettings().setJavaScriptEnabled(true);
-            web.getSettings().setDomStorageEnabled(true);
-            web.setWebViewClient(new WebViewClient() {
+            webView.getSettings().setJavaScriptEnabled(true);
+            webView.getSettings().setDomStorageEnabled(true);
+            webView.setWebViewClient(new WebViewClient() {
                 private boolean done;
 
                 @Override
                 public void onPageFinished(WebView view, String url) {
-                    if (done) return;
+                    if (done) {
+                        return;
+                    }
                     done = true;
-                    view.evaluateJavascript(DUMP, value -> {
-                        JSObject out = new JSObject();
+                    view.evaluateJavascript(DUMP, (value) -> {
+                        JSObject result = new JSObject();
                         JSObject items = new JSObject();
                         try {
                             // evaluateJavascript hands back the result as a JSON string literal.
-                            Object text = new JSONTokener(value == null ? "\"{}\"" : value).nextValue();
-                            JSONObject all = new JSONObject(text instanceof String ? (String) text : "{}");
-                            for (java.util.Iterator<String> keys = all.keys(); keys.hasNext(); ) {
-                                String k = keys.next();
-                                items.put(k, all.optString(k));
+                            String literal;
+                            if (value == null) {
+                                literal = "\"{}\"";
+                            } else {
+                                literal = value;
+                            }
+                            Object text = new JSONTokener(literal).nextValue();
+                            String storedJson;
+                            if (text instanceof String) {
+                                storedJson = (String) text;
+                            } else {
+                                storedJson = "{}";
+                            }
+                            JSONObject allItems = new JSONObject(storedJson);
+                            for (java.util.Iterator<String> keys = allItems.keys(); keys.hasNext(); ) {
+                                String key = keys.next();
+                                items.put(key, allItems.optString(key));
                             }
                         } catch (JSONException ignored) {
                             // Nothing readable: nothing to bring over.
                         }
-                        out.put("found", items.length() > 0);
-                        out.put("items", items);
-                        call.resolve(out);
+                        result.put("found", items.length() > 0);
+                        result.put("items", items);
+                        call.resolve(result);
                         view.destroy();
                     });
                 }
             });
-            web.loadDataWithBaseURL(MainActivity.SITE + "/", "<!doctype html><title></title>", "text/html", "utf-8", null);
+            webView.loadDataWithBaseURL(MainActivity.SITE + "/", "<!doctype html><title></title>", "text/html", "utf-8", null);
         });
     }
 

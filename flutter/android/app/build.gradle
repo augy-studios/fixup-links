@@ -7,6 +7,12 @@ plugins {
 // A Google Play build (build-apk.ps1 -Aab, which passes fixupPlay): no updater of its own, as Play
 // updates the app and doesn't allow one (src/play/AndroidManifest.xml, BuildConfig.PLAY).
 def play = project.hasProperty("fixupPlay")
+def playFlag
+if (play) {
+    playFlag = "true"
+} else {
+    playFlag = "false"
+}
 
 android {
     namespace = "org.uwuapps.fixup"
@@ -29,22 +35,26 @@ android {
         // there for a new version.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        buildConfigField "boolean", "PLAY", play ? "true" : "false"
+        buildConfigField "boolean", "PLAY", playFlag
     }
 
     // Signed with the same key as every version before, from flutter/keystore.properties and
     // flutter/android.keystore, which are kept out of git (flutter/README.md). Without them, a
     // build for trying out is signed with the debug key, which build-apk.ps1 refuses.
-    def keystoreProps = new Properties()
+    def keystoreProperties = new Properties()
     def keystoreFile = rootProject.file('../keystore.properties')
-    if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+    if (keystoreFile.exists()) {
+        keystoreFile.withInputStream { stream ->
+            keystoreProperties.load(stream)
+        }
+    }
     signingConfigs {
         release {
-            if (keystoreProps.storeFile) {
-                storeFile = rootProject.file("../${keystoreProps.storeFile}")
-                storePassword = keystoreProps.storePassword
-                keyAlias = keystoreProps.keyAlias
-                keyPassword = keystoreProps.keyPassword
+            if (keystoreProperties.storeFile) {
+                storeFile = rootProject.file("../${keystoreProperties.storeFile}")
+                storePassword = keystoreProperties.storePassword
+                keyAlias = keystoreProperties.keyAlias
+                keyPassword = keystoreProperties.keyPassword
             }
         }
     }
@@ -56,7 +66,11 @@ android {
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            signingConfig = keystoreProps.storeFile ? signingConfigs.release : signingConfigs.debug
+            if (keystoreProperties.storeFile) {
+                signingConfig = signingConfigs.release
+            } else {
+                signingConfig = signingConfigs.debug
+            }
         }
     }
 }

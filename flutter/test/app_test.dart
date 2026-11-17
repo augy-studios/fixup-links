@@ -4,7 +4,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
+import 'package:image/image.dart' as image;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uwufix/api/resolve.dart';
 import 'package:uwufix/app/app.dart';
@@ -19,106 +19,126 @@ import 'package:uwufix/native/native_bridge.dart';
 import 'package:uwufix/theme/theme.dart';
 import 'package:uwufix/widgets/glass.dart';
 
-Future<void> _app(WidgetTester t, {Size size = const Size(412, 892), Map<String, String> store = const {}}) async {
+/// Starts the phone app on a fresh in-memory store with these values, at [size], with no device
+/// and no network behind it.
+Future<void> _startApp(WidgetTester tester, {Size size = const Size(412, 892), Map<String, String> store = const {}}) async {
   Store.memory({...store});
-  Native.fake(const ['share', 'paste', 'open'], (_, _, _) async => null);
-  Api.fake = (_) async => null;
+  Native.fake(const ['share', 'paste', 'open'], (_, _, _) async {
+    return null;
+  });
+  Api.fake = (_) async {
+    return null;
+  };
   Fixer.I.clear();
   AppNav.page.value = 'home';
-  t.view.physicalSize = size * 2;
-  t.view.devicePixelRatio = 2;
-  addTearDown(t.view.reset);
-  await t.pumpWidget(const UwuFixApp(home: PhoneShell()));
-  await t.pumpAndSettle();
+  tester.view.physicalSize = size * 2;
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(const UwuFixApp(home: PhoneShell()));
+  await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('cleans a link and keeps it in the history', (t) async {
-    await _app(t, store: {'tour.welcome': 'done'});
-    await t.enterText(find.byType(TextField).first, 'https://x.com/someone/status/42?s=20&t=abc');
-    await t.tap(find.text('Clean URL'));
-    await t.pumpAndSettle();
+  testWidgets('cleans a link and keeps it in the history', (tester) async {
+    await _startApp(tester, store: {'tour.welcome': 'done'});
+    await tester.enterText(find.byType(TextField).first, 'https://x.com/someone/status/42?s=20&t=abc');
+    await tester.tap(find.text('Clean URL'));
+    await tester.pumpAndSettle();
     expect(find.text('https://fixupx.com/i/status/42'), findsOneWidget);
     expect(find.text('Removed 2 trackers'), findsOneWidget);
     expect(History.load().single.cleaned, 'https://fixupx.com/i/status/42');
   });
 
-  testWidgets('an empty box says so', (t) async {
-    await _app(t, store: {'tour.welcome': 'done'});
-    await t.tap(find.text('Clean URL'));
-    await t.pumpAndSettle();
+  testWidgets('an empty box says so', (tester) async {
+    await _startApp(tester, store: {'tour.welcome': 'done'});
+    await tester.tap(find.text('Clean URL'));
+    await tester.pumpAndSettle();
     expect(find.text('Please enter a URL first.'), findsOneWidget);
   });
 
-  testWidgets('History lists what was cleaned, and the bin deletes it', (t) async {
-    await _app(t, store: {'tour.welcome': 'done', 'tour.pages': '["history"]'});
+  testWidgets('History lists what was cleaned, and the bin deletes it', (tester) async {
+    await _startApp(tester, store: {'tour.welcome': 'done', 'tour.pages': '["history"]'});
     History.add('https://www.reddit.com/r/a/?share_id=1', 'https://www.vxreddit.com/r/a/', 'Reddit', title: 'A thread');
     AppNav.showPage('history');
-    await t.pumpAndSettle();
+    await tester.pumpAndSettle();
     expect(find.text('A thread'), findsOneWidget);
-    await t.tap(find.byTooltip('Delete entry'));
-    await t.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete entry'));
+    await tester.pumpAndSettle();
     expect(find.text('No history yet. Clean a URL to get started.'), findsOneWidget);
   });
 
   for (final size in const [Size(320, 568), Size(412, 892), Size(1280, 800)]) {
-    testWidgets('the welcome tour stays on screen at ${size.width.toInt()}x${size.height.toInt()}', (t) async {
-      await _app(t, size: size);
+    testWidgets('the welcome tour stays on screen at ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
+      await _startApp(tester, size: size);
       // A result, so the step about its buttons shows, low on a small screen.
       Fixer.I.input.text = 'https://youtu.be/abc?si=x';
       await Fixer.I.fix();
-      await t.pumpAndSettle();
+      await tester.pumpAndSettle();
       Tours.start_('home');
-      await t.pump(const Duration(seconds: 1));
-      await t.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
       final steps = Tours.steps['home']!;
       var seen = 0;
       while (true) {
         seen++;
         // The card's text, and the Next or Done button, are inside the screen.
         for (final label in ['Next', 'Done']) {
-          final f = find.widgetWithText(FilledButton, label);
-          if (f.evaluate().isEmpty) continue;
-          final r = t.getRect(f);
-          expect(r.left >= 0 && r.top >= 0 && r.right <= size.width && r.bottom <= size.height, isTrue, reason: 'step $seen: $label at $r');
+          final buttonFinder = find.widgetWithText(FilledButton, label);
+          if (buttonFinder.evaluate().isEmpty) {
+            continue;
+          }
+          final buttonRect = tester.getRect(buttonFinder);
+          final buttonOnScreen = buttonRect.left >= 0 && buttonRect.top >= 0 && buttonRect.right <= size.width && buttonRect.bottom <= size.height;
+          expect(buttonOnScreen, isTrue, reason: 'step $seen: $label at $buttonRect');
         }
-        final text = find.byWidgetPredicate((w) => w is Text && steps.any((s) => s.text() == w.data));
+        final text = find.byWidgetPredicate((widget) {
+          if (widget is! Text) {
+            return false;
+          }
+          for (final step in steps) {
+            if (step.text() == widget.data) {
+              return true;
+            }
+          }
+          return false;
+        });
         expect(text, findsOneWidget, reason: 'step $seen shows its line');
-        final tr = t.getRect(text);
-        expect(tr.top >= 0 && tr.bottom <= size.height && tr.left >= 0 && tr.right <= size.width, isTrue, reason: 'step $seen text at $tr');
+        final textRect = tester.getRect(text);
+        final textOnScreen = textRect.top >= 0 && textRect.bottom <= size.height && textRect.left >= 0 && textRect.right <= size.width;
+        expect(textOnScreen, isTrue, reason: 'step $seen text at $textRect');
         if (find.widgetWithText(FilledButton, 'Done').evaluate().isNotEmpty) {
-          await t.tap(find.widgetWithText(FilledButton, 'Done'));
-          await t.pumpAndSettle();
+          await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+          await tester.pumpAndSettle();
           break;
         }
-        await t.tap(find.widgetWithText(FilledButton, 'Next'));
-        await t.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Next'));
+        await tester.pumpAndSettle();
       }
       expect(seen, greaterThanOrEqualTo(4));
       expect(Store.I.get('tour.welcome'), 'done');
     });
   }
 
-  testWidgets('Skip ends a tour, and it counts as seen', (t) async {
-    await _app(t);
+  testWidgets('Skip ends a tour, and it counts as seen', (tester) async {
+    await _startApp(tester);
     Tours.start_('home');
-    await t.pump(const Duration(seconds: 1));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Skip'));
-    await t.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
     expect(find.text('Skip'), findsNothing);
     expect(Tours.seen('home'), isTrue);
   });
 
-  testWidgets('Look switches between Material You and the UwU Apps look', (t) async {
-    await _app(t, store: {'tour.welcome': 'done', 'tour.pages': '["look"]'});
+  testWidgets('Look switches between Material You and the UwU Apps look', (tester) async {
+    await _startApp(tester, store: {'tour.welcome': 'done', 'tour.pages': '["look"]'});
     AppNav.showPage('look');
-    await t.pumpAndSettle();
-    await t.tap(find.text('UwU Apps'));
-    await t.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('UwU Apps'));
+    await tester.pumpAndSettle();
     expect(Store.I.get('uwufix.look'), 'uwu');
-    await t.tap(find.text('Dark'));
-    await t.pumpAndSettle();
+    await tester.tap(find.text('Dark'));
+    await tester.pumpAndSettle();
     expect(Store.I.get('uwufix.mode'), 'dark');
   });
 
@@ -129,25 +149,25 @@ void main() {
     });
 
     for (final (glass, name) in const [(Glass.fluent, 'Fluent 2'), (Glass.tahoe, 'macOS Tahoe'), (Glass.frosted, 'Frosted Glass')]) {
-      testWidgets('Look offers $name and UwU Apps', (t) async {
+      testWidgets('Look offers $name and UwU Apps', (tester) async {
         Glass.override = glass;
-        await _app(t, store: {'tour.welcome': 'done', 'tour.pages': '["look"]', 'uwufix.look': 'uwu'});
+        await _startApp(tester, store: {'tour.welcome': 'done', 'tour.pages': '["look"]', 'uwufix.look': 'uwu'});
         AppNav.showPage('look');
-        await t.pumpAndSettle();
+        await tester.pumpAndSettle();
         expect(find.text('Material You'), findsNothing);
-        await t.tap(find.text(name));
-        await t.pumpAndSettle();
+        await tester.tap(find.text(name));
+        await tester.pumpAndSettle();
         expect(Store.I.get('uwufix.look'), 'glass');
-        final fx = Theme.of(t.element(find.text(name))).extension<Fx>()!;
-        expect(fx.glass, glass);
-        expect(fx.uwu, isFalse);
+        final themeColors = Theme.of(tester.element(find.text(name))).extension<Fx>()!;
+        expect(themeColors.glass, glass);
+        expect(themeColors.uwu, isFalse);
         // The glass's own backdrop behind it, until the system draws one.
         expect(find.byType(GlassBackdrop), findsOneWidget);
         expect(find.byType(GlassPane), findsWidgets);
       });
     }
 
-    testWidgets('a computer reads Material You from before as its glass, and a phone reads glass as Material You', (t) async {
+    testWidgets('a computer reads Material You from before as its glass, and a phone reads glass as Material You', (tester) async {
       Glass.override = Glass.tahoe;
       Store.memory({'uwufix.look': 'you'});
       expect(AppLook.I.glass, Glass.tahoe);
@@ -158,40 +178,42 @@ void main() {
       expect(AppLook.I.glass, isNull);
     });
 
-    testWidgets('over the system\'s backdrop the window is left clear', (t) async {
+    testWidgets('over the system\'s backdrop the window is left clear', (tester) async {
       Glass.override = Glass.fluent;
-      await _app(t, store: {'tour.welcome': 'done', 'uwufix.look': 'glass'});
-      final context = t.element(find.byType(PhoneShell));
+      await _startApp(tester, store: {'tour.welcome': 'done', 'uwufix.look': 'glass'});
+      final context = tester.element(find.byType(PhoneShell));
       expect(Theme.of(context).scaffoldBackgroundColor.a, 0);
       AppLook.I.backdrop = true;
-      await t.pumpAndSettle();
+      await tester.pumpAndSettle();
       // Mica is tinted already: no veil over it.
-      final veil = t.widget<ColoredBox>(find.descendant(of: find.byType(GlassBackdrop), matching: find.byType(ColoredBox)).first);
+      final veil = tester.widget<ColoredBox>(find.descendant(of: find.byType(GlassBackdrop), matching: find.byType(ColoredBox)).first);
       expect(veil.color.a, 0);
     });
   });
 
-  testWidgets('Report a bug sends the report and says its ID', (t) async {
-    await _app(t, store: {'tour.welcome': 'done'});
+  testWidgets('Report a bug sends the report and says its ID', (tester) async {
+    await _startApp(tester, store: {'tour.welcome': 'done'});
     Map<String, dynamic>? sent;
     Api.fakePost = (path, body) async {
       sent = {'path': path, ...body};
       return {'id': '20261114-K7QM'};
     };
-    addTearDown(() => Api.fakePost = null);
-    await t.tap(find.byTooltip('Report a bug'));
-    await t.pumpAndSettle();
+    addTearDown(() {
+      Api.fakePost = null;
+    });
+    await tester.tap(find.byTooltip('Report a bug'));
+    await tester.pumpAndSettle();
     expect(find.text('Report a bug'), findsWidgets);
-    await t.tap(find.byKey(const ValueKey('bug.send')));
-    await t.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bug.send')));
+    await tester.pumpAndSettle();
     expect(find.text('Please say what went wrong first.'), findsOneWidget);
     expect(sent, isNull);
-    await t.enterText(find.byKey(const ValueKey('bug.text')), 'The Fix button does nothing.');
-    await t.enterText(find.byKey(const ValueKey('bug.contact')), '@someone');
+    await tester.enterText(find.byKey(const ValueKey('bug.text')), 'The Fix button does nothing.');
+    await tester.enterText(find.byKey(const ValueKey('bug.contact')), '@someone');
     // What's typed is kept until it's sent.
     expect(Store.I.get(BugReport.draftKey), contains('does nothing'));
-    await t.tap(find.byKey(const ValueKey('bug.send')));
-    await t.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bug.send')));
+    await tester.pumpAndSettle();
     expect(find.text('Sent as report 20261114-K7QM. Thank you! Augy will look into it.'), findsOneWidget);
     expect(sent!['path'], '/api/bug-report');
     expect(sent!['text'], 'The Fix button does nothing.');
@@ -202,32 +224,32 @@ void main() {
     expect(Store.I.get(BugReport.draftKey), isNull);
   });
 
-  testWidgets('Screenshot a page leaves the report for the app, and Cancel comes back', (t) async {
-    await _app(t, store: {'tour.welcome': 'done', 'tour.pages': '["history"]'});
-    await t.tap(find.byTooltip('Report a bug'));
-    await t.pumpAndSettle();
-    await t.enterText(find.byKey(const ValueKey('bug.text')), 'History looks wrong.');
-    await t.tap(find.byKey(const ValueKey('bug.screenshot')));
-    await t.pumpAndSettle();
+  testWidgets('Screenshot a page leaves the report for the app, and Cancel comes back', (tester) async {
+    await _startApp(tester, store: {'tour.welcome': 'done', 'tour.pages': '["history"]'});
+    await tester.tap(find.byTooltip('Report a bug'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('bug.text')), 'History looks wrong.');
+    await tester.tap(find.byKey(const ValueKey('bug.screenshot')));
+    await tester.pumpAndSettle();
     expect(find.text('Screenshot this page'), findsOneWidget);
     expect(find.byKey(const ValueKey('bug.text')), findsNothing);
     AppNav.showPage('history');
-    await t.pumpAndSettle();
+    await tester.pumpAndSettle();
     expect(find.text('Screenshot this page'), findsOneWidget);
-    await t.tap(find.bySemanticsLabel('Cancel'));
-    await t.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Cancel'));
+    await tester.pumpAndSettle();
     expect(find.text('Screenshot this page'), findsNothing);
     expect(find.text('History looks wrong.'), findsOneWidget);
   });
 
   test('a whole page is made a JPEG Telegram takes as a photo', () {
-    final tall = img.Image(width: 1200, height: 30000);
-    img.fill(tall, color: img.ColorRgb8(240, 200, 220));
-    final url = BugReport.pageJpeg(Uint8List.fromList(img.encodePng(tall)))!;
+    final tall = image.Image(width: 1200, height: 30000);
+    image.fill(tall, color: image.ColorRgb8(240, 200, 220));
+    final url = BugReport.pageJpeg(Uint8List.fromList(image.encodePng(tall)))!;
     expect(url, startsWith('data:image/jpeg;base64,'));
-    final out = img.decodeJpg(UriData.parse(url).contentAsBytes())!;
-    expect(out.width <= BugReport.pageWidth, isTrue);
-    expect(out.height <= out.width * BugReport.pageRatio, isTrue);
-    expect(out.width + out.height <= BugReport.pageSum, isTrue);
+    final decoded = image.decodeJpg(UriData.parse(url).contentAsBytes())!;
+    expect(decoded.width <= BugReport.pageWidth, isTrue);
+    expect(decoded.height <= decoded.width * BugReport.pageRatio, isTrue);
+    expect(decoded.width + decoded.height <= BugReport.pageSum, isTrue);
   });
 }

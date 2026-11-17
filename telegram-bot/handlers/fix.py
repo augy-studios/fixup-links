@@ -16,7 +16,7 @@ from telegram.ext import ContextTypes
 import db
 import linkfix
 from handlers.core import (
-    CB_DELETE, CB_QR, CB_REFRESH, CB_TOGGLE,
+    CALLBACK_DELETE, CALLBACK_QR, CALLBACK_REFRESH, CALLBACK_TOGGLE,
     build_fix_keyboard, build_fix_view, do_fix,
 )
 from reply import edit_rich_message, send_rich_message
@@ -27,21 +27,23 @@ AWAITING_FIX_KEY = 'awaiting_fix_link'
 
 
 async def _send_fix_result(update: Update, context: ContextTypes.DEFAULT_TYPE, raw_link: str, *, reply_to=None):
-    db_conn = context.bot_data['db']
+    """Fixes one link, records it, and sends the result card with its buttons
+    (or the reason the link is invalid)."""
+    db_connection = context.bot_data['db']
     chat = update.effective_chat
     user = update.effective_user
 
     try:
         result, cleaned, title = await do_fix(context.bot_data['http_session'], raw_link)
-    except linkfix.InvalidUrlError as e:
-        await context.bot.send_message(chat.id, str(e), reply_to_message_id=reply_to)
+    except linkfix.InvalidUrlError as error:
+        await context.bot.send_message(chat.id, str(error), reply_to_message_id=reply_to)
         return
 
     fix_id = await db.add_fix_result(
-        db_conn, chat_id=chat.id, requester_id=user.id,
+        db_connection, chat_id=chat.id, requester_id=user.id,
         original_url=raw_link, cleaned_url=cleaned, platform=result.platform,
     )
-    await db.add_history(db_conn, user_id=user.id, original_url=raw_link,
+    await db.add_history(db_connection, user_id=user.id, original_url=raw_link,
                           cleaned_url=cleaned, platform=result.platform)
 
     rich = build_fix_view(raw_link, cleaned, result, title)
@@ -66,33 +68,37 @@ async def qr_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not row:
         await query.answer('This result has expired.', show_alert=True)
         return
-    img = qrcode.make(row['cleaned_url'])
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    buf.seek(0)
+    image = qrcode.make(row['cleaned_url'])
+    buffer = io.BytesIO()
+    image.save(buffer, format='PNG')
+    buffer.seek(0)
     await query.answer()
     await context.bot.send_photo(
-        query.message.chat.id, InputFile(buf, filename='qr.png'),
+        query.message.chat.id, InputFile(buffer, filename='qr.png'),
         reply_to_message_id=query.message.message_id,
     )
 
 
 async def toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Flips a result card between showing the original and the fixed link."""
     query = update.callback_query
     fix_id = int(query.data.split(':', 1)[1])
-    db_conn = context.bot_data['db']
-    row = await db.get_fix_result(db_conn, fix_id)
+    db_connection = context.bot_data['db']
+    row = await db.get_fix_result(db_connection, fix_id)
     if not row:
         await query.answer('This result has expired.', show_alert=True)
         return
 
     showing_original = not bool(row['showing_original'])
-    await db.update_fix_result(db_conn, fix_id, showing_original=showing_original)
+    await db.update_fix_result(db_connection, fix_id, showing_original=showing_original)
 
-    result = linkfix.clean_url(row['original_url']) if showing_original else None
+    if showing_original:
+        result = linkfix.clean_url(row['original_url'])
+    else:
+        result = linkfix.CleanResult(cleaned=row['cleaned_url'], platform=row['platform'])
     rich = build_fix_view(
         row['original_url'], row['cleaned_url'],
-        result or linkfix.CleanResult(cleaned=row['cleaned_url'], platform=row['platform']),
+        result,
         None, showing_original=showing_original,
     )
     keyboard = build_fix_keyboard(fix_id, row['cleaned_url'], showing_original=showing_original)
@@ -101,10 +107,11 @@ async def toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Re-runs the fix on the stored original link and updates the card."""
     query = update.callback_query
     fix_id = int(query.data.split(':', 1)[1])
-    db_conn = context.bot_data['db']
-    row = await db.get_fix_result(db_conn, fix_id)
+    db_connection = context.bot_data['db']
+    row = await db.get_fix_result(db_connection, fix_id)
     if not row:
         await query.answer('This result has expired.', show_alert=True)
         return
@@ -115,7 +122,7 @@ async def refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer('That link is no longer valid.', show_alert=True)
         return
 
-    await db.update_fix_result(db_conn, fix_id, cleaned_url=cleaned, platform=result.platform, showing_original=False)
+    await db.update_fix_result(db_connection, fix_id, cleaned_url=cleaned, platform=result.platform, showing_original=False)
     rich = build_fix_view(row['original_url'], cleaned, result, title)
     keyboard = build_fix_keyboard(fix_id, cleaned)
     await edit_rich_message(context.bot, query, rich, keyboard)
@@ -123,6 +130,7 @@ async def refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Deletes a result card; allowed for the requester, or a group admin."""
     query = update.callback_query
     fix_id = int(query.data.split(':', 1)[1])
     row = await db.get_fix_result(context.bot_data['db'], fix_id)
@@ -141,8 +149,8 @@ async def delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 CALLBACK_HANDLERS = {
-    CB_QR: qr_callback,
-    CB_TOGGLE: toggle_callback,
-    CB_REFRESH: refresh_callback,
-    CB_DELETE: delete_callback,
+    CALLBACK_QR: qr_callback,
+    CALLBACK_TOGGLE: toggle_callback,
+    CALLBACK_REFRESH: refresh_callback,
+    CALLBACK_DELETE: delete_callback,
 }

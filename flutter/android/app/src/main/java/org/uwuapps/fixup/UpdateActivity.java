@@ -122,7 +122,7 @@ public class UpdateActivity extends AppCompatActivity {
             && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
     // How long, on such a device, to wait for the installer to answer before taking its silence
     // as Auto Blocker. An update you've confirmed answers well within it, by restarting the app.
-    private static final long NO_ANSWER_MS = 30_000;
+    private static final long NO_ANSWER_MILLISECONDS = 30_000;
 
     // Where the releases are listed, for the changelog's GitHub button with nothing to read.
     private static final String RELEASES_PAGE = "https://github.com/augy-studios/fixup-links/releases";
@@ -135,38 +135,40 @@ public class UpdateActivity extends AppCompatActivity {
     private static final int FIRST_ITEMS = 4;
 
     // The window on screen, for InstallStatus to report back to.
-    private static WeakReference<UpdateActivity> sShowing = new WeakReference<>(null);
+    private static WeakReference<UpdateActivity> showingWindow = new WeakReference<>(null);
 
-    private TextView mTitle;
-    private TextView mSubtitle;
-    private MaterialCardView mStatus;
-    private FrameLayout mStatusTile;
-    private ImageView mStatusIcon;
-    private TextView mText;
-    private WavyProgressView mProgress;
-    private MaterialButton mPrimary;
-    private MaterialButton mSecondary;
-    private LinearLayout mContent;
-    private LinearLayout mReleases;
+    private TextView titleView;
+    private TextView subtitleView;
+    private MaterialCardView statusCard;
+    private FrameLayout statusTile;
+    private ImageView statusIcon;
+    private TextView messageView;
+    private WavyProgressView progressView;
+    private MaterialButton primaryButton;
+    private MaterialButton secondaryButton;
+    private LinearLayout contentLayout;
+    private LinearLayout releasesLayout;
     // The newest releases and what's new in each, newest first, once read: drawn as the
     // changelog. Empty from a site from before they were sent.
-    private volatile List<Notes> mHistory = Collections.emptyList();
+    private volatile List<Notes> releaseHistory = Collections.emptyList();
 
-    private Thread mWork;
-    private volatile boolean mCancelled;
-    private boolean mAskedToAllow;
+    private Thread workThread;
+    private volatile boolean cancelled;
+    private boolean askedToAllow;
     // Sent to Security settings to turn Auto Blocker off.
-    private boolean mAskedToUnblock;
+    private boolean askedToUnblock;
     // Handed to the installer, with no final answer from it yet.
-    private boolean mInstalling;
-    private final Handler mHandler = new Handler(Looper.getMainLooper());
-    private final Runnable mNoAnswer = this::autoBlocked;
+    private boolean installing;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable noAnswerCheck = () -> {
+        autoBlocked();
+    };
     // Only checking, so ask before downloading what it finds.
-    private boolean mCheckOnly;
-    private String mExpected;
+    private boolean checkOnly;
+    private String expectedVersion;
     // The update to install, once found and wanted: kept while you're in "Install unknown
     // apps", and for "Try again", so neither looks it up again.
-    private Release mRelease;
+    private Release foundRelease;
 
     // The update bar's Update (check false: straight to downloading), or the Edge Tray's Check
     // for app updates (check true), from FixupPlugin.update.
@@ -182,8 +184,12 @@ public class UpdateActivity extends AppCompatActivity {
     static void check(Context context, String version) {
         Intent intent = new Intent(context, UpdateActivity.class)
                 .setData(Uri.parse("org.uwuapps.fixup://update" + CHECK));
-        if (version != null && version.matches("\\d+(\\.\\d+)*")) intent.putExtra(EXTRA_VERSION, version);
-        if (!(context instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (version != null && version.matches("\\d+(\\.\\d+)*")) {
+            intent.putExtra(EXTRA_VERSION, version);
+        }
+        if (!(context instanceof Activity)) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
         context.startActivity(intent);
     }
 
@@ -194,29 +200,37 @@ public class UpdateActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
         buildWindow();
-        sShowing = new WeakReference<>(this);
+        showingWindow = new WeakReference<>(this);
         Uri link = getIntent().getData();
-        mCheckOnly = link != null && CHECK.equals(link.getPath());
-        mExpected = getIntent().getStringExtra(EXTRA_VERSION);
+        checkOnly = link != null && CHECK.equals(link.getPath());
+        expectedVersion = getIntent().getStringExtra(EXTRA_VERSION);
         start();
     }
 
+    /**
+     * Coming back to the window: from "Install unknown apps" (carry on, or say it wasn't
+     * allowed), from Security settings after Auto Blocker (offer Try again), or from the
+     * installer's own screen (wait for its answer again).
+     */
     @Override
     protected void onResume() {
         super.onResume();
         // Back from "Install unknown apps".
-        if (mAskedToAllow && mWork == null) {
-            mAskedToAllow = false;
-            if (allowedToInstall()) start();
-            else problem("Not allowed to update",
-                    "uwuFix wasn't allowed to install apps, so it can't update itself.",
-                    "Try again", this::askToAllow, "Close", this::finish);
-        } else if (mAskedToUnblock && mWork == null) {
+        if (askedToAllow && workThread == null) {
+            askedToAllow = false;
+            if (allowedToInstall()) {
+                start();
+            } else {
+                problem("Not allowed to update",
+                        "uwuFix wasn't allowed to install apps, so it can't update itself.",
+                        "Try again", this::askToAllow, "Close", this::finish);
+            }
+        } else if (askedToUnblock && workThread == null) {
             // Back from Security settings, with no telling whether Auto Blocker is off now.
-            mAskedToUnblock = false;
+            askedToUnblock = false;
             show("Ready to try again", "If Auto Blocker is off now, tap Try again to install " + which() + ".",
                     "Try again", this::start, "Not now", this::finish);
-        } else if (mInstalling) {
+        } else if (installing) {
             // Back from the installer's screen: waiting for its answer again.
             waitForAnswer();
         }
@@ -225,9 +239,11 @@ public class UpdateActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mHandler.removeCallbacks(mNoAnswer);
-        mCancelled = true;
-        if (sShowing.get() == this) sShowing.clear();
+        mainHandler.removeCallbacks(noAnswerCheck);
+        cancelled = true;
+        if (showingWindow.get() == this) {
+            showingWindow.clear();
+        }
     }
 
     // ---------- steps ----------
@@ -238,11 +254,16 @@ public class UpdateActivity extends AppCompatActivity {
     }
 
     private void askToAllow() {
-        String found = mRelease != null ? "Version " + mRelease.version + " is out. " : "";
+        String found;
+        if (foundRelease != null) {
+            found = "Version " + foundRelease.version + " is out. ";
+        } else {
+            found = "";
+        }
         show("Allow updates", found + "To update itself, uwuFix needs your OK to install apps. Turn on "
                 + "\"Allow from this source\" on the next screen, then come back.",
                 "Continue", () -> {
-                    mAskedToAllow = true;
+                    askedToAllow = true;
                     startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                             Uri.parse("package:" + getPackageName())));
                 }, "Not now", this::finish);
@@ -252,8 +273,8 @@ public class UpdateActivity extends AppCompatActivity {
     // that allows this app to install apps. Nothing public says whether it's on, so this says
     // "probably", and Try again carries on with the same version.
     private void autoBlocked() {
-        mInstalling = false;
-        mHandler.removeCallbacks(mNoAnswer);
+        installing = false;
+        mainHandler.removeCallbacks(noAnswerCheck);
         problem("Update blocked", capitalised(which()) + " didn't install. Samsung's Auto Blocker probably stopped it: it "
                 + "only lets apps from the Play Store or Galaxy Store install, even with SG Bus "
                 + "Timings allowed to install apps.\n\nTurn it off in Settings > Security and "
@@ -266,95 +287,140 @@ public class UpdateActivity extends AppCompatActivity {
     // Security and privacy, where Auto Blocker is. Samsung publishes no way to open Auto
     // Blocker's own page, so this opens the one above it, or Settings if even that's missing.
     private void openSecuritySettings() {
-        mAskedToUnblock = true;
+        askedToUnblock = true;
         try {
             startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
-        } catch (ActivityNotFoundException e) {
+        } catch (ActivityNotFoundException exception) {
             startActivity(new Intent(Settings.ACTION_SETTINGS));
         }
     }
 
-    // Handed to the installer: on a Samsung device, its silence for NO_ANSWER_MS is taken as
-    // Auto Blocker. Elsewhere the window waits as long as it takes, as before.
+    // Handed to the installer: on a Samsung device, its silence for NO_ANSWER_MILLISECONDS is
+    // taken as Auto Blocker. Elsewhere the window waits as long as it takes, as before.
     private void waitForAnswer() {
-        mHandler.removeCallbacks(mNoAnswer);
-        if (AUTO_BLOCKER) mHandler.postDelayed(mNoAnswer, NO_ANSWER_MS);
+        mainHandler.removeCallbacks(noAnswerCheck);
+        if (AUTO_BLOCKER) {
+            mainHandler.postDelayed(noAnswerCheck, NO_ANSWER_MILLISECONDS);
+        }
     }
 
     // The installer answered: done, or only asking you first (PENDING_USER_ACTION).
     private void heard(boolean done) {
-        mHandler.removeCallbacks(mNoAnswer);
-        if (done) mInstalling = false;
+        mainHandler.removeCallbacks(noAnswerCheck);
+        if (done) {
+            installing = false;
+        }
     }
 
     private String which() {
-        return mRelease != null ? "version " + mRelease.version : "the update";
+        if (foundRelease != null) {
+            return "version " + foundRelease.version;
+        }
+        return "the update";
     }
 
     private static String capitalised(String text) {
         return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
-    // Looks for the update, or carries on with the one already found.
+    /**
+     * Looks for the update, or carries on with the one already found, on a thread of its own:
+     * reads the newest release (and draws the changelog), then, unless only checking, makes sure
+     * this app may install apps, downloads the APK, checks it, and hands it to the installer.
+     */
     private void start() {
-        mCancelled = false;
-        mInstalling = false;
-        mHandler.removeCallbacks(mNoAnswer);
-        Release found = mRelease;
-        progress(found != null ? "Updating" : "Checking for updates",
-                found != null ? "Downloading version " + found.version + "…"
-                : mCheckOnly ? "Checking for updates…" : "Looking for the update…", -1);
-        mWork = new Thread(() -> {
+        cancelled = false;
+        installing = false;
+        mainHandler.removeCallbacks(noAnswerCheck);
+        Release found = foundRelease;
+        String startTitle;
+        String startText;
+        if (found != null) {
+            startTitle = "Updating";
+            startText = "Downloading version " + found.version + "…";
+        } else if (checkOnly) {
+            startTitle = "Checking for updates";
+            startText = "Checking for updates…";
+        } else {
+            startTitle = "Checking for updates";
+            startText = "Looking for the update…";
+        }
+        progress(startTitle, startText, -1);
+        workThread = new Thread(() -> {
             try {
-                Release release = found != null ? found : latest();
-                if (found == null) ui(this::drawChangelog);
+                Release release;
+                if (found != null) {
+                    release = found;
+                } else {
+                    release = latest();
+                }
+                if (found == null) {
+                    runWhileShowing(this::drawChangelog);
+                }
                 if (release == null) {
-                    ui(() -> show("You're up to date", null,
-                            "GitHub", R.drawable.update_ic_github, () -> browse(pageOf(installedVersion())),
-                            "Close", this::finish));
+                    runWhileShowing(() -> {
+                        show("You're up to date", null,
+                                "GitHub", R.drawable.update_ic_github, () -> {
+                                    browse(pageOf(installedVersion()));
+                                },
+                                "Close", this::finish);
+                    });
                     return;
                 }
-                if (found == null && mCheckOnly) {
-                    ui(() -> show("Update available", null,
-                            "Update to " + release.version, R.drawable.update_ic_download, () -> update(release),
-                            "Not now", this::finish));
+                if (found == null && checkOnly) {
+                    runWhileShowing(() -> {
+                        show("Update available", null,
+                                "Update to " + release.version, R.drawable.update_ic_download, () -> {
+                                    update(release);
+                                },
+                                "Not now", this::finish);
+                    });
                     return;
                 }
                 if (!allowedToInstall()) {
-                    ui(() -> {
-                        mRelease = release;
+                    runWhileShowing(() -> {
+                        foundRelease = release;
                         askToAllow();
                     });
                     return;
                 }
-                File apk = download(release);
-                if (apk == null) return; // Cancelled.
-                check(apk);
-                ui(() -> {
+                File apkFile = download(release);
+                if (apkFile == null) {
+                    return; // Cancelled.
+                }
+                check(apkFile);
+                runWhileShowing(() -> {
                     // Kept on a Samsung device for Try again after Auto Blocker, which then
                     // carries on with this version rather than looking again.
-                    if (AUTO_BLOCKER) mRelease = release;
+                    if (AUTO_BLOCKER) {
+                        foundRelease = release;
+                    }
                     progress("Updating", "Opening Android's installer…", -1);
                 });
-                install(apk);
-            } catch (Problem p) {
-                failed(p.getMessage());
-            } catch (IOException | JSONException | NoSuchAlgorithmException | RuntimeException e) {
-                Log.w(TAG, e);
+                install(apkFile);
+            } catch (Problem problem) {
+                failed(problem.getMessage());
+            } catch (IOException | JSONException | NoSuchAlgorithmException | RuntimeException exception) {
+                Log.w(TAG, exception);
                 failed("Couldn't download the update. Check you're online, then try again.");
             } finally {
-                ui(() -> mWork = null);
+                runWhileShowing(() -> {
+                    workThread = null;
+                });
             }
         }, "update");
-        mWork.start();
+        workThread.start();
     }
 
     // "Update" on what a check found: on to downloading it, by way of "Install unknown apps"
     // if this app isn't allowed to install it yet.
     private void update(Release release) {
-        mRelease = release;
-        if (allowedToInstall()) start();
-        else askToAllow();
+        foundRelease = release;
+        if (allowedToInstall()) {
+            start();
+        } else {
+            askToAllow();
+        }
     }
 
     // The newest release if it's newer than this app, or null.
@@ -362,154 +428,210 @@ public class UpdateActivity extends AppCompatActivity {
         // A version from a notification makes a URL of its own, which the site's cache hasn't
         // seen, so it's read from GitHub now rather than up to ten minutes ago.
         JSONObject json;
-        File test = testFile();
-        if (test != null) {
-            try (InputStream in = new FileInputStream(test)) {
-                json = new JSONObject(read(in));
+        File testFile = testFile();
+        if (testFile != null) {
+            try (InputStream input = new FileInputStream(testFile)) {
+                json = new JSONObject(read(input));
             }
         } else {
-            HttpURLConnection conn = open(mExpected == null ? LATEST : LATEST + "?v=" + mExpected);
-            if (conn.getResponseCode() != 200) {
+            String url;
+            if (expectedVersion == null) {
+                url = LATEST;
+            } else {
+                url = LATEST + "?v=" + expectedVersion;
+            }
+            HttpURLConnection connection = open(url);
+            if (connection.getResponseCode() != 200) {
                 throw new Problem("Couldn't find out what the newest version is. Try again later.");
             }
-            try (InputStream in = conn.getInputStream()) {
-                json = new JSONObject(read(in));
+            try (InputStream input = connection.getInputStream()) {
+                json = new JSONObject(read(input));
             } finally {
-                conn.disconnect();
+                connection.disconnect();
             }
         }
-        mHistory = Notes.listOf(json.optJSONArray("history"));
+        releaseHistory = Notes.listOf(json.optJSONArray("history"));
         String version = json.optString("version", "");
-        if (version.isEmpty() || !newer(version, installedVersion())) return null;
-        Release release = new Release(version, json.getString("apk"),
-                json.optLong("size", -1), json.isNull("sha256") ? null : json.getString("sha256"));
-        if (!release.apk.startsWith(RELEASES)) {
+        if (version.isEmpty() || !newer(version, installedVersion())) {
+            return null;
+        }
+        String sha256;
+        if (json.isNull("sha256")) {
+            sha256 = null;
+        } else {
+            sha256 = json.getString("sha256");
+        }
+        Release release = new Release(version, json.getString("apk"), json.optLong("size", -1), sha256);
+        if (!release.apkUrl.startsWith(RELEASES)) {
             throw new Problem("The update isn't on uwuFix's GitHub page, so it wasn't downloaded.");
         }
         return release;
     }
 
-    // The APK, in this app's cache, or null if cancelled on the way.
+    /**
+     * Downloads the release's APK into this app's cache, showing how far it's got and working out
+     * its SHA-256 on the way, then checks that against the published checksum. Null if cancelled
+     * on the way.
+     */
     private File download(Release release) throws IOException, NoSuchAlgorithmException, Problem {
-        File dir = new File(getCacheDir(), "update");
-        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("No room for " + dir);
-        File apk = new File(dir, "uwufix.apk");
+        File directory = new File(getCacheDir(), "update");
+        if (!directory.isDirectory() && !directory.mkdirs()) {
+            throw new IOException("No room for " + directory);
+        }
+        File apkFile = new File(directory, "uwufix.apk");
         String label = "Downloading version " + release.version + "…";
-        ui(() -> progress("Updating", label, 0));
+        runWhileShowing(() -> {
+            progress("Updating", label, 0);
+        });
 
         MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-        HttpURLConnection conn = open(release.apk);
+        HttpURLConnection connection = open(release.apkUrl);
         try {
-            if (conn.getResponseCode() != 200) {
-                throw new Problem("GitHub didn't send the update (" + conn.getResponseCode() + "). Try again later.");
+            if (connection.getResponseCode() != 200) {
+                throw new Problem("GitHub didn't send the update (" + connection.getResponseCode() + "). Try again later.");
             }
-            long total = conn.getContentLength() > 0 ? conn.getContentLength() : release.size;
-            try (InputStream in = new DigestInputStream(conn.getInputStream(), sha256);
-                 OutputStream out = new FileOutputStream(apk)) {
-                byte[] buf = new byte[16 * 1024];
+            long total;
+            if (connection.getContentLength() > 0) {
+                total = connection.getContentLength();
+            } else {
+                total = release.size;
+            }
+            try (InputStream input = new DigestInputStream(connection.getInputStream(), sha256);
+                 OutputStream output = new FileOutputStream(apkFile)) {
+                byte[] buffer = new byte[16 * 1024];
                 long done = 0;
                 int lastPercent = -1;
-                for (int n; (n = in.read(buf)) != -1; ) {
-                    if (mCancelled) {
-                        apk.delete();
+                for (int bytesRead; (bytesRead = input.read(buffer)) != -1; ) {
+                    if (cancelled) {
+                        apkFile.delete();
                         return null;
                     }
-                    out.write(buf, 0, n);
-                    done += n;
-                    int percent = total > 0 ? (int) Math.min(100, done * 100 / total) : -1;
+                    output.write(buffer, 0, bytesRead);
+                    done += bytesRead;
+                    int percent;
+                    if (total > 0) {
+                        percent = (int) Math.min(100, done * 100 / total);
+                    } else {
+                        percent = -1;
+                    }
                     if (percent != lastPercent) {
                         lastPercent = percent;
-                        String sizes = total > 0 ? "\n" + megabytes(done) + " of " + megabytes(total) : "";
-                        ui(() -> progress("Updating", label + sizes, percent));
+                        String sizes;
+                        if (total > 0) {
+                            sizes = "\n" + megabytes(done) + " of " + megabytes(total);
+                        } else {
+                            sizes = "";
+                        }
+                        runWhileShowing(() -> {
+                            progress("Updating", label + sizes, percent);
+                        });
                     }
                 }
             }
         } finally {
-            conn.disconnect();
+            connection.disconnect();
         }
 
-        if (release.sha256 != null && !release.sha256.equalsIgnoreCase(hex(sha256.digest()))) {
-            apk.delete();
+        if (release.sha256 != null && !release.sha256.equalsIgnoreCase(hexadecimal(sha256.digest()))) {
+            apkFile.delete();
             throw new Problem("The download doesn't match the file on GitHub. Try again.");
         }
-        return apk;
+        return apkFile;
     }
 
     // That the file is this app, and newer than the one installed.
-    private void check(File apk) throws Problem {
-        PackageInfo info = getPackageManager().getPackageArchiveInfo(apk.getPath(), 0);
+    private void check(File apkFile) throws Problem {
+        PackageInfo info = getPackageManager().getPackageArchiveInfo(apkFile.getPath(), 0);
         if (info == null || !getPackageName().equals(info.packageName)) {
-            apk.delete();
+            apkFile.delete();
             throw new Problem("The download isn't uwuFix, so it wasn't installed.");
         }
         if (versionCode(info) <= versionCode(installed())) {
-            apk.delete();
+            apkFile.delete();
             throw new Problem("The download isn't newer than this app, so it wasn't installed.");
         }
     }
 
     // Hands the APK to Android's installer. Its answer comes to InstallStatus: first that it
     // needs you to confirm, with the screen that asks, then whether it worked.
-    private void install(File apk) throws IOException {
+    private void install(File apkFile) throws IOException {
         PackageInstaller installer = getPackageManager().getPackageInstaller();
-        PackageInstaller.SessionParams params =
+        PackageInstaller.SessionParams sessionParameters =
                 new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-        params.setAppPackageName(getPackageName());
-        params.setSize(apk.length());
-        int id = installer.createSession(params);
-        try (PackageInstaller.Session session = installer.openSession(id)) {
-            try (InputStream in = new FileInputStream(apk);
-                 OutputStream out = session.openWrite("uwufix.apk", 0, apk.length())) {
-                byte[] buf = new byte[64 * 1024];
-                for (int n; (n = in.read(buf)) != -1; ) out.write(buf, 0, n);
-                session.fsync(out);
+        sessionParameters.setAppPackageName(getPackageName());
+        sessionParameters.setSize(apkFile.length());
+        int sessionId = installer.createSession(sessionParameters);
+        try (PackageInstaller.Session session = installer.openSession(sessionId)) {
+            try (InputStream input = new FileInputStream(apkFile);
+                 OutputStream output = session.openWrite("uwufix.apk", 0, apkFile.length())) {
+                byte[] buffer = new byte[64 * 1024];
+                for (int bytesRead; (bytesRead = input.read(buffer)) != -1; ) {
+                    output.write(buffer, 0, bytesRead);
+                }
+                session.fsync(output);
             }
             // Mutable, for the installer to add its answer to. Explicit, to InstallStatus only.
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT
-                    | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-            PendingIntent status = PendingIntent.getBroadcast(this, id,
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                flags = flags | PendingIntent.FLAG_MUTABLE;
+            }
+            PendingIntent status = PendingIntent.getBroadcast(this, sessionId,
                     new Intent(this, InstallStatus.class), flags);
             // Waiting from before the commit, so even the quickest answer comes after it.
-            ui(() -> {
-                mInstalling = true;
+            runWhileShowing(() -> {
+                installing = true;
                 waitForAnswer();
             });
             session.commit(status.getIntentSender());
-        } catch (IOException | RuntimeException e) {
-            installer.abandonSession(id);
-            throw e;
+        } catch (IOException | RuntimeException exception) {
+            installer.abandonSession(sessionId);
+            throw exception;
         } finally {
             // The session has its own copy now.
-            apk.delete();
+            apkFile.delete();
         }
     }
 
     // The installer's answers. Not exported, so only the installer, through the PendingIntent
     // above, can send them: an exported one would start any screen another app handed it.
     public static class InstallStatus extends BroadcastReceiver {
+        /**
+         * One answer from the installer: show its confirm screen, close on success, close (or
+         * explain Auto Blocker) when cancelled, and otherwise say why it failed, in the window if
+         * it's still showing or in a toast if not.
+         */
         @Override
         public void onReceive(Context context, Intent intent) {
             int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
-            UpdateActivity showing = sShowing.get();
+            UpdateActivity showing = showingWindow.get();
             // An answer, so not silence. Waiting starts again when you're back from the screen
             // that asks.
-            if (showing != null) showing.heard(status != PackageInstaller.STATUS_PENDING_USER_ACTION);
+            if (showing != null) {
+                showing.heard(status != PackageInstaller.STATUS_PENDING_USER_ACTION);
+            }
             if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
                 Intent confirm = intent.getParcelableExtra(Intent.EXTRA_INTENT);
-                if (confirm == null) return;
+                if (confirm == null) {
+                    return;
+                }
                 // Started while the update window is still on screen, so Android lets it open.
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(confirm);
             } else if (status == PackageInstaller.STATUS_SUCCESS) {
                 // Android stops the app to replace it, so this rarely runs.
-                if (showing != null) showing.finish();
+                if (showing != null) {
+                    showing.finish();
+                }
             } else if (status == PackageInstaller.STATUS_FAILURE_ABORTED) {
                 // "Cancel" on Android's own screen. Also what a screen that ends without
                 // Install answers, as Samsung's does when Auto Blocker stops it, so there the
                 // window stays to say so.
                 Log.i(TAG, "Install aborted: " + intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE));
-                if (showing != null && AUTO_BLOCKER) showing.autoBlocked();
-                else if (showing != null) showing.finish();
+                if (showing != null && AUTO_BLOCKER) {
+                    showing.autoBlocked();
+                } else if (showing != null) {
+                    showing.finish();
+                }
             } else {
                 String why = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
                 Log.w(TAG, "Install failed: " + status + " " + why);
@@ -517,39 +639,53 @@ public class UpdateActivity extends AppCompatActivity {
                         || status == PackageInstaller.STATUS_FAILURE_INCOMPATIBLE;
                 boolean storage = status == PackageInstaller.STATUS_FAILURE_STORAGE;
                 if (AUTO_BLOCKER && !conflict && !storage) {
-                    if (showing != null) showing.autoBlocked();
-                    else Toast.makeText(context, "Samsung's Auto Blocker probably stopped the update. Turn it "
-                            + "off in Settings > Security and privacy > Auto Blocker, then update again.",
-                            Toast.LENGTH_LONG).show();
+                    if (showing != null) {
+                        showing.autoBlocked();
+                    } else {
+                        Toast.makeText(context, "Samsung's Auto Blocker probably stopped the update. Turn it "
+                                + "off in Settings > Security and privacy > Auto Blocker, then update again.",
+                                Toast.LENGTH_LONG).show();
+                    }
                     return;
                 }
-                String message = conflict
-                        ? "Android wouldn't install the update over this app. Uninstall uwuFix, then install it from GitHub."
-                        : storage
-                        ? "There isn't room on this phone for the update."
-                        : "Android couldn't install the update. Try again.";
-                if (showing != null) showing.failed(message);
-                else Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+                String message;
+                if (conflict) {
+                    message = "Android wouldn't install the update over this app. Uninstall uwuFix, then install it from GitHub.";
+                } else if (storage) {
+                    message = "There isn't room on this phone for the update.";
+                } else {
+                    message = "Android couldn't install the update. Try again.";
+                }
+                if (showing != null) {
+                    showing.failed(message);
+                } else {
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+                }
             }
         }
     }
 
     // ---------- the page ----------
 
+    /**
+     * Finds the page's views (update_activity.xml), then lays it out edge to edge: the buttons
+     * over the bottom on a fade, the changelog padded to scroll clear of them, and the words kept
+     * out from under the status and navigation bars.
+     */
     private void buildWindow() {
         setContentView(R.layout.update_activity);
-        mTitle = findViewById(R.id.update_title);
-        mSubtitle = findViewById(R.id.update_subtitle);
-        mStatus = findViewById(R.id.update_status);
-        mStatusTile = findViewById(R.id.update_status_tile);
-        mStatusIcon = findViewById(R.id.update_status_icon);
-        mText = findViewById(R.id.update_message);
-        mProgress = findViewById(R.id.update_progress);
-        mPrimary = findViewById(R.id.update_primary);
-        mSecondary = findViewById(R.id.update_secondary);
-        mContent = findViewById(R.id.update_content);
-        mReleases = findViewById(R.id.update_releases);
-        mSubtitle.setText("uwuFix · v" + installedVersion());
+        titleView = findViewById(R.id.update_title);
+        subtitleView = findViewById(R.id.update_subtitle);
+        statusCard = findViewById(R.id.update_status);
+        statusTile = findViewById(R.id.update_status_tile);
+        statusIcon = findViewById(R.id.update_status_icon);
+        messageView = findViewById(R.id.update_message);
+        progressView = findViewById(R.id.update_progress);
+        primaryButton = findViewById(R.id.update_primary);
+        secondaryButton = findViewById(R.id.update_secondary);
+        contentLayout = findViewById(R.id.update_content);
+        releasesLayout = findViewById(R.id.update_releases);
+        subtitleView.setText("uwuFix · v" + installedVersion());
 
         // The buttons over the bottom of the page, the changelog fading out under them, and the
         // page scrolling far enough for its end to come up above them.
@@ -557,33 +693,39 @@ public class UpdateActivity extends AppCompatActivity {
         View buttons = findViewById(R.id.update_buttons);
         buttons.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, new int[] {
                 surface, surface, ColorUtils.setAlphaComponent(surface, 0)}));
-        buttons.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            if (b - t != ob - ot) mContent.setPadding(mContent.getPaddingLeft(), mContent.getPaddingTop(),
-                    mContent.getPaddingRight(), b - t);
+        buttons.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (bottom - top != oldBottom - oldTop) {
+                contentLayout.setPadding(contentLayout.getPaddingLeft(), contentLayout.getPaddingTop(),
+                        contentLayout.getPaddingRight(), bottom - top);
+            }
         });
         // Edge to edge: the page under the status and navigation bars, its words and buttons not.
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.update_root), (v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.update_root), (view, insets) -> {
             Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-            mContent.setPadding(dp(20) + bars.left, dp(24) + bars.top, dp(20) + bars.right, mContent.getPaddingBottom());
-            buttons.setPadding(dp(20) + bars.left, dp(32), dp(20) + bars.right, dp(16) + bars.bottom);
+            contentLayout.setPadding(dpToPixels(20) + bars.left, dpToPixels(24) + bars.top,
+                    dpToPixels(20) + bars.right, contentLayout.getPaddingBottom());
+            buttons.setPadding(dpToPixels(20) + bars.left, dpToPixels(32),
+                    dpToPixels(20) + bars.right, dpToPixels(16) + bars.bottom);
             View statusBar = findViewById(R.id.update_status_bar);
             statusBar.getLayoutParams().height = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
             statusBar.requestLayout();
             return WindowInsetsCompat.CONSUMED;
         });
-        filled(mSecondary, false);
+        filled(secondaryButton, false);
     }
 
     // A step under way: percent from 0 to 100, or -1 while there's no telling.
     private void progress(String title, String text, int percent) {
-        mTitle.setText(title);
+        titleView.setText(title);
         status(text, R.drawable.update_ic_download, false);
-        mProgress.setIndeterminate(percent < 0);
-        if (percent >= 0) mProgress.setProgress(percent, true);
-        mProgress.setVisibility(View.VISIBLE);
-        button(mPrimary, null, 0, null);
-        button(mSecondary, "Cancel", 0, () -> {
-            mCancelled = true;
+        progressView.setIndeterminate(percent < 0);
+        if (percent >= 0) {
+            progressView.setProgress(percent, true);
+        }
+        progressView.setVisibility(View.VISIBLE);
+        button(primaryButton, null, 0, null);
+        button(secondaryButton, "Cancel", 0, () -> {
+            cancelled = true;
             finish();
         });
     }
@@ -594,14 +736,14 @@ public class UpdateActivity extends AppCompatActivity {
     }
 
     private void show(String title, String text, String primary, int icon, Runnable onPrimary, String secondary, Runnable onSecondary) {
-        mTitle.setText(title);
+        titleView.setText(title);
         status(text, R.drawable.update_ic_settings, false);
-        mProgress.setVisibility(View.GONE);
-        button(mPrimary, primary, icon, onPrimary);
-        button(mSecondary, secondary, 0, onSecondary);
+        progressView.setVisibility(View.GONE);
+        button(primaryButton, primary, icon, onPrimary);
+        button(secondaryButton, secondary, 0, onSecondary);
         // GitHub, on the changelog, is a way to read more rather than a step on: outlined, as
         // Close is, rather than filled.
-        filled(mPrimary, icon != R.drawable.update_ic_github);
+        filled(primaryButton, icon != R.drawable.update_ic_github);
     }
 
     // The same for something that went wrong, its icon on the error colours.
@@ -612,59 +754,94 @@ public class UpdateActivity extends AppCompatActivity {
 
     // The card at the top: a download under way, something for you to do, or a problem.
     private void status(String text, int icon, boolean problem) {
-        mStatus.setVisibility(text == null ? View.GONE : View.VISIBLE);
-        mText.setText(text);
-        mStatusTile.setBackground(rounded(color(problem
-                ? com.google.android.material.R.attr.colorErrorContainer
-                : com.google.android.material.R.attr.colorPrimaryContainer), dp(12)));
-        mStatusIcon.setImageResource(icon);
-        mStatusIcon.setImageTintList(ColorStateList.valueOf(color(problem
-                ? com.google.android.material.R.attr.colorOnErrorContainer
-                : com.google.android.material.R.attr.colorOnPrimaryContainer)));
+        if (text == null) {
+            statusCard.setVisibility(View.GONE);
+        } else {
+            statusCard.setVisibility(View.VISIBLE);
+        }
+        messageView.setText(text);
+        int tileColor;
+        int iconColor;
+        if (problem) {
+            tileColor = color(com.google.android.material.R.attr.colorErrorContainer);
+            iconColor = color(com.google.android.material.R.attr.colorOnErrorContainer);
+        } else {
+            tileColor = color(com.google.android.material.R.attr.colorPrimaryContainer);
+            iconColor = color(com.google.android.material.R.attr.colorOnPrimaryContainer);
+        }
+        statusTile.setBackground(rounded(tileColor, dpToPixels(12)));
+        statusIcon.setImageResource(icon);
+        statusIcon.setImageTintList(ColorStateList.valueOf(iconColor));
     }
 
     private void failed(String message) {
-        ui(() -> {
-            mInstalling = false;
-            mHandler.removeCallbacks(mNoAnswer);
+        runWhileShowing(() -> {
+            installing = false;
+            mainHandler.removeCallbacks(noAnswerCheck);
             problem("Couldn't update", message, "Try again", this::start, "Close", this::finish);
         });
     }
 
     private void button(MaterialButton button, String label, int icon, Runnable onClick) {
-        button.setVisibility(label == null ? View.GONE : View.VISIBLE);
+        if (label == null) {
+            button.setVisibility(View.GONE);
+        } else {
+            button.setVisibility(View.VISIBLE);
+        }
         button.setText(label);
-        if (icon != 0) button.setIconResource(icon);
-        else button.setIcon(null);
-        button.setOnClickListener(onClick == null ? null : v -> onClick.run());
+        if (icon != 0) {
+            button.setIconResource(icon);
+        } else {
+            button.setIcon(null);
+        }
+        if (onClick == null) {
+            button.setOnClickListener(null);
+        } else {
+            button.setOnClickListener((view) -> {
+                onClick.run();
+            });
+        }
     }
 
     // A button filled in the theme's primary colour, or outlined over the page, opaque so the
     // changelog doesn't show through its words.
     private void filled(MaterialButton button, boolean filled) {
-        int over = color(com.google.android.material.R.attr.colorSurfaceContainerLow);
-        int ink = color(filled ? com.google.android.material.R.attr.colorOnPrimary : com.google.android.material.R.attr.colorOnSurface);
-        button.setBackgroundTintList(ColorStateList.valueOf(filled ? color(androidx.appcompat.R.attr.colorPrimary) : over));
-        button.setTextColor(ink);
-        button.setIconTint(ColorStateList.valueOf(ink));
+        int backgroundColor;
+        int inkColor;
+        int strokeWidth;
+        if (filled) {
+            backgroundColor = color(androidx.appcompat.R.attr.colorPrimary);
+            inkColor = color(com.google.android.material.R.attr.colorOnPrimary);
+            strokeWidth = 0;
+        } else {
+            backgroundColor = color(com.google.android.material.R.attr.colorSurfaceContainerLow);
+            inkColor = color(com.google.android.material.R.attr.colorOnSurface);
+            strokeWidth = dpToPixels(1);
+        }
+        button.setBackgroundTintList(ColorStateList.valueOf(backgroundColor));
+        button.setTextColor(inkColor);
+        button.setIconTint(ColorStateList.valueOf(inkColor));
         button.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);
-        button.setStrokeWidth(filled ? 0 : dp(1));
+        button.setStrokeWidth(strokeWidth);
         button.setStrokeColor(ColorStateList.valueOf(color(com.google.android.material.R.attr.colorOutlineVariant)));
     }
 
-    private void ui(Runnable step) {
+    // A step for the window, on the main thread, unless the window's already closing.
+    private void runWhileShowing(Runnable step) {
         runOnUiThread(() -> {
-            if (!isFinishing() && !isDestroyed()) step.run();
+            if (!isFinishing() && !isDestroyed()) {
+                step.run();
+            }
         });
     }
 
-    private int dp(int value) {
+    private int dpToPixels(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     // A colour of the page's theme, the wallpaper's where Android has them.
-    private int color(int attr) {
-        return MaterialColors.getColor(this, attr, 0);
+    private int color(int attribute) {
+        return MaterialColors.getColor(this, attribute, 0);
     }
 
     private static GradientDrawable rounded(int color, int radius) {
@@ -678,14 +855,16 @@ public class UpdateActivity extends AppCompatActivity {
         GradientDrawable shape = new GradientDrawable();
         shape.setShape(GradientDrawable.OVAL);
         shape.setColor(fill);
-        if (width > 0) shape.setStroke(width, stroke);
+        if (width > 0) {
+            shape.setStroke(width, stroke);
+        }
         return shape;
     }
 
     private void browse(String url) {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (ActivityNotFoundException e) {
+        } catch (ActivityNotFoundException exception) {
             Toast.makeText(this, "No browser to open " + url, Toast.LENGTH_LONG).show();
         }
     }
@@ -696,81 +875,154 @@ public class UpdateActivity extends AppCompatActivity {
     // one Installed, and "Earlier releases" before the rest. The one you'd get opens by itself,
     // or this one when there's nothing newer.
     private void drawChangelog() {
-        mReleases.removeAllViews();
-        List<Notes> history = mHistory;
+        releasesLayout.removeAllViews();
+        List<Notes> history = releaseHistory;
         String installed = installedVersion();
-        int open = -1;
-        for (int i = 0; i < history.size() && open < 0; i++) {
-            if (!newer(history.get(i).version, installed)) open = i;
+        int openIndex = -1;
+        for (int index = 0; index < history.size() && openIndex < 0; index++) {
+            if (!newer(history.get(index).version, installed)) {
+                openIndex = index;
+            }
         }
-        if (!history.isEmpty() && newer(history.get(0).version, installed)) open = 0;
+        if (!history.isEmpty() && newer(history.get(0).version, installed)) {
+            openIndex = 0;
+        }
         boolean labelled = false;
         LayoutInflater inflater = LayoutInflater.from(this);
-        for (int i = 0; i < history.size(); i++) {
-            Notes notes = history.get(i);
+        for (int index = 0; index < history.size(); index++) {
+            Notes notes = history.get(index);
             boolean isNew = newer(notes.version, installed);
             boolean isInstalled = notes.version.equals(installed);
             if (!isNew && !isInstalled && !labelled) {
                 labelled = true;
-                View label = inflater.inflate(R.layout.update_label, mReleases, false);
+                View label = inflater.inflate(R.layout.update_label, releasesLayout, false);
                 ((TextView) label.findViewById(R.id.label_text)).setText("Earlier releases");
-                mReleases.addView(label);
+                releasesLayout.addView(label);
             }
-            mReleases.addView(release(inflater, notes, isNew, isInstalled, i == open, i == history.size() - 1));
+            boolean opened = index == openIndex;
+            boolean last = index == history.size() - 1;
+            releasesLayout.addView(release(inflater, notes, isNew, isInstalled, opened, last));
         }
     }
 
+    /**
+     * One release's row on the timeline: its dot (a ring for the one you'd get or have), its
+     * version with a New or Installed chip, when it came out and how many changes, and its notes
+     * as group cards that open and close with a tap on the heading.
+     */
     private View release(LayoutInflater inflater, Notes notes, boolean isNew, boolean isInstalled, boolean opened, boolean last) {
-        View row = inflater.inflate(R.layout.update_release, mReleases, false);
+        View row = inflater.inflate(R.layout.update_release, releasesLayout, false);
         int primary = color(androidx.appcompat.R.attr.colorPrimary);
         int muted = color(com.google.android.material.R.attr.colorOutline);
         // The release you'd get, or have, as a ring; the rest as a small dot.
         View dot = row.findViewById(R.id.release_dot);
         boolean ring = isNew || isInstalled;
-        dot.setBackground(dot(ring ? color(com.google.android.material.R.attr.colorSurface) : muted, primary, ring ? dp(3) : 0));
         FrameLayout.LayoutParams size = (FrameLayout.LayoutParams) dot.getLayoutParams();
-        size.width = size.height = dp(ring ? 16 : 10);
-        size.topMargin = dp(ring ? 7 : 10);
-        if (last) row.findViewById(R.id.release_line).setVisibility(View.INVISIBLE);
+        if (ring) {
+            dot.setBackground(dot(color(com.google.android.material.R.attr.colorSurface), primary, dpToPixels(3)));
+            size.width = dpToPixels(16);
+            size.height = dpToPixels(16);
+            size.topMargin = dpToPixels(7);
+        } else {
+            dot.setBackground(dot(muted, primary, 0));
+            size.width = dpToPixels(10);
+            size.height = dpToPixels(10);
+            size.topMargin = dpToPixels(10);
+        }
+        if (last) {
+            row.findViewById(R.id.release_line).setVisibility(View.INVISIBLE);
+        }
 
         ((TextView) row.findViewById(R.id.release_version)).setText("v" + notes.version);
         TextView chip = row.findViewById(R.id.release_chip);
         if (ring) {
             chip.setVisibility(View.VISIBLE);
-            chip.setText(isNew ? "New" : "Installed");
-            chip.setBackground(rounded(color(isNew ? androidx.appcompat.R.attr.colorPrimary
-                    : com.google.android.material.R.attr.colorPrimaryContainer), dp(16)));
-            chip.setTextColor(color(isNew ? com.google.android.material.R.attr.colorOnPrimary
-                    : com.google.android.material.R.attr.colorOnPrimaryContainer));
+            if (isNew) {
+                chip.setText("New");
+                chip.setBackground(rounded(color(androidx.appcompat.R.attr.colorPrimary), dpToPixels(16)));
+                chip.setTextColor(color(com.google.android.material.R.attr.colorOnPrimary));
+            } else {
+                chip.setText("Installed");
+                chip.setBackground(rounded(color(com.google.android.material.R.attr.colorPrimaryContainer), dpToPixels(16)));
+                chip.setTextColor(color(com.google.android.material.R.attr.colorOnPrimaryContainer));
+            }
         }
         int count = 0;
-        for (Group group : notes.groups) count += group.items.size();
-        String when = dateText(notes.date);
-        String much = count == 0 ? null : count + (count == 1 ? " change" : " changes");
-        ((TextView) row.findViewById(R.id.release_meta)).setText(when != null && much != null
-                ? when + " · " + much : when != null ? when : much != null ? much : "");
+        for (Group group : notes.groups) {
+            count += group.items.size();
+        }
+        String dateLabel = dateText(notes.date);
+        String changesLabel;
+        if (count == 0) {
+            changesLabel = null;
+        } else if (count == 1) {
+            changesLabel = count + " change";
+        } else {
+            changesLabel = count + " changes";
+        }
+        String meta;
+        if (dateLabel != null && changesLabel != null) {
+            meta = dateLabel + " · " + changesLabel;
+        } else if (dateLabel != null) {
+            meta = dateLabel;
+        } else if (changesLabel != null) {
+            meta = changesLabel;
+        } else {
+            meta = "";
+        }
+        ((TextView) row.findViewById(R.id.release_meta)).setText(meta);
 
         LinearLayout body = row.findViewById(R.id.release_body);
         TextView summary = row.findViewById(R.id.release_summary);
         summary.setText(notes.summary);
-        summary.setVisibility(notes.summary.isEmpty() ? View.GONE : View.VISIBLE);
-        for (int g = 0; g < notes.groups.size(); g++) body.addView(group(inflater, body, notes.groups.get(g), g));
+        if (notes.summary.isEmpty()) {
+            summary.setVisibility(View.GONE);
+        } else {
+            summary.setVisibility(View.VISIBLE);
+        }
+        for (int groupIndex = 0; groupIndex < notes.groups.size(); groupIndex++) {
+            body.addView(group(inflater, body, notes.groups.get(groupIndex), groupIndex));
+        }
 
         View head = row.findViewById(R.id.release_head);
         ImageView chevron = row.findViewById(R.id.release_chevron);
         boolean anything = !notes.groups.isEmpty() || !notes.summary.isEmpty();
-        chevron.setVisibility(anything ? View.VISIBLE : View.GONE);
+        if (anything) {
+            chevron.setVisibility(View.VISIBLE);
+        } else {
+            chevron.setVisibility(View.GONE);
+        }
         setOpen(body, chevron, head, notes, opened && anything, false);
-        if (anything) head.setOnClickListener(v -> setOpen(body, chevron, head, notes, body.getVisibility() != View.VISIBLE, true));
+        if (anything) {
+            head.setOnClickListener((view) -> {
+                setOpen(body, chevron, head, notes, body.getVisibility() != View.VISIBLE, true);
+            });
+        }
         return row;
     }
 
     private void setOpen(View body, ImageView chevron, View head, Notes notes, boolean open, boolean animate) {
-        if (animate) TransitionManager.beginDelayedTransition(mContent, new AutoTransition().setDuration(200));
-        body.setVisibility(open ? View.VISIBLE : View.GONE);
-        if (animate) chevron.animate().rotation(open ? 180 : 0).setDuration(200).start();
-        else chevron.setRotation(open ? 180 : 0);
-        head.setContentDescription("Version " + notes.version + (open ? ", what's new shown" : ", tap for what's new"));
+        if (animate) {
+            TransitionManager.beginDelayedTransition(contentLayout, new AutoTransition().setDuration(200));
+        }
+        int rotation;
+        if (open) {
+            body.setVisibility(View.VISIBLE);
+            rotation = 180;
+        } else {
+            body.setVisibility(View.GONE);
+            rotation = 0;
+        }
+        if (animate) {
+            chevron.animate().rotation(rotation).setDuration(200).start();
+        } else {
+            chevron.setRotation(rotation);
+        }
+        if (open) {
+            head.setContentDescription("Version " + notes.version + ", what's new shown");
+        } else {
+            head.setContentDescription("Version " + notes.version + ", tap for what's new");
+        }
     }
 
     // A group's card, its colours by its place: primary, tertiary, then secondary, round again.
@@ -782,36 +1034,54 @@ public class UpdateActivity extends AppCompatActivity {
                 {com.google.android.material.R.attr.colorSecondaryContainer, com.google.android.material.R.attr.colorOnSecondaryContainer, com.google.android.material.R.attr.colorSecondary},
         };
         int[] tone = tones[index % tones.length];
-        card.findViewById(R.id.group_tile).setBackground(rounded(color(tone[0]), dp(10)));
+        card.findViewById(R.id.group_tile).setBackground(rounded(color(tone[0]), dpToPixels(10)));
         ImageView icon = card.findViewById(R.id.group_icon);
         icon.setImageResource(groupIcon(group.title));
         icon.setImageTintList(ColorStateList.valueOf(color(tone[1])));
         ((TextView) card.findViewById(R.id.group_title)).setText(group.title);
         TextView count = card.findViewById(R.id.group_count);
         count.setText(String.valueOf(group.items.size()));
-        count.setBackground(rounded(color(com.google.android.material.R.attr.colorSurfaceContainerHighest), dp(14)));
+        count.setBackground(rounded(color(com.google.android.material.R.attr.colorSurfaceContainerHighest), dpToPixels(14)));
 
         LinearLayout items = card.findViewById(R.id.group_items);
         int accent = color(tone[2]);
-        for (int i = 0; i < group.items.size(); i++) {
+        for (int itemIndex = 0; itemIndex < group.items.size(); itemIndex++) {
             View item = inflater.inflate(R.layout.update_item, items, false);
             item.findViewById(R.id.item_dot).setBackground(dot(accent, 0, 0));
-            String[] it = group.items.get(i);
+            String[] itemParts = group.items.get(itemIndex);
+            String itemTitle = itemParts[0];
+            String itemText = itemParts[1];
             TextView title = item.findViewById(R.id.item_title);
             TextView text = item.findViewById(R.id.item_text);
-            title.setText(it[0].isEmpty() ? capitalised(it[1]) : it[0]);
-            text.setText(it[1].isEmpty() ? "" : capitalised(it[1]));
-            text.setVisibility(it[0].isEmpty() || it[1].isEmpty() ? View.GONE : View.VISIBLE);
-            if (i >= FIRST_ITEMS) item.setVisibility(View.GONE);
+            if (itemTitle.isEmpty()) {
+                title.setText(capitalised(itemText));
+            } else {
+                title.setText(itemTitle);
+            }
+            if (itemText.isEmpty()) {
+                text.setText("");
+            } else {
+                text.setText(capitalised(itemText));
+            }
+            if (itemTitle.isEmpty() || itemText.isEmpty()) {
+                text.setVisibility(View.GONE);
+            } else {
+                text.setVisibility(View.VISIBLE);
+            }
+            if (itemIndex >= FIRST_ITEMS) {
+                item.setVisibility(View.GONE);
+            }
             items.addView(item);
         }
         if (group.items.size() > FIRST_ITEMS) {
             View more = card.findViewById(R.id.group_more);
             more.setVisibility(View.VISIBLE);
             ((TextView) card.findViewById(R.id.group_more_text)).setText("Show all (" + group.items.size() + ")");
-            more.setOnClickListener(v -> {
-                TransitionManager.beginDelayedTransition(mContent, new AutoTransition().setDuration(200));
-                for (int i = 0; i < items.getChildCount(); i++) items.getChildAt(i).setVisibility(View.VISIBLE);
+            more.setOnClickListener((view) -> {
+                TransitionManager.beginDelayedTransition(contentLayout, new AutoTransition().setDuration(200));
+                for (int childIndex = 0; childIndex < items.getChildCount(); childIndex++) {
+                    items.getChildAt(childIndex).setVisibility(View.VISIBLE);
+                }
                 more.setVisibility(View.GONE);
             });
         }
@@ -820,37 +1090,63 @@ public class UpdateActivity extends AppCompatActivity {
 
     // An icon for a group by its heading in the notes: the app's own, as the site has them.
     private static int groupIcon(String title) {
-        String t = title.toLowerCase(Locale.ROOT);
-        if (t.contains("android") || t.contains("phone")) return R.drawable.update_ic_phone;
-        if (t.contains("desktop") || t.contains("windows") || t.contains("linux") || t.contains("mac")) return R.drawable.update_ic_terminal;
-        if (t.contains("history") || t.contains("sync") || t.contains("devices")) return R.drawable.update_ic_star;
-        if (t.contains("notification") || t.contains("news")) return R.drawable.update_ic_bell;
-        if (t.contains("look") || t.contains("theme") || t.contains("colour")) return R.drawable.update_ic_sun;
-        if (t.contains("tour") || t.contains("website") || t.contains("site")) return R.drawable.update_ic_eye;
-        if (t.contains("setting") || t.contains("update")) return R.drawable.update_ic_settings;
-        if (t.contains("link") || t.contains("fix") || t.contains("tracker") || t.contains("embed")) return R.drawable.update_ic_check;
+        String lowercaseTitle = title.toLowerCase(Locale.ROOT);
+        if (lowercaseTitle.contains("android") || lowercaseTitle.contains("phone")) {
+            return R.drawable.update_ic_phone;
+        }
+        if (lowercaseTitle.contains("desktop") || lowercaseTitle.contains("windows")
+                || lowercaseTitle.contains("linux") || lowercaseTitle.contains("mac")) {
+            return R.drawable.update_ic_terminal;
+        }
+        if (lowercaseTitle.contains("history") || lowercaseTitle.contains("sync") || lowercaseTitle.contains("devices")) {
+            return R.drawable.update_ic_star;
+        }
+        if (lowercaseTitle.contains("notification") || lowercaseTitle.contains("news")) {
+            return R.drawable.update_ic_bell;
+        }
+        if (lowercaseTitle.contains("look") || lowercaseTitle.contains("theme") || lowercaseTitle.contains("colour")) {
+            return R.drawable.update_ic_sun;
+        }
+        if (lowercaseTitle.contains("tour") || lowercaseTitle.contains("website") || lowercaseTitle.contains("site")) {
+            return R.drawable.update_ic_eye;
+        }
+        if (lowercaseTitle.contains("setting") || lowercaseTitle.contains("update")) {
+            return R.drawable.update_ic_settings;
+        }
+        if (lowercaseTitle.contains("link") || lowercaseTitle.contains("fix")
+                || lowercaseTitle.contains("tracker") || lowercaseTitle.contains("embed")) {
+            return R.drawable.update_ic_check;
+        }
         return R.drawable.update_ic_star;
     }
 
     // When a release came out: Today, Yesterday, 3 days ago, or 23 Oct 2026, by Singapore's clock.
-    private static String dateText(String iso) {
-        if (iso == null || iso.isEmpty()) return null;
-        SimpleDateFormat in = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT);
-        in.setTimeZone(TimeZone.getTimeZone("UTC"));
-        Date date;
-        try {
-            date = in.parse(iso);
-        } catch (ParseException e) {
+    private static String dateText(String isoDate) {
+        if (isoDate == null || isoDate.isEmpty()) {
             return null;
         }
-        TimeZone sg = TimeZone.getTimeZone("Asia/Singapore");
-        long days = dayNumber(new Date(), sg) - dayNumber(date, sg);
-        if (days <= 0) return "Today";
-        if (days == 1) return "Yesterday";
-        if (days < 7) return days + " days ago";
-        SimpleDateFormat out = new SimpleDateFormat("d MMM yyyy", Locale.UK);
-        out.setTimeZone(sg);
-        return out.format(date);
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT);
+        isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        Date date;
+        try {
+            date = isoFormat.parse(isoDate);
+        } catch (ParseException exception) {
+            return null;
+        }
+        TimeZone singaporeZone = TimeZone.getTimeZone("Asia/Singapore");
+        long days = dayNumber(new Date(), singaporeZone) - dayNumber(date, singaporeZone);
+        if (days <= 0) {
+            return "Today";
+        }
+        if (days == 1) {
+            return "Yesterday";
+        }
+        if (days < 7) {
+            return days + " days ago";
+        }
+        SimpleDateFormat displayFormat = new SimpleDateFormat("d MMM yyyy", Locale.UK);
+        displayFormat.setTimeZone(singaporeZone);
+        return displayFormat.format(date);
     }
 
     // Days since 1970 by a time zone's calendar, to count whole days between two moments.
@@ -860,7 +1156,11 @@ public class UpdateActivity extends AppCompatActivity {
 
     // A release's page on GitHub, or the list of them.
     private String pageOf(String version) {
-        for (Notes notes : mHistory) if (notes.version.equals(version) && !notes.page.isEmpty()) return notes.page;
+        for (Notes notes : releaseHistory) {
+            if (notes.version.equals(version) && !notes.page.isEmpty()) {
+                return notes.page;
+            }
+        }
         return RELEASES_PAGE;
     }
 
@@ -878,17 +1178,21 @@ public class UpdateActivity extends AppCompatActivity {
             summary = json.optString("summary", "");
             page = json.optString("page", "");
             JSONArray notes = json.optJSONArray("notes");
-            for (int i = 0; notes != null && i < notes.length(); i++) {
-                JSONObject group = notes.optJSONObject(i);
-                if (group != null) groups.add(new Group(group));
+            for (int index = 0; notes != null && index < notes.length(); index++) {
+                JSONObject group = notes.optJSONObject(index);
+                if (group != null) {
+                    groups.add(new Group(group));
+                }
             }
         }
 
         static List<Notes> listOf(JSONArray history) {
             List<Notes> list = new ArrayList<>();
-            for (int i = 0; history != null && i < history.length(); i++) {
-                JSONObject release = history.optJSONObject(i);
-                if (release != null && !release.optString("version", "").isEmpty()) list.add(new Notes(release));
+            for (int index = 0; history != null && index < history.length(); index++) {
+                JSONObject release = history.optJSONObject(index);
+                if (release != null && !release.optString("version", "").isEmpty()) {
+                    list.add(new Notes(release));
+                }
             }
             return list;
         }
@@ -902,9 +1206,11 @@ public class UpdateActivity extends AppCompatActivity {
         Group(JSONObject json) {
             title = json.optString("title", "What's new");
             JSONArray list = json.optJSONArray("items");
-            for (int i = 0; list != null && i < list.length(); i++) {
-                JSONObject item = list.optJSONObject(i);
-                if (item != null) items.add(new String[] {item.optString("title", ""), item.optString("text", "")});
+            for (int index = 0; list != null && index < list.length(); index++) {
+                JSONObject item = list.optJSONObject(index);
+                if (item != null) {
+                    items.add(new String[] {item.optString("title", ""), item.optString("text", "")});
+                }
             }
         }
     }
@@ -917,23 +1223,31 @@ public class UpdateActivity extends AppCompatActivity {
 
     // EXTRA_TEST_JSON's file, in this app's cache, in a debuggable build only.
     private File testFile() {
-        String name = debuggable() ? getIntent().getStringExtra(EXTRA_TEST_JSON) : null;
-        if (name == null || !name.matches("[\\w.-]+")) return null;
+        if (!debuggable()) {
+            return null;
+        }
+        String name = getIntent().getStringExtra(EXTRA_TEST_JSON);
+        if (name == null || !name.matches("[\\w.-]+")) {
+            return null;
+        }
         File file = new File(getCacheDir(), name);
-        return file.isFile() ? file : null;
+        if (file.isFile()) {
+            return file;
+        }
+        return null;
     }
 
     // ---------- helpers ----------
 
     private static final class Release {
         final String version;
-        final String apk;
+        final String apkUrl;
         final long size;
         final String sha256;
 
-        Release(String version, String apk, long size, String sha256) {
+        Release(String version, String apkUrl, long size, String sha256) {
             this.version = version;
-            this.apk = apk;
+            this.apkUrl = apkUrl;
             this.size = size;
             this.sha256 = sha256;
         }
@@ -947,65 +1261,83 @@ public class UpdateActivity extends AppCompatActivity {
     }
 
     private HttpURLConnection open(String url) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-        conn.setConnectTimeout(15_000);
-        conn.setReadTimeout(30_000);
-        conn.setRequestProperty("User-Agent", "uwuFix for Android " + installedVersion());
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setConnectTimeout(15_000);
+        connection.setReadTimeout(30_000);
+        connection.setRequestProperty("User-Agent", "uwuFix for Android " + installedVersion());
         // GitHub sends the APK on from its own address to its file storage's, both https.
-        conn.setInstanceFollowRedirects(true);
-        return conn;
+        connection.setInstanceFollowRedirects(true);
+        return connection;
     }
 
     private PackageInfo installed() {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0);
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new IllegalStateException(e); // This app is always installed.
+        } catch (PackageManager.NameNotFoundException exception) {
+            throw new IllegalStateException(exception); // This app is always installed.
         }
     }
 
     // This app's version, or in a debuggable build one to be (EXTRA_TEST_VERSION).
     private String installedVersion() {
-        String test = debuggable() ? getIntent().getStringExtra(EXTRA_TEST_VERSION) : null;
-        return test != null && test.matches("\\d+(\\.\\d+)*") ? test : installed().versionName;
+        String testVersion = null;
+        if (debuggable()) {
+            testVersion = getIntent().getStringExtra(EXTRA_TEST_VERSION);
+        }
+        if (testVersion != null && testVersion.matches("\\d+(\\.\\d+)*")) {
+            return testVersion;
+        }
+        return installed().versionName;
     }
 
     @SuppressWarnings("deprecation")
     private static long versionCode(PackageInfo info) {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? info.getLongVersionCode() : info.versionCode;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            return info.getLongVersionCode();
+        }
+        return info.versionCode;
     }
 
-    // Whether version a comes after version b, number by number: 1.10.0 after 1.9.0. The same
-    // as newer() in main-site/api/app-release.js.
-    static boolean newer(String a, String b) {
-        String[] x = a.split("\\.");
-        String[] y = b.split("\\.");
-        for (int i = 0; i < Math.max(x.length, y.length); i++) {
-            int d = number(x, i) - number(y, i);
-            if (d != 0) return d > 0;
+    // Whether version candidate comes after version current, number by number: 1.10.0 after
+    // 1.9.0. The same as newer() in main-site/api/app-release.js.
+    static boolean newer(String candidate, String current) {
+        String[] candidateParts = candidate.split("\\.");
+        String[] currentParts = current.split("\\.");
+        for (int index = 0; index < Math.max(candidateParts.length, currentParts.length); index++) {
+            int difference = number(candidateParts, index) - number(currentParts, index);
+            if (difference != 0) {
+                return difference > 0;
+            }
         }
         return false;
     }
 
-    private static int number(String[] parts, int i) {
+    private static int number(String[] parts, int index) {
+        if (index >= parts.length) {
+            return 0;
+        }
         try {
-            return i < parts.length ? Integer.parseInt(parts[i].replaceAll("\\D", "")) : 0;
-        } catch (NumberFormatException e) {
+            return Integer.parseInt(parts[index].replaceAll("\\D", ""));
+        } catch (NumberFormatException exception) {
             return 0;
         }
     }
 
-    private static String read(InputStream in) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buf = new byte[8 * 1024];
-        for (int n; (n = in.read(buf)) != -1; ) out.write(buf, 0, n);
-        return out.toString("UTF-8");
+    private static String read(InputStream input) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8 * 1024];
+        for (int bytesRead; (bytesRead = input.read(buffer)) != -1; ) {
+            output.write(buffer, 0, bytesRead);
+        }
+        return output.toString("UTF-8");
     }
 
-    private static String hex(byte[] bytes) {
-        StringBuilder s = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) s.append(String.format(Locale.ROOT, "%02x", b));
-        return s.toString();
+    private static String hexadecimal(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte singleByte : bytes) {
+            builder.append(String.format(Locale.ROOT, "%02x", singleByte));
+        }
+        return builder.toString();
     }
 
     private static String megabytes(long bytes) {

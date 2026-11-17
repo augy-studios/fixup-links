@@ -20,15 +20,19 @@ public class JSObject extends JSONObject {
     }
 
     /** A copy of any JSONObject as a JSObject, or null for null. */
-    public static JSObject from(JSONObject o) {
-        if (o == null) return null;
-        if (o instanceof JSObject) return (JSObject) o;
-        JSObject out = new JSObject();
-        for (Iterator<String> keys = o.keys(); keys.hasNext(); ) {
-            String k = keys.next();
-            out.put(k, o.opt(k));
+    public static JSObject from(JSONObject source) {
+        if (source == null) {
+            return null;
         }
-        return out;
+        if (source instanceof JSObject) {
+            return (JSObject) source;
+        }
+        JSObject copy = new JSObject();
+        for (Iterator<String> keys = source.keys(); keys.hasNext(); ) {
+            String key = keys.next();
+            copy.put(key, source.opt(key));
+        }
+        return copy;
     }
 
     /** The string at name, or null if there's none (or it isn't a string). */
@@ -38,8 +42,11 @@ public class JSObject extends JSONObject {
     }
 
     public String getString(String name, String fallback) {
-        Object v = opt(name);
-        return v instanceof String ? (String) v : fallback;
+        Object value = opt(name);
+        if (value instanceof String) {
+            return (String) value;
+        }
+        return fallback;
     }
 
     public Integer getInteger(String name) {
@@ -47,18 +54,27 @@ public class JSObject extends JSONObject {
     }
 
     public Integer getInteger(String name, Integer fallback) {
-        Object v = opt(name);
-        return v instanceof Number ? Integer.valueOf(((Number) v).intValue()) : fallback;
+        Object value = opt(name);
+        if (value instanceof Number) {
+            return Integer.valueOf(((Number) value).intValue());
+        }
+        return fallback;
     }
 
     public Boolean getBoolean(String name, Boolean fallback) {
-        Object v = opt(name);
-        return v instanceof Boolean ? (Boolean) v : fallback;
+        Object value = opt(name);
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        return fallback;
     }
 
     public JSObject getJSObject(String name) {
-        Object v = opt(name);
-        return v instanceof JSONObject ? from((JSONObject) v) : null;
+        Object value = opt(name);
+        if (value instanceof JSONObject) {
+            return from((JSONObject) value);
+        }
+        return null;
     }
 
     @Override
@@ -104,7 +120,11 @@ public class JSObject extends JSONObject {
     /** A null string is put as JSON's null, so Dart sees the key with null. */
     public JSObject put(String key, String value) {
         try {
-            super.put(key, value == null ? JSONObject.NULL : value);
+            if (value == null) {
+                super.put(key, JSONObject.NULL);
+            } else {
+                super.put(key, value);
+            }
         } catch (JSONException ignored) {
             // A null key: nothing put.
         }
@@ -114,7 +134,11 @@ public class JSObject extends JSONObject {
     @Override
     public JSObject put(String key, Object value) {
         try {
-            super.put(key, value == null ? JSONObject.NULL : value);
+            if (value == null) {
+                super.put(key, JSONObject.NULL);
+            } else {
+                super.put(key, value);
+            }
         } catch (JSONException ignored) {
             // A null key, or a number JSON can't hold: nothing put.
         }

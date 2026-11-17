@@ -14,6 +14,8 @@ class HelpCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def help(self, interaction: discord.Interaction):
+        """Replies with an embed describing the commands plus link buttons
+        (web app, Telegram bot, server invite, donations)."""
         embed = discord.Embed(
             title='Link cleaning & embed fixing',
             description=(

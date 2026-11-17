@@ -97,7 +97,7 @@ button:disabled {
 /* ---- light / dark surface tokens ---- */
 :root,
 :root[data-mode="light"] {
-  --bg: #eef2f0;
+  --background: #eef2f0;
   --surface: rgba(255, 255, 255, 0.55);
   --surface-strong: rgba(255, 255, 255, 0.78);
   --surface-border: rgba(255, 255, 255, 0.65);
@@ -105,14 +105,14 @@ button:disabled {
   --muted: #5b665f;
   --shadow: 0 10px 30px rgba(20, 40, 30, 0.10);
   --brand-ink: #1f6b3d;
-  --ok: #0f7234;
-  --warn: #a24b08;
+  --success: #0f7234;
+  --warning: #a24b08;
   --busy: #627288;
   --error: #b91c1c;
 }
 
 :root[data-mode="dark"] {
-  --bg: #0c100e;
+  --background: #0c100e;
   --surface: rgba(255, 255, 255, 0.06);
   --surface-strong: rgba(255, 255, 255, 0.11);
   --surface-border: rgba(255, 255, 255, 0.14);
@@ -120,8 +120,8 @@ button:disabled {
   --muted: #9aa7a0;
   --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
   --brand-ink: #bff5cf;
-  --ok: #4ade80;
-  --warn: #fbbf24;
+  --success: #4ade80;
+  --warning: #fbbf24;
   --busy: #94a3b8;
   --error: #fa9696;
 }
@@ -135,11 +135,11 @@ button:disabled {
   --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 
-  /* The Edge Tray (edge-tray-spec.md, js/tray.js). --banner-h is the update bar's height,
+  /* The Edge Tray (edge-tray-spec.md, js/tray.js). --banner-height is the update bar's height,
      set by js/tray.js while one shows. */
-  --glass-btn: 44px;
+  --glass-button: 44px;
   --edge: max(16px, calc(var(--safe-right) + 16px));
-  --tray-top: max(calc(var(--banner-h, 0px) + 14px), calc(var(--safe-top) + 14px));
+  --tray-top: max(calc(var(--banner-height, 0px) + 14px), calc(var(--safe-top) + 14px));
   --tray-time: 0.34s;
   --tray-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
@@ -155,7 +155,7 @@ button:disabled {
 
 /* flat, static colour derived from theme, no gradients */
 body {
-  background-color: color-mix(in srgb, var(--brand) 10%, var(--bg));
+  background-color: color-mix(in srgb, var(--brand) 10%, var(--background));
   color: var(--ink);
   min-height: 100vh;
   overflow-x: hidden;
@@ -381,7 +381,7 @@ body.modal-open {
   display: flex;
   align-items: center;
   padding: 0 4px;
-  margin-top: calc(14px + (var(--glass-btn) - 32px) / 2);
+  margin-top: calc(14px + (var(--glass-button) - 32px) / 2);
   transition: margin-right var(--tray-time) var(--tray-ease);
 }
 
@@ -425,7 +425,7 @@ body.modal-open {
 }
 
 .tray {
-  --tray-shift: calc(var(--glass-btn) + 8px + var(--edge));
+  --tray-shift: calc(var(--glass-button) + 8px + var(--edge));
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -441,7 +441,7 @@ body.modal-open {
   align-items: center;
   justify-content: center;
   width: 24px;
-  height: var(--glass-btn);
+  height: var(--glass-button);
   padding: 0;
   border-radius: 12px;
   background: var(--surface);
@@ -493,8 +493,8 @@ body.modal-open {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: var(--glass-btn);
-  height: var(--glass-btn);
+  width: var(--glass-button);
+  height: var(--glass-button);
   padding: 0;
   border-radius: 14px;
   background: var(--surface);
@@ -530,16 +530,16 @@ body.modal-open {
     transform 0.15s ease,
     background 0.15s ease,
     color 0.15s ease;
-  transition-delay: calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), 0s, 0s, 0s;
+  transition-delay: calc(var(--index, 0) * 18ms), calc(var(--index, 0) * 18ms), calc(var(--index, 0) * 18ms), 0s, 0s, 0s;
 }
 
-.tray-buttons > :nth-child(2) { --i: 1; }
-.tray-buttons > :nth-child(3) { --i: 2; }
-.tray-buttons > :nth-child(4) { --i: 3; }
-.tray-buttons > :nth-child(5) { --i: 4; }
-.tray-buttons > :nth-child(6) { --i: 5; }
-.tray-buttons > :nth-child(7) { --i: 6; }
-.tray-buttons > :nth-child(8) { --i: 7; }
+.tray-buttons > :nth-child(2) { --index: 1; }
+.tray-buttons > :nth-child(3) { --index: 2; }
+.tray-buttons > :nth-child(4) { --index: 3; }
+.tray-buttons > :nth-child(5) { --index: 4; }
+.tray-buttons > :nth-child(6) { --index: 5; }
+.tray-buttons > :nth-child(7) { --index: 6; }
+.tray-buttons > :nth-child(8) { --index: 7; }
 
 .tray.collapsed .tray-buttons > * {
   opacity: 0;
@@ -591,7 +591,7 @@ body.modal-open {
 
 @media (max-width: 840px) {
   body.tray-open .app {
-    padding-right: max(calc(var(--glass-btn) + var(--edge) + 12px), var(--safe-right));
+    padding-right: max(calc(var(--glass-button) + var(--edge) + 12px), var(--safe-right));
   }
 
   /* The column's padding clears the buttons; the tab, level with the brand line, sits 20px
@@ -1224,7 +1224,7 @@ body.modal-open {
 /* ===== UPDATE NOTICE ===== */
 /* Drawn by js/sw-update.js when a new service worker is waiting, and in the Android app by
    js/app-update.js when a new version of the app is out. Full width at the top of the
-   document, and stuck there so the Edge Tray can sit below it (--banner-h). Above the tray,
+   document, and stuck there so the Edge Tray can sit below it (--banner-height). Above the tray,
    below modals. */
 .update-notice,
 .app-update-notice {
@@ -1370,7 +1370,7 @@ body:has(.update-notice) .app-update-notice {
 /* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
   :root {
-    --glass-btn: 40px;
+    --glass-button: 40px;
     --edge: max(10px, calc(var(--safe-right) + 10px));
   }
 
@@ -1497,7 +1497,7 @@ body:has(.update-notice) .app-update-notice {
 
 .sync-status[data-kind="ok"],
 .sync-note[data-kind="ok"] {
-  color: var(--ok);
+  color: var(--success);
 }
 
 .sync-approve,
@@ -1556,10 +1556,10 @@ body:has(.update-notice) .app-update-notice {
   stroke-linejoin: round;
 }
 
-/* Drawn in over its own length; the script sets --len. */
+/* Drawn in over its own length; the script sets --length. */
 .tourLine {
-  stroke-dasharray: var(--len, 600);
-  stroke-dashoffset: var(--len, 600);
+  stroke-dasharray: var(--length, 600);
+  stroke-dashoffset: var(--length, 600);
   animation: tour-draw 0.6s ease forwards;
 }
 

@@ -35,10 +35,10 @@ def _reply_parameters(reply_to: int | None) -> ReplyParameters | None:
     return ReplyParameters(message_id=reply_to, allow_sending_without_reply=True)
 
 
-def _is_not_modified(err: Exception) -> bool:
+def _is_not_modified(error: Exception) -> bool:
     """Editing a message with identical content and keyboard is a BadRequest
     ("Message is not modified") - harmless, e.g. paging to the same page."""
-    return isinstance(err, BadRequest) and 'not modified' in str(err).lower()
+    return isinstance(error, BadRequest) and 'not modified' in str(error).lower()
 
 
 def rich_input_content(rich: dict) -> InputMessageContent:
@@ -50,10 +50,14 @@ def rich_input_content(rich: dict) -> InputMessageContent:
 def sent_message_id(result) -> int | None:
     """Id of the message a rich send created, for storing and editing later
     with edit_rich_message_at."""
-    return result.message_id if isinstance(result, Message) else None
+    if isinstance(result, Message):
+        return result.message_id
+    return None
 
 
 async def send_rich_message(bot: Bot, chat_id: int, rich: dict, buttons=None, *, reply_to: int | None = None) -> Message:
+    """Sends a rich message to a chat, falling back to a plain-text message
+    with the same buttons if the rich request is rejected."""
     data = {
         'chat_id': chat_id,
         'rich_message': _rich_markdown(rich),
@@ -62,8 +66,8 @@ async def send_rich_message(bot: Bot, chat_id: int, rich: dict, buttons=None, *,
     }
     try:
         return await bot.do_api_request('sendRichMessage', api_kwargs=data, return_type=Message)
-    except Exception as err:
-        log.warning('[send_rich_message] rich send failed, falling back: %s', err)
+    except Exception as error:
+        log.warning('[send_rich_message] rich send failed, falling back: %s', error)
         return await bot.send_message(
             chat_id, rich['fallback'], reply_markup=buttons, reply_parameters=_reply_parameters(reply_to),
         )
@@ -84,18 +88,18 @@ async def _edit_rich(bot: Bot, target: dict, rich: dict, buttons) -> None:
     await bot._post('editMessageText', {**target, 'rich_message': _rich_markdown(rich), 'reply_markup': buttons})
 
 
-async def edit_rich_message_at(bot: Bot, chat_id: int, msg_id: int, rich: dict, buttons=None) -> None:
+async def edit_rich_message_at(bot: Bot, chat_id: int, message_id: int, rich: dict, buttons=None) -> None:
     """Edit by chat + message id. No buttons => keyboard removed."""
     try:
-        await _edit_rich(bot, {'chat_id': chat_id, 'message_id': msg_id}, rich, buttons)
-    except Exception as err:
-        if _is_not_modified(err):
+        await _edit_rich(bot, {'chat_id': chat_id, 'message_id': message_id}, rich, buttons)
+    except Exception as error:
+        if _is_not_modified(error):
             return
-        log.warning('[edit_rich_message_at] rich edit failed, falling back: %s', err)
+        log.warning('[edit_rich_message_at] rich edit failed, falling back: %s', error)
         try:
-            await bot.edit_message_text(rich['fallback'], chat_id=chat_id, message_id=msg_id, reply_markup=buttons)
-        except BadRequest as fallback_err:
-            if not _is_not_modified(fallback_err):
+            await bot.edit_message_text(rich['fallback'], chat_id=chat_id, message_id=message_id, reply_markup=buttons)
+        except BadRequest as fallback_error:
+            if not _is_not_modified(fallback_error):
                 raise
 
 
@@ -107,12 +111,12 @@ async def edit_rich_message(bot: Bot, query: CallbackQuery, rich: dict, buttons=
         target = {'chat_id': query.message.chat.id, 'message_id': query.message.message_id}
     try:
         await _edit_rich(bot, target, rich, buttons)
-    except Exception as err:
-        if _is_not_modified(err):
+    except Exception as error:
+        if _is_not_modified(error):
             return
-        log.warning('[edit_rich_message] rich edit failed, falling back: %s', err)
+        log.warning('[edit_rich_message] rich edit failed, falling back: %s', error)
         try:
             await bot.edit_message_text(rich['fallback'], **target, reply_markup=buttons)
-        except BadRequest as fallback_err:
-            if not _is_not_modified(fallback_err):
+        except BadRequest as fallback_error:
+            if not _is_not_modified(fallback_error):
                 raise

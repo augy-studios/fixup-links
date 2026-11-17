@@ -11,17 +11,22 @@
 #   installers/macos/package.sh <version> <out folder>      (from flutter/)
 set -eu
 VERSION="$1"
-OUT="$2"
+OUT_FOLDER="$2"
 APP="build/macos/Build/Products/Release/uwuFix.app"
-mkdir -p "$OUT"
-for ARCH in arm64 x64; do
-  CPU=$([ "$ARCH" = x64 ] && echo x86_64 || echo arm64)
+mkdir -p "$OUT_FOLDER"
+for ARCHITECTURE in arm64 x64; do
+  # ditto's name for the processor: x86_64 for x64.
+  if [ "$ARCHITECTURE" = x64 ]; then
+    DITTO_ARCHITECTURE=x86_64
+  else
+    DITTO_ARCHITECTURE=arm64
+  fi
   WORK="$(mktemp -d)"
-  ditto --arch "$CPU" "$APP" "$WORK/uwuFix.app"
+  ditto --arch "$DITTO_ARCHITECTURE" "$APP" "$WORK/uwuFix.app"
   codesign --force --deep -s - "$WORK/uwuFix.app"
-  ditto -c -k --sequesterRsrc --keepParent "$WORK/uwuFix.app" "$OUT/uwufix-$VERSION-mac-$ARCH.zip"
+  ditto -c -k --sequesterRsrc --keepParent "$WORK/uwuFix.app" "$OUT_FOLDER/uwufix-$VERSION-mac-$ARCHITECTURE.zip"
   ln -s /Applications "$WORK/Applications"
-  hdiutil create -volname "uwuFix $VERSION" -srcfolder "$WORK" -ov -format UDZO "$OUT/uwufix-$VERSION-mac-$ARCH.dmg"
+  hdiutil create -volname "uwuFix $VERSION" -srcfolder "$WORK" -ov -format UDZO "$OUT_FOLDER/uwufix-$VERSION-mac-$ARCHITECTURE.dmg"
   rm -rf "$WORK"
 done
-ls -la "$OUT"
+ls -la "$OUT_FOLDER"

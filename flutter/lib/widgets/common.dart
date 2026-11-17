@@ -14,12 +14,12 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
-    if (fx.glass != null) {
+    final palette = context.fx;
+    if (palette.glass != null) {
       // Over the system's backdrop there's nothing of the app's behind it to blur.
       return GlassPane(blur: !AppLook.I.backdrop, child: Padding(padding: padding, child: child));
     }
-    if (!fx.uwu) {
+    if (!palette.uwu) {
       return Card.filled(
         margin: EdgeInsets.zero,
         color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -34,8 +34,8 @@ class GlassCard extends StatelessWidget {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 30, offset: const Offset(0, 10))],
       ),
       child: Material(
-        color: fx.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: fx.border)),
+        color: palette.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: palette.border)),
         child: Padding(padding: padding, child: child),
       ),
     );
@@ -51,8 +51,23 @@ class SvgIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? IconTheme.of(context).color ?? DefaultTextStyle.of(context).style.color ?? Colors.black;
-    return SvgPicture.string(svg, width: size, height: size, theme: SvgTheme(currentColor: c));
+    // The first colour that's set: the one given, the icon theme's, the text's, or black.
+    Color iconColor = Colors.black;
+    final givenColor = color;
+    if (givenColor != null) {
+      iconColor = givenColor;
+    } else {
+      final themeColor = IconTheme.of(context).color;
+      if (themeColor != null) {
+        iconColor = themeColor;
+      } else {
+        final textColor = DefaultTextStyle.of(context).style.color;
+        if (textColor != null) {
+          iconColor = textColor;
+        }
+      }
+    }
+    return SvgPicture.string(svg, width: size, height: size, theme: SvgTheme(currentColor: iconColor));
   }
 }
 
@@ -66,13 +81,22 @@ class RoundButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
+    final palette = context.fx;
+    Color buttonColor;
+    BorderSide buttonBorder;
+    if (palette.glassy) {
+      buttonColor = palette.surfaceStrong;
+      buttonBorder = BorderSide(color: palette.border);
+    } else {
+      buttonColor = Theme.of(context).colorScheme.surfaceContainerHigh;
+      buttonBorder = BorderSide.none;
+    }
     return Tooltip(
       message: label,
       waitDuration: const Duration(milliseconds: 400),
       child: Material(
-        color: fx.glassy ? fx.surfaceStrong : Theme.of(context).colorScheme.surfaceContainerHigh,
-        shape: CircleBorder(side: fx.glassy ? BorderSide(color: fx.border) : BorderSide.none),
+        color: buttonColor,
+        shape: CircleBorder(side: buttonBorder),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
@@ -80,7 +104,7 @@ class RoundButton extends StatelessWidget {
             button: true,
             label: label,
             excludeSemantics: true,
-            child: SizedBox(width: 44, height: 44, child: Center(child: IconTheme(data: IconThemeData(color: fx.ink, size: 20), child: icon))),
+            child: SizedBox(width: 44, height: 44, child: Center(child: IconTheme(data: IconThemeData(color: palette.ink, size: 20), child: icon))),
           ),
         ),
       ),

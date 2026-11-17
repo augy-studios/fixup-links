@@ -3,7 +3,7 @@
 
 // ===== CONSTANTS =====
 const HISTORY_KEY = 'uwufix_history';
-const MAX_HISTORY = 100;
+const MAXIMUM_HISTORY_ENTRIES = 100;
 
 // ===== TRACKING PARAMETERS =====
 // Any parameter whose name starts with one of these prefixes is a tracker,
@@ -181,12 +181,14 @@ const PLATFORM_TRACKER_PATTERNS = {
 // so no fixed list keeps up with them. The posting is addressed entirely by its
 // path, so the whole query string goes. Only /job/ pages qualify: on the search
 // listing above them those same params ARE the search.
-const STRIP_ALL_PARAM_HOSTS = ['myworkdayjobs.com', 'myworkdaysite.com'];
-const STRIP_ALL_PARAM_PATH = '/job/';
+const STRIP_ALL_PARAMETER_HOSTS = ['myworkdayjobs.com', 'myworkdaysite.com'];
+const STRIP_ALL_PARAMETER_PATH = '/job/';
 
-function stripsAllParams(hostname, pathname) {
-    return STRIP_ALL_PARAM_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h)) &&
-        pathname.includes(STRIP_ALL_PARAM_PATH);
+function stripsAllParameters(hostname, pathname) {
+    const isStripAllHost = STRIP_ALL_PARAMETER_HOSTS.some(function (stripHost) {
+        return hostname === stripHost || hostname.endsWith('.' + stripHost);
+    });
+    return isStripAllHost && pathname.includes(STRIP_ALL_PARAMETER_PATH);
 }
 
 // Mastodon has no single hostname, so instances have to be enumerated. This is
@@ -198,11 +200,14 @@ const MASTODON_INSTANCES = [
 ];
 
 // ===== EMBED CONVERSION RULES =====
-// Maps original hostname -> [match_fn, convert_fn, platform_label]
+// Each converter has a name (the platform label), a match function that is
+// given the original hostname, and a convert function that rewrites the URL.
 const EMBED_CONVERTERS = [{
         name: 'X / Twitter',
-        match: h => h === 'x.com' || h === 'twitter.com' || h === 'www.x.com' || h === 'www.twitter.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'x.com' || hostname === 'twitter.com' || hostname === 'www.x.com' || hostname === 'www.twitter.com';
+        },
+        convert: function (url) {
             url.hostname = 'fixupx.com';
             const statusMatch = url.pathname.match(/^\/[^/]+\/(status\/\d+)$/);
             if (statusMatch) {
@@ -213,16 +218,20 @@ const EMBED_CONVERTERS = [{
     },
     {
         name: 'Instagram',
-        match: h => h === 'instagram.com' || h === 'www.instagram.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'instagram.com' || hostname === 'www.instagram.com';
+        },
+        convert: function (url) {
             url.hostname = 'www.oginstagram.com';
             return url;
         },
     },
     {
         name: 'YouTube',
-        match: h => h === 'youtube.com' || h === 'www.youtube.com' || h === 'm.youtube.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'youtube.com' || hostname === 'www.youtube.com' || hostname === 'm.youtube.com';
+        },
+        convert: function (url) {
             // Only Shorts need an embed fix - regular watch links already
             // preview fine, so leave them on youtube.com.
             if (/^\/shorts\//.test(url.pathname)) {
@@ -233,60 +242,73 @@ const EMBED_CONVERTERS = [{
     },
     {
         name: 'TikTok',
-        match: h => h === 'tiktok.com' || h === 'www.tiktok.com' || h === 'vm.tiktok.com' || h === 'vt.tiktok.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'tiktok.com' || hostname === 'www.tiktok.com' || hostname === 'vm.tiktok.com' || hostname === 'vt.tiktok.com';
+        },
+        convert: function (url) {
             // Preserve the subdomain so vm./vt. share links keep resolving on
             // the matching tnktok.com subdomain.
-            url.hostname = url.hostname
-                .replace(/^www\./, '')
-                .replace(/tiktok\.com$/, 'tnktok.com');
+            const withoutWww = url.hostname.replace(/^www\./, '');
+            url.hostname = withoutWww.replace(/tiktok\.com$/, 'tnktok.com');
             return url;
         },
     },
     {
         name: 'Facebook',
-        match: h => h === 'facebook.com' || h === 'www.facebook.com' || h === 'fb.com' || h === 'www.fb.com' || h === 'm.facebook.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'facebook.com' || hostname === 'www.facebook.com' || hostname === 'fb.com' || hostname === 'www.fb.com' || hostname === 'm.facebook.com';
+        },
+        convert: function (url) {
             url.hostname = 'www.facebed.com';
             return url;
         },
     },
     {
         name: 'Reddit',
-        match: h => h === 'reddit.com' || h === 'www.reddit.com' || h === 'old.reddit.com' || h === 'new.reddit.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'reddit.com' || hostname === 'www.reddit.com' || hostname === 'old.reddit.com' || hostname === 'new.reddit.com';
+        },
+        convert: function (url) {
             url.hostname = 'www.vxreddit.com';
             return url;
         },
     },
     {
         name: 'Discord',
-        match: h => h === 'canary.discord.com' || h === 'ptb.discord.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'canary.discord.com' || hostname === 'ptb.discord.com';
+        },
+        convert: function (url) {
             url.hostname = 'discord.com';
             return url;
         },
     },
     {
         name: 'Threads',
-        match: h => h === 'threads.net' || h === 'www.threads.net' || h === 'threads.com' || h === 'www.threads.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'threads.net' || hostname === 'www.threads.net' || hostname === 'threads.com' || hostname === 'www.threads.com';
+        },
+        convert: function (url) {
             url.hostname = 'fixthreads.seria.moe';
             return url;
         },
     },
     {
         name: 'Bluesky',
-        match: h => h === 'bsky.app' || h === 'www.bsky.app',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'bsky.app' || hostname === 'www.bsky.app';
+        },
+        convert: function (url) {
             url.hostname = 'fxbsky.app';
             return url;
         },
     },
     {
         name: 'Twitch',
-        match: h => h === 'twitch.tv' || h === 'www.twitch.tv' || h === 'm.twitch.tv',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'twitch.tv' || hostname === 'www.twitch.tv' || hostname === 'm.twitch.tv';
+        },
+        convert: function (url) {
             url.hostname = 'fxtwitch.seria.moe';
             return url;
         },
@@ -295,8 +317,10 @@ const EMBED_CONVERTERS = [{
         // Album and prerelease pages render fine on their own, so leave those
         // on spotify.com.
         name: 'Spotify',
-        match: h => h === 'open.spotify.com' || h === 'spotify.com' || h === 'www.spotify.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'open.spotify.com' || hostname === 'spotify.com' || hostname === 'www.spotify.com';
+        },
+        convert: function (url) {
             if (!/^(\/intl-[^/]+)?\/(album|prerelease)\//.test(url.pathname)) {
                 url.hostname = 'fxspotify.com';
             }
@@ -305,24 +329,30 @@ const EMBED_CONVERTERS = [{
     },
     {
         name: 'Pixiv',
-        match: h => h === 'pixiv.net' || h === 'www.pixiv.net',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'pixiv.net' || hostname === 'www.pixiv.net';
+        },
+        convert: function (url) {
             url.hostname = 'phixiv.net';
             return url;
         },
     },
     {
         name: 'Tumblr',
-        match: h => h === 'tumblr.com' || h === 'www.tumblr.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'tumblr.com' || hostname === 'www.tumblr.com';
+        },
+        convert: function (url) {
             url.hostname = 'tpmblr.com';
             return url;
         },
     },
     {
         name: 'BiliBili',
-        match: h => h === 'bilibili.com' || h === 'www.bilibili.com' || h === 'm.bilibili.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'bilibili.com' || hostname === 'www.bilibili.com' || hostname === 'm.bilibili.com';
+        },
+        convert: function (url) {
             url.hostname = 'vxbilibili.com';
             return url;
         },
@@ -331,8 +361,10 @@ const EMBED_CONVERTERS = [{
         // fixDeviantArt only handles deviation and journal pages; a profile or
         // gallery link would 404 there, so leave those on deviantart.com.
         name: 'DeviantArt',
-        match: h => h === 'deviantart.com' || h === 'www.deviantart.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'deviantart.com' || hostname === 'www.deviantart.com';
+        },
+        convert: function (url) {
             if (/^\/[^/]+\/(art|journal)\/[^/]+/.test(url.pathname)) {
                 url.hostname = 'fixdeviantart.com';
             }
@@ -342,8 +374,10 @@ const EMBED_CONVERTERS = [{
     {
         // FixNewgrounds covers art pages only.
         name: 'Newgrounds',
-        match: h => h === 'newgrounds.com' || h === 'www.newgrounds.com',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'newgrounds.com' || hostname === 'www.newgrounds.com';
+        },
+        convert: function (url) {
             if (/^\/art\/view\/[^/]+\/[^/]+/.test(url.pathname)) {
                 url.hostname = 'fixnewgrounds.com';
             }
@@ -353,8 +387,10 @@ const EMBED_CONVERTERS = [{
     {
         // xfuraffinity covers submission pages only.
         name: 'Fur Affinity',
-        match: h => h === 'furaffinity.net' || h === 'www.furaffinity.net',
-        convert: url => {
+        match: function (hostname) {
+            return hostname === 'furaffinity.net' || hostname === 'www.furaffinity.net';
+        },
+        convert: function (url) {
             if (/^\/view\/[^/]+/.test(url.pathname)) {
                 url.hostname = 'xfuraffinity.net';
             }
@@ -365,8 +401,10 @@ const EMBED_CONVERTERS = [{
         // FxMastodon isn't a plain host swap - the instance becomes the first
         // path segment: fx.zillanlabs.tech/mastodon.social/@user/12345
         name: 'Mastodon',
-        match: h => MASTODON_INSTANCES.includes(h.replace(/^www\./, '')),
-        convert: url => {
+        match: function (hostname) {
+            return MASTODON_INSTANCES.includes(hostname.replace(/^www\./, ''));
+        },
+        convert: function (url) {
             if (/^\/@[^/]+\/[^/]+/.test(url.pathname)) {
                 url.pathname = '/' + url.hostname.replace(/^www\./, '') + url.pathname;
                 url.hostname = 'fx.zillanlabs.tech';
@@ -380,35 +418,62 @@ const EMBED_CONVERTERS = [{
 // Matching is always case-insensitive: query keys arrive in whatever case the
 // sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the same
 // tracker.
-function isTrackerParam(key, platformSet, platformPattern) {
-    const lower = key.toLowerCase();
-    if (TRACKER_PREFIXES.some(p => lower.startsWith(p))) return true;
-    if (UNIVERSAL_TRACKERS.has(lower)) return true;
-    if (platformPattern && platformPattern.test(lower)) return true;
-    return Boolean(platformSet && platformSet.has(lower));
+function isTrackerParameter(key, platformSet, platformPattern) {
+    const lowercaseKey = key.toLowerCase();
+    const hasTrackerPrefix = TRACKER_PREFIXES.some(function (prefix) {
+        return lowercaseKey.startsWith(prefix);
+    });
+    if (hasTrackerPrefix) {
+        return true;
+    }
+    if (UNIVERSAL_TRACKERS.has(lowercaseKey)) {
+        return true;
+    }
+    if (platformPattern && platformPattern.test(lowercaseKey)) {
+        return true;
+    }
+    return Boolean(platformSet && platformSet.has(lowercaseKey));
 }
 
 // ===== GOOGLE SEARCH DESTINATION EXTRACTION =====
-function extractGoogleDest(url) {
-    const q = url.searchParams.get('url') ||
-        url.searchParams.get('q');
-    if (!q) return null;
+function extractGoogleDestination(url) {
+    let query = url.searchParams.get('url');
+    if (!query) {
+        query = url.searchParams.get('q');
+    }
+    if (!query) {
+        return null;
+    }
     try {
-        const dest = new URL(q);
-        return dest.toString();
+        const destination = new URL(query);
+        return destination.toString();
     } catch {
         return null;
     }
 }
 
 // ===== CORE CLEANER =====
+/**
+ * Cleans one link: normalizes YouTube hosts, pulls the destination out of a
+ * Google Search redirect, removes tracking parameters, and swaps the host for
+ * an embed-friendly one where a fixer exists.
+ * Returns { cleaned, changes, platform, wasConverted }, where changes is the
+ * list of tags shown under the result. Throws an Error with a message for the
+ * person when the input isn't a usable http(s) link.
+ */
 function cleanUrl(rawInput) {
     const input = rawInput.trim();
-    if (!input) throw new Error('Please enter a URL.');
+    if (!input) {
+        throw new Error('Please enter a URL.');
+    }
 
     let url;
     try {
-        url = new URL(input.startsWith('http') ? input : 'https://' + input);
+        let fullInput = input;
+        if (!input.startsWith('http')) {
+            fullInput = 'https://' + input;
+        }
+        url = new URL(fullInput);
     } catch {
         throw new Error('That doesn\'t look like a valid URL. Please include https://');
     }
@@ -441,14 +506,14 @@ function cleanUrl(rawInput) {
 
     // 1. Google Search - extract destination
     if (hostname === 'google.com' || hostname.endsWith('.google.com')) {
-        const dest = extractGoogleDest(url);
-        if (dest) {
+        const destination = extractGoogleDestination(url);
+        if (destination) {
             changes.push({
                 type: 'redirect',
                 label: 'Extracted destination from Google Search'
             });
             return {
-                cleaned: dest,
+                cleaned: destination,
                 changes,
                 platform: 'Google Search',
                 wasConverted: false
@@ -457,29 +522,39 @@ function cleanUrl(rawInput) {
     }
 
     // 2. Remove platform-specific trackers
-    const platformKey = Object.keys(PLATFORM_TRACKERS).find(k =>
-        hostname === k || hostname.endsWith('.' + k)
-    );
+    const platformKey = Object.keys(PLATFORM_TRACKERS).find(function (platformHost) {
+        return hostname === platformHost || hostname.endsWith('.' + platformHost);
+    });
 
-    const platformSet = platformKey ? PLATFORM_TRACKERS[platformKey] : null;
-    const platformPattern = platformKey ? PLATFORM_TRACKER_PATTERNS[platformKey] : null;
-    const stripAll = stripsAllParams(hostname, url.pathname);
-    const removedParams = [];
+    let platformSet = null;
+    let platformPattern = null;
+    if (platformKey) {
+        platformSet = PLATFORM_TRACKERS[platformKey];
+        platformPattern = PLATFORM_TRACKER_PATTERNS[platformKey];
+    }
+    const stripAll = stripsAllParameters(hostname, url.pathname);
+    const removedParameters = [];
 
-    const toDelete = [];
+    const keysToDelete = [];
     for (const [key] of url.searchParams) {
-        if (stripAll || isTrackerParam(key, platformSet, platformPattern)) {
-            toDelete.push(key);
-            removedParams.push(key);
+        if (stripAll || isTrackerParameter(key, platformSet, platformPattern)) {
+            keysToDelete.push(key);
+            removedParameters.push(key);
         }
     }
-    toDelete.forEach(k => url.searchParams.delete(k));
+    for (const key of keysToDelete) {
+        url.searchParams.delete(key);
+    }
 
-    if (removedParams.length > 0) {
+    if (removedParameters.length > 0) {
+        let trackerWord = 'tracker';
+        if (removedParameters.length > 1) {
+            trackerWord = 'trackers';
+        }
         changes.push({
             type: 'trackers',
-            label: `Removed ${removedParams.length} tracker${removedParams.length > 1 ? 's' : ''}`,
-            params: removedParams,
+            label: `Removed ${removedParameters.length} ${trackerWord}`,
+            params: removedParameters,
         });
     }
 
@@ -489,9 +564,9 @@ function cleanUrl(rawInput) {
 
     for (const converter of EMBED_CONVERTERS) {
         if (converter.match(url.hostname)) {
-            const before = url.hostname;
+            const hostnameBefore = url.hostname;
             const result = converter.convert(url);
-            if (result.hostname !== before) {
+            if (result.hostname !== hostnameBefore) {
                 changes.push({
                     type: 'embed',
                     label: `Converted to embed-friendly domain (${url.hostname})`
@@ -504,13 +579,19 @@ function cleanUrl(rawInput) {
     }
 
     // 4. Detect platform label for history
-    const platformLabel = convertedPlatform ||
-        detectPlatform(hostname) ||
-        'General';
+    let platformLabel = convertedPlatform;
+    if (!platformLabel) {
+        platformLabel = detectPlatform(hostname);
+    }
+    if (!platformLabel) {
+        platformLabel = 'General';
+    }
 
     // 5. Clean up empty query string
     let cleaned = url.toString();
-    if (cleaned.endsWith('?')) cleaned = cleaned.slice(0, -1);
+    if (cleaned.endsWith('?')) {
+        cleaned = cleaned.slice(0, -1);
+    }
 
     if (changes.length === 0) {
         changes.push({
@@ -527,8 +608,12 @@ function cleanUrl(rawInput) {
     };
 }
 
+/**
+ * The platform name shown in history for a hostname (www. already removed),
+ * or null when it isn't a known platform.
+ */
 function detectPlatform(hostname) {
-    const map = {
+    const platformNames = {
         'twitter.com': 'X / Twitter',
         'x.com': 'X / Twitter',
         'instagram.com': 'Instagram',
@@ -564,17 +649,25 @@ function detectPlatform(hostname) {
         'eightfold.ai': 'Eightfold',
         'community.samsung.com': 'Samsung Community',
     };
-    for (const [key, val] of Object.entries(map)) {
-        if (hostname === key || hostname.endsWith('.' + key)) return val;
+    for (const [platformHost, platformName] of Object.entries(platformNames)) {
+        if (hostname === platformHost || hostname.endsWith('.' + platformHost)) {
+            return platformName;
+        }
     }
-    if (MASTODON_INSTANCES.includes(hostname)) return 'Mastodon';
+    if (MASTODON_INSTANCES.includes(hostname)) {
+        return 'Mastodon';
+    }
     return null;
 }
 
 // ===== HISTORY =====
 function loadHistory() {
     try {
-        return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        let storedHistory = localStorage.getItem(HISTORY_KEY);
+        if (!storedHistory) {
+            storedHistory = '[]';
+        }
+        return JSON.parse(storedHistory);
     } catch {
         return [];
     }
@@ -589,7 +682,9 @@ function saveHistory(items) {
 function addToHistory(original, cleaned, platform, title = null) {
     let history = loadHistory();
     // Remove duplicate of same cleaned URL
-    history = history.filter(h => h.cleaned !== cleaned);
+    history = history.filter(function (historyEntry) {
+        return historyEntry.cleaned !== cleaned;
+    });
     const entry = {
         id: Date.now(),
         original,
@@ -599,14 +694,18 @@ function addToHistory(original, cleaned, platform, title = null) {
         date: new Date().toISOString(),
     };
     history.unshift(entry);
-    if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+    if (history.length > MAXIMUM_HISTORY_ENTRIES) {
+        history = history.slice(0, MAXIMUM_HISTORY_ENTRIES);
+    }
     saveHistory(history);
     return entry;
 }
 
 function removeFromHistory(id) {
     let history = loadHistory();
-    history = history.filter(h => h.id !== id);
+    history = history.filter(function (historyEntry) {
+        return historyEntry.id !== id;
+    });
     saveHistory(history);
     return history;
 }
@@ -618,65 +717,84 @@ function clearHistory() {
 
 function updateHistoryEntry(id, updates) {
     const history = loadHistory();
-    const entry = history.find(h => h.id === id);
+    const entry = history.find(function (historyEntry) {
+        return historyEntry.id === id;
+    });
     if (entry) {
         Object.assign(entry, updates);
         saveHistory(history);
     }
 }
 
-function formatRelativeDate(iso) {
+// "just now", "5m ago", "3h ago", "2d ago", or the date itself after a week.
+function formatRelativeDate(isoDate) {
     const now = Date.now();
-    const then = new Date(iso).getTime();
-    const diff = now - then;
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    const then = new Date(isoDate).getTime();
+    const difference = now - then;
+    const minutes = Math.floor(difference / 60000);
+    if (minutes < 1) {
+        return 'just now';
+    }
+    if (minutes < 60) {
+        return `${minutes}m ago`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(iso).toLocaleDateString();
+    if (days < 7) {
+        return `${days}d ago`;
+    }
+    return new Date(isoDate).toLocaleDateString();
 }
 
 // ===== TOAST =====
 let toastTimer;
 
-function showToast(msg) {
+function showToast(message) {
     const toast = document.getElementById('toast');
-    toast.textContent = msg;
+    toast.textContent = message;
     toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    toastTimer = setTimeout(function () {
+        toast.classList.remove('show');
+    }, 2200);
 }
 
 // ===== MODALS =====
 // openModal / closeModal come from js/ui.js
 
 // ===== UI RENDERING =====
+/** Draws one tag per change under the result, each with an icon for its type. */
 function renderChangeTags(changes) {
     const container = document.getElementById('changesSummary');
     container.innerHTML = '';
-    changes.forEach(c => {
+    for (const change of changes) {
         const tag = document.createElement('span');
         tag.className = 'change-tag';
 
         let svgHtml = '';
-        if (c.type === 'trackers') {
+        if (change.type === 'trackers') {
             svgHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>`;
-        } else if (c.type === 'embed') {
+        } else if (change.type === 'embed') {
             svgHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
-        } else if (c.type === 'redirect') {
+        } else if (change.type === 'redirect') {
             svgHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>`;
         } else {
             svgHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
         }
 
-        tag.innerHTML = svgHtml + c.label;
+        tag.innerHTML = svgHtml + change.label;
         container.appendChild(tag);
-    });
+    }
 }
 
+/**
+ * Redraws the History window from storage: the count badge, the empty state,
+ * and one row per entry. Clicking a row loads its original link into the
+ * input; its bin button deletes it.
+ */
 function renderHistoryList() {
     const history = loadHistory();
     const list = document.getElementById('historyList');
@@ -685,26 +803,38 @@ function renderHistoryList() {
     badge.textContent = history.length;
 
     // Remove only history items, preserve the empty-state element
-    list.querySelectorAll('.history-item').forEach(el => el.remove());
+    const oldItems = list.querySelectorAll('.history-item');
+    for (const oldItem of oldItems) {
+        oldItem.remove();
+    }
 
-    const empty = document.getElementById('historyEmpty');
+    const emptyState = document.getElementById('historyEmpty');
     if (history.length === 0) {
-        if (empty) empty.hidden = false;
+        if (emptyState) {
+            emptyState.hidden = false;
+        }
         return;
     }
 
-    if (empty) empty.hidden = true;
+    if (emptyState) {
+        emptyState.hidden = true;
+    }
 
-    history.forEach(entry => {
+    for (const entry of history) {
         const item = document.createElement('div');
         item.className = 'history-item';
         item.setAttribute('role', 'button');
         item.setAttribute('tabindex', '0');
         item.setAttribute('aria-label', `Load: ${entry.cleaned}`);
 
+        let titleHtml = '';
+        if (entry.title) {
+            titleHtml = `<div class="history-item-title">${escapeHtml(entry.title)}</div>`;
+        }
+
         item.innerHTML = `
       <div class="history-item-content">
-        ${entry.title ? `<div class="history-item-title">${escapeHtml(entry.title)}</div>` : ''}
+        ${titleHtml}
         <div class="history-item-original-label">Original</div>
         <div class="history-item-original">${escapeHtml(entry.original)}</div>
         <div class="history-item-cleaned">${escapeHtml(entry.cleaned)}</div>
@@ -723,30 +853,32 @@ function renderHistoryList() {
       </button>
     `;
 
-        item.querySelector('.history-item-content').addEventListener('click', () => {
+        item.querySelector('.history-item-content').addEventListener('click', function () {
             document.getElementById('urlInput').value = entry.original;
             closeModal('historyModal');
             document.getElementById('urlInput').focus();
             showToast('URL loaded from history');
         });
 
-        item.querySelector('.history-item-delete').addEventListener('click', (e) => {
-            e.stopPropagation();
+        item.querySelector('.history-item-delete').addEventListener('click', function (event) {
+            event.stopPropagation();
             removeFromHistory(entry.id);
             renderHistoryList();
             showToast('Entry deleted');
         });
 
-        item.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') item.querySelector('.history-item-content').click();
+        item.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                item.querySelector('.history-item-content').click();
+            }
         });
 
         list.appendChild(item);
-    });
+    }
 }
 
-function escapeHtml(str) {
-    return str
+function escapeHtml(text) {
+    return text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -755,68 +887,113 @@ function escapeHtml(str) {
 
 // ===== METADATA & REDIRECT =====
 function extractUrlFromText(text) {
-    if (!text) return null;
+    if (!text) {
+        return null;
+    }
     const match = text.match(/https?:\/\/\S+/);
-    if (match) return match[0];
+    if (match) {
+        return match[0];
+    }
     // A link with no https:// in front, such as x.com/user/status/1 highlighted in a chat and
     // sent from the Android app's "Fix link": one word with a dot in it. cleanUrl adds https://.
-    const bare = text.trim();
-    return /^[^\s/]+\.[a-z]{2,}(\/\S*)?$/i.test(bare) ? bare : null;
+    const bareText = text.trim();
+    if (/^[^\s/]+\.[a-z]{2,}(\/\S*)?$/i.test(bareText)) {
+        return bareText;
+    }
+    return null;
 }
 
 // The text with its link swapped for the fixed one, for the Android app's Replace: a link
 // highlighted inside a sentence keeps the sentence around it.
 function replaceLinkInText(text, link, fixed) {
-    const at = link ? text.indexOf(link) : -1;
-    return at === -1 ? fixed : text.slice(0, at) + fixed + text.slice(at + link.length);
+    let linkPosition = -1;
+    if (link) {
+        linkPosition = text.indexOf(link);
+    }
+    if (linkPosition === -1) {
+        return fixed;
+    }
+    return text.slice(0, linkPosition) + fixed + text.slice(linkPosition + link.length);
 }
 
+// Whether following a link ended up on a different site (www. ignored).
 function isMeaningfulRedirect(fromUrl, toUrl) {
     try {
         const from = new URL(fromUrl);
         const to = new URL(toUrl);
-        const h = s => s.toLowerCase().replace(/^www\./, '');
-        return h(from.hostname) !== h(to.hostname);
-    } catch { return false; }
+        function normalizeHost(host) {
+            return host.toLowerCase().replace(/^www\./, '');
+        }
+        return normalizeHost(from.hostname) !== normalizeHost(to.hostname);
+    } catch {
+        return false;
+    }
 }
 
-function urlsEquivalent(a, b) {
+// Whether two links are the same page: same host (www. ignored) and path (trailing / ignored).
+function urlsEquivalent(firstUrl, secondUrl) {
     try {
-        const ua = new URL(a);
-        const ub = new URL(b);
-        const norm = u => u.hostname.toLowerCase().replace(/^www\./, '') + u.pathname.replace(/\/$/, '');
-        return norm(ua) === norm(ub);
-    } catch { return false; }
+        const firstParsed = new URL(firstUrl);
+        const secondParsed = new URL(secondUrl);
+        function normalize(parsedUrl) {
+            return parsedUrl.hostname.toLowerCase().replace(/^www\./, '') + parsedUrl.pathname.replace(/\/$/, '');
+        }
+        return normalize(firstParsed) === normalize(secondParsed);
+    } catch {
+        return false;
+    }
 }
 
+// Asks /api/resolve where a link ends up and what its page is called.
+// Resolves to { title, finalUrl } (either may be null), or null on any failure.
 async function fetchMetadata(url) {
     try {
-        const res = await fetch(`/api/resolve?url=${encodeURIComponent(url)}`, {
+        const response = await fetch(`/api/resolve?url=${encodeURIComponent(url)}`, {
             signal: AbortSignal.timeout(12000),
         });
-        if (!res.ok) return null;
-        const json = await res.json();
-        if (!json.finalUrl && !json.title) return null;
+        if (!response.ok) {
+            return null;
+        }
+        const json = await response.json();
+        if (!json.finalUrl && !json.title) {
+            return null;
+        }
+        let title = null;
+        if (json.title) {
+            title = json.title;
+        }
+        let finalUrl = null;
+        if (json.finalUrl) {
+            finalUrl = json.finalUrl;
+        }
         return {
-            title: json.title || null,
-            finalUrl: json.finalUrl || null,
+            title: title,
+            finalUrl: finalUrl,
         };
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 }
 
 // ===== MAIN PROCESS =====
+/**
+ * Runs when Clean is pressed: cleans the link in the input, shows the result
+ * and its change tags, and saves it to history. Then, when online, looks the
+ * link up in the background to follow redirects and fetch the page title,
+ * updating the result and the history entry when the answer arrives.
+ */
 async function processUrl() {
     const input = document.getElementById('urlInput').value.trim();
     const resultArea = document.getElementById('resultArea');
     const errorArea = document.getElementById('errorArea');
     const resultUrl = document.getElementById('resultUrl');
-    const errorMsg = document.getElementById('errorMsg');
+    const errorMessage = document.getElementById('errorMsg');
 
     resultArea.hidden = true;
     errorArea.hidden = true;
 
     if (!input) {
-        errorMsg.textContent = 'Please enter a URL first.';
+        errorMessage.textContent = 'Please enter a URL first.';
         errorArea.hidden = false;
         return;
     }
@@ -824,20 +1001,22 @@ async function processUrl() {
     let cleanResult;
     try {
         cleanResult = cleanUrl(input);
-    } catch (err) {
-        errorMsg.textContent = err.message;
+    } catch (error) {
+        errorMessage.textContent = error.message;
         errorArea.hidden = false;
         return;
     }
 
-    const { cleaned, changes, platform } = cleanResult;
+    const cleaned = cleanResult.cleaned;
+    const changes = cleanResult.changes;
+    const platform = cleanResult.platform;
 
     resultUrl.textContent = cleaned;
     renderChangeTags(changes);
     resultArea.hidden = false;
     window._uwufixLastCleaned = cleaned;
 
-    const histEntry = addToHistory(input, cleaned, platform);
+    const historyEntry = addToHistory(input, cleaned, platform);
     renderHistoryList();
 
     // Async: fetch page title + detect redirects (requires network)
@@ -846,15 +1025,23 @@ async function processUrl() {
         return;
     }
 
-    fetchMetadata(cleaned).then(meta => {
-        if (!meta) return;
+    fetchMetadata(cleaned).then(function (metadata) {
+        if (!metadata) {
+            return;
+        }
         const updates = {};
 
-        if (meta.title) updates.title = meta.title;
+        if (metadata.title) {
+            updates.title = metadata.title;
+        }
 
-        if (meta.finalUrl && isMeaningfulRedirect(cleaned, meta.finalUrl) && !urlsEquivalent(meta.finalUrl, input)) {
-            let finalCleaned = meta.finalUrl;
-            try { finalCleaned = cleanUrl(meta.finalUrl).cleaned; } catch {}
+        if (metadata.finalUrl && isMeaningfulRedirect(cleaned, metadata.finalUrl) && !urlsEquivalent(metadata.finalUrl, input)) {
+            let finalCleaned = metadata.finalUrl;
+            try {
+                finalCleaned = cleanUrl(metadata.finalUrl).cleaned;
+            } catch {
+                // Not cleanable: show the final link as it came.
+            }
 
             document.getElementById('resultUrl').textContent = finalCleaned;
             window._uwufixLastCleaned = finalCleaned;
@@ -865,29 +1052,33 @@ async function processUrl() {
             // Title from the redirect response may be unreliable - fetch it directly
             // from the final destination, then update history once it arrives
             if (!updates.title) {
-                fetchMetadata(finalCleaned).then(finalMeta => {
-                    if (finalMeta?.title) {
-                        updateHistoryEntry(histEntry.id, { title: finalMeta.title });
+                fetchMetadata(finalCleaned).then(function (finalMetadata) {
+                    if (finalMetadata?.title) {
+                        updateHistoryEntry(historyEntry.id, { title: finalMetadata.title });
                         renderHistoryList();
                     }
-                }).catch(() => {});
+                }).catch(function () {});
             }
         }
 
         if (Object.keys(updates).length) {
-            updateHistoryEntry(histEntry.id, updates);
+            updateHistoryEntry(historyEntry.id, updates);
             renderHistoryList();
         }
-    }).catch(() => {});
+    }).catch(function () {});
 }
 
 // ===== CLIPBOARD =====
 async function pasteFromClipboard() {
     try {
         // The Android app's WebView can't read the clipboard for a page, so the app does.
-        const text = window.AppBridge?.native
-            ? (await AppBridge.call('Fixup', 'paste')).text
-            : await navigator.clipboard.readText();
+        let text;
+        if (window.AppBridge?.native) {
+            const answer = await AppBridge.call('Fixup', 'paste');
+            text = answer.text;
+        } else {
+            text = await navigator.clipboard.readText();
+        }
         if (text) {
             document.getElementById('urlInput').value = text.trim();
             showToast('Pasted from clipboard');
@@ -903,14 +1094,14 @@ async function copyToClipboard(text) {
         showToast('Copied to clipboard');
     } catch {
         // Fallback
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
         document.execCommand('copy');
-        document.body.removeChild(ta);
+        document.body.removeChild(textArea);
         showToast('Copied to clipboard');
     }
 }
@@ -933,18 +1124,24 @@ async function shareUrl(url) {
 }
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+/**
+ * Wires up the page once its markup is ready: the history window, the Clean,
+ * Paste, Clear, Copy, Open, Share and QR buttons, a link passed in the page
+ * address (share target, or the Android app's quick screen), the app's Replace
+ * button, and Escape to close any window.
+ */
+document.addEventListener('DOMContentLoaded', function () {
     // Theme init and modal wiring live in js/theme.js
     renderHistoryList();
     // History merged in from another device (js/sync.js), or changed here.
     document.addEventListener('uwufix:history', renderHistoryList);
 
     // ---- History modal ----
-    document.getElementById('openHistoryModal').addEventListener('click', () => {
+    document.getElementById('openHistoryModal').addEventListener('click', function () {
         renderHistoryList();
         openModal('historyModal');
     });
-    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+    document.getElementById('clearHistoryBtn').addEventListener('click', function () {
         if (confirm('Clear all history?')) {
             clearHistory();
             renderHistoryList();
@@ -956,13 +1153,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cleanBtn').addEventListener('click', processUrl);
 
     // Allow Enter in the input
-    document.getElementById('urlInput').addEventListener('keydown', e => {
-        if (e.key === 'Enter') processUrl();
+    document.getElementById('urlInput').addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            processUrl();
+        }
     });
 
     // ---- Paste / Clear input ----
     document.getElementById('pasteBtn').addEventListener('click', pasteFromClipboard);
-    document.getElementById('clearInputBtn').addEventListener('click', () => {
+    document.getElementById('clearInputBtn').addEventListener('click', function () {
         document.getElementById('urlInput').value = '';
         document.getElementById('resultArea').hidden = true;
         document.getElementById('errorArea').hidden = true;
@@ -971,31 +1170,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ---- Result actions ----
-    document.getElementById('copyBtn').addEventListener('click', () => {
+    document.getElementById('copyBtn').addEventListener('click', function () {
         const url = window._uwufixLastCleaned;
-        if (url) copyToClipboard(url);
+        if (url) {
+            copyToClipboard(url);
+        }
     });
 
-    document.getElementById('openBtn').addEventListener('click', () => {
+    document.getElementById('openBtn').addEventListener('click', function () {
         const url = window._uwufixLastCleaned;
-        if (!url) return;
+        if (!url) {
+            return;
+        }
         // In the Android app, in whichever app opens it (the browser, or X for fixupx.com).
         if (window.AppBridge?.native) {
-            AppBridge.call('Fixup', 'open', { url }).catch(err => showToast(err.message));
+            AppBridge.call('Fixup', 'open', { url }).catch(function (error) {
+                showToast(error.message);
+            });
         } else {
             window.open(url, '_blank', 'noopener,noreferrer');
         }
     });
 
-    document.getElementById('shareBtn').addEventListener('click', () => {
+    document.getElementById('shareBtn').addEventListener('click', function () {
         const url = window._uwufixLastCleaned;
-        if (url) shareUrl(url);
+        if (url) {
+            shareUrl(url);
+        }
     });
 
     // ---- QR Code modal ----
-    document.getElementById('qrBtn').addEventListener('click', () => {
+    document.getElementById('qrBtn').addEventListener('click', function () {
         const url = window._uwufixLastCleaned;
-        if (!url) return;
+        if (!url) {
+            return;
+        }
         const container = document.getElementById('qrContainer');
         container.innerHTML = '';
         new QRCode(container, {
@@ -1013,11 +1222,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Auto-paste if URL in query string (also handles share_target via ?link=) ----
     // The Android app's quick screen comes in this way too, with ?text= holding what was shared
     // or highlighted (FixActivity.java: the WebView app's, and flutter/android's).
-    const qp = new URLSearchParams(window.location.search);
-    const qText = qp.get('text') || '';
-    const qUrl = qp.get('url') || qp.get('link') || extractUrlFromText(qText);
-    if (qUrl) {
-        document.getElementById('urlInput').value = qUrl;
+    const queryParameters = new URLSearchParams(window.location.search);
+    let sharedText = queryParameters.get('text');
+    if (!sharedText) {
+        sharedText = '';
+    }
+    let sharedUrl = queryParameters.get('url');
+    if (!sharedUrl) {
+        sharedUrl = queryParameters.get('link');
+    }
+    if (!sharedUrl) {
+        sharedUrl = extractUrlFromText(sharedText);
+    }
+    if (sharedUrl) {
+        document.getElementById('urlInput').value = sharedUrl;
         setTimeout(processUrl, 100);
     }
 
@@ -1025,21 +1243,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Text highlighted in a box you can type in: the fixed link goes back in place of the one
     // highlighted, and the quick screen closes, back to that app.
     if (window.AppBridge?.native) {
-        AppBridge.ready(5000).then(() => {
-            if (!AppBridge.quick()?.replace || !qUrl) return;
-            const replaceBtn = document.getElementById('replaceBtn');
-            replaceBtn.hidden = false;
-            replaceBtn.addEventListener('click', () => {
+        AppBridge.ready(5000).then(function () {
+            if (!AppBridge.quick()?.replace || !sharedUrl) {
+                return;
+            }
+            const replaceButton = document.getElementById('replaceBtn');
+            replaceButton.hidden = false;
+            replaceButton.addEventListener('click', function () {
                 const fixed = window._uwufixLastCleaned;
-                if (!fixed) return;
-                AppBridge.call('Fixup', 'finish', { text: replaceLinkInText(qText, qUrl, fixed) }).catch(() => {});
+                if (!fixed) {
+                    return;
+                }
+                const replacedText = replaceLinkInText(sharedText, sharedUrl, fixed);
+                AppBridge.call('Fixup', 'finish', { text: replacedText }).catch(function () {});
             });
         });
     }
 
     // ---- Escape key closes modals ----
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
             closeModal('themeModal');
             closeModal('historyModal');
             closeModal('qrModal');
@@ -1050,5 +1273,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-// Service worker registration and the update bar live in js/sw-update.js

@@ -45,11 +45,14 @@ import '../widgets/glass.dart';
 import 'desktop.dart';
 import 'screenshot.dart';
 
+/// The desktop's main window: title bar, navigation rail (or bottom bar) and the pages.
 class DesktopShell extends StatefulWidget {
   const DesktopShell({super.key});
 
   @override
-  State<DesktopShell> createState() => DesktopShellState();
+  State<DesktopShell> createState() {
+    return DesktopShellState();
+  }
 }
 
 class DesktopShellState extends State<DesktopShell> with WindowListener {
@@ -59,9 +62,9 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
   static bool preview = false;
 
   String _page = 'home';
-  Map<String, Object?> _args = const {};
-  final Set<String> _built = {'home'};
-  bool _full = false;
+  Map<String, Object?> _arguments = const {};
+  final Set<String> _builtPages = {'home'};
+  bool _fullScreen = false;
   bool _maximized = false;
   String? _flash; // "Link copied", over the command bar for 1.5 s
   Timer? _flashTimer;
@@ -72,20 +75,48 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
   static const _railKey = 'uwufix.desk.rail';
   static const _paneKey = 'uwufix.desk.historyPane';
   double _width = 1280;
-  bool get railWide => switch (Store.I.get(_railKey)) { 'wide' => true, 'narrow' => false, _ => _width > 1300 };
-  bool get historyPane => Store.I.get(_paneKey) != 'hidden';
 
-  void toggleRail() => setState(() => Store.I.put(_railKey, railWide ? 'narrow' : 'wide'));
+  /// Whether the rail shows names: as last chosen, or until then, on a window over 1300 px.
+  bool get railWide {
+    switch (Store.I.get(_railKey)) {
+      case 'wide':
+        return true;
+      case 'narrow':
+        return false;
+      default:
+        return _width > 1300;
+    }
+  }
 
-  void toggleHistoryPane() => setState(() {
-        final hide = historyPane;
-        Store.I.put(_paneKey, hide ? 'hidden' : null);
-        // Put away while History is the page: the cleaner beside it becomes the page.
-        if (hide && _page == 'history' && _width > 1024) {
-          _page = 'home';
-          AppNav.shown('home');
-        }
-      });
+  bool get historyPane {
+    return Store.I.get(_paneKey) != 'hidden';
+  }
+
+  void toggleRail() {
+    setState(() {
+      if (railWide) {
+        Store.I.put(_railKey, 'narrow');
+      } else {
+        Store.I.put(_railKey, 'wide');
+      }
+    });
+  }
+
+  void toggleHistoryPane() {
+    setState(() {
+      final hide = historyPane;
+      if (hide) {
+        Store.I.put(_paneKey, 'hidden');
+      } else {
+        Store.I.put(_paneKey, null);
+      }
+      // Put away while History is the page: the cleaner beside it becomes the page.
+      if (hide && _page == 'history' && _width > 1024) {
+        _page = 'home';
+        AppNav.shown('home');
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -93,45 +124,91 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
     current = this;
     if (!preview) {
       windowManager.addListener(this);
-      windowManager.isMaximized().then((v) => mounted ? setState(() => _maximized = v) : null);
+      windowManager.isMaximized().then((maximized) {
+        if (mounted) {
+          setState(() {
+            _maximized = maximized;
+          });
+        }
+      });
     }
-    AppNav.opener = (id, args) {
+    AppNav.opener = (id, arguments) {
       setState(() {
         _page = id;
-        _args = args;
-        _built.add(id);
+        _arguments = arguments;
+        _builtPages.add(id);
       });
       AppNav.shown(id);
     };
-    AppNav.reloaders['home'] = () => Fixer.I.cleaned == null ? Future.value() : Fixer.I.fix();
-    AppNav.reloaders['history'] = () async => History.changed.value++;
+    AppNav.reloaders['home'] = () {
+      if (Fixer.I.cleaned == null) {
+        return Future.value();
+      }
+      return Fixer.I.fix();
+    };
+    AppNav.reloaders['history'] = () async {
+      History.changed.value++;
+    };
   }
 
   @override
   void dispose() {
-    if (!preview) windowManager.removeListener(this);
+    if (!preview) {
+      windowManager.removeListener(this);
+    }
     super.dispose();
   }
 
   @override
-  void onWindowMaximize() => setState(() => _maximized = true);
+  void onWindowMaximize() {
+    setState(() {
+      _maximized = true;
+    });
+  }
+
   @override
-  void onWindowUnmaximize() => setState(() => _maximized = false);
+  void onWindowUnmaximize() {
+    setState(() {
+      _maximized = false;
+    });
+  }
+
   @override
-  void onWindowEnterFullScreen() => setState(() => _full = true);
+  void onWindowEnterFullScreen() {
+    setState(() {
+      _fullScreen = true;
+    });
+  }
+
   @override
-  void onWindowLeaveFullScreen() => setState(() => _full = false);
+  void onWindowLeaveFullScreen() {
+    setState(() {
+      _fullScreen = false;
+    });
+  }
 
   void flash(String text) {
     _flashTimer?.cancel();
-    setState(() => _flash = text);
-    _flashTimer = Timer(const Duration(milliseconds: 1500), () => mounted ? setState(() => _flash = null) : null);
+    setState(() {
+      _flash = text;
+    });
+    _flashTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          _flash = null;
+        });
+      }
+    });
   }
 
   /// The view's shareable address on the site.
   String get shareable {
-    if (_page == 'home' && Fixer.I.input.text.trim().isNotEmpty) return '$site/?url=${Uri.encodeComponent(Fixer.I.input.text.trim())}';
-    if (_page == 'sync' && SyncController.I.mode == 'host' && SyncController.I.code.isNotEmpty) return SyncController.I.link;
+    if (_page == 'home' && Fixer.I.input.text.trim().isNotEmpty) {
+      return '$site/?url=${Uri.encodeComponent(Fixer.I.input.text.trim())}';
+    }
+    if (_page == 'sync' && SyncController.I.mode == 'host' && SyncController.I.code.isNotEmpty) {
+      return SyncController.I.link;
+    }
     return '$site/';
   }
 
@@ -141,124 +218,175 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
   }
 
   Future<void> screenshot({bool long = false}) async {
-    final r = await takeScreenshot(_content, page: _page, long: long);
-    flash(r ?? 'Couldn’t take a screenshot');
+    final result = await takeScreenshot(_content, page: _page, long: long);
+    if (result != null) {
+      flash(result);
+    } else {
+      flash('Couldn’t take a screenshot');
+    }
   }
 
-  Future<void> toggleFull() async => windowManager.setFullScreen(!await windowManager.isFullScreen());
+  Future<void> toggleFull() async {
+    await windowManager.setFullScreen(!await windowManager.isFullScreen());
+  }
 
-  Widget _pageWidget(String id, {required bool wide}) => switch (id) {
-        'history' => const HistoryPage(pane: true),
-        'sync' => SyncPage(joinCode: _args['join'] as String?, embedded: true, key: ValueKey('sync${_args['join']}')),
-        'look' => const LookPage(embedded: true),
-        _ => const HomePage(),
-      };
+  Widget _pageWidget(String id, {required bool wide}) {
+    switch (id) {
+      case 'history':
+        return const HistoryPage(pane: true);
+      case 'sync':
+        return SyncPage(joinCode: _arguments['join'] as String?, embedded: true, key: ValueKey('sync${_arguments['join']}'));
+      case 'look':
+        return const LookPage(embedded: true);
+      default:
+        return const HomePage();
+    }
+  }
+
+  /// History beside the cleaner: History slides out to the left as it's put away, and back in,
+  /// the cleaner widening and narrowing beside it. Put away, it can't be reached by Tab or a click.
+  Widget _splitContent(BuildContext context, Fx palette, double width) {
+    double paneWidth;
+    if (width > 1300) {
+      paneWidth = 400.0 + 1;
+    } else {
+      paneWidth = 360.0 + 1;
+    }
+    Duration slideTime;
+    if (MediaQuery.of(context).disableAnimations) {
+      slideTime = Duration.zero;
+    } else {
+      slideTime = const Duration(milliseconds: 280);
+    }
+    double shownWidth;
+    if (historyPane) {
+      shownWidth = paneWidth;
+    } else {
+      shownWidth = 0;
+    }
+    return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      ClipRect(
+        child: AnimatedContainer(
+          duration: slideTime,
+          curve: Curves.easeOutCubic,
+          width: shownWidth,
+          child: OverflowBox(
+            alignment: Alignment.centerRight,
+            minWidth: paneWidth,
+            maxWidth: paneWidth,
+            child: ExcludeFocus(
+              excluding: !historyPane,
+              child: IgnorePointer(
+                ignoring: !historyPane,
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(child: HistoryPage(pane: true, onHide: toggleHistoryPane)),
+                  VerticalDivider(width: 1, color: palette.border),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+      Expanded(child: HomePage(showHistoryButton: !historyPane)),
+    ]);
+  }
+
+  /// The rail beside the page on show, each laid out as the desktop's glass has them.
+  Widget _railAndPage(BuildContext context, BoxConstraints constraints) {
+    final palette = context.fx;
+    final width = constraints.maxWidth;
+    _width = width;
+    final rail = width >= 720 && !_fullScreen;
+    final split = width > 1024 && (_page == 'home' || (_page == 'history' && historyPane));
+    Widget content;
+    if (split) {
+      content = _splitContent(context, palette, width);
+    } else {
+      // Pages built once and kept, so switching back keeps their place. Share history
+      // only while it's on show: leaving it ends sharing.
+      content = Stack(children: [
+        for (final id in const ['home', 'history', 'look'])
+          if (_builtPages.contains(id))
+            Offstage(
+              offstage: _page != id,
+              child: TickerMode(enabled: _page == id, child: _pageWidget(id, wide: false)),
+            ),
+        if (_page == 'sync') _pageWidget('sync', wide: false),
+      ]);
+    }
+    Widget body = RepaintBoundary(key: _content, child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: content));
+    Widget side = _Rail(page: _page, extended: railWide, onToggle: toggleRail);
+    final glass = palette.glass;
+    switch (glass) {
+      case Glass.fluent:
+        // The page on a layer over the Mica, its corner by the rail rounded.
+        double cornerRadius;
+        if (rail) {
+          cornerRadius = glass!.control;
+        } else {
+          cornerRadius = 0;
+        }
+        body = DecoratedBox(
+          decoration: ShapeDecoration(
+            color: palette.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(cornerRadius)),
+              side: BorderSide(color: palette.border),
+            ),
+          ),
+          child: body,
+        );
+      case Glass.tahoe:
+        side = Padding(
+          padding: const EdgeInsets.fromLTRB(8, 2, 0, 8),
+          child: GlassPane(blur: !AppLook.I.backdrop, child: side),
+        );
+      case Glass.frosted:
+        side = ColoredBox(color: palette.surface, child: side);
+      case null:
+        break;
+    }
+    final divider = glass == null || glass == Glass.frosted;
+    return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (rail) side,
+      if (rail && divider) VerticalDivider(width: 1, color: palette.border),
+      Expanded(child: body),
+    ]);
+  }
+
+  /// The navigation bar at the bottom, on a window under 720 px wide.
+  Widget _bottomBar(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 720 && !_fullScreen;
+    if (!narrow) {
+      return const SizedBox.shrink();
+    }
+    return NavigationBar(
+      selectedIndex: AppNav.pages.indexOf(_page).clamp(0, 3),
+      onDestinationSelected: (index) {
+        AppNav.showPage(AppNav.pages[index]);
+      },
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.cleaning_services_outlined), label: 'Fix'),
+        NavigationDestination(icon: Icon(Icons.history), label: 'History'),
+        NavigationDestination(icon: Icon(Icons.devices_outlined), label: 'Share'),
+        NavigationDestination(icon: Icon(Icons.palette_outlined), label: 'Look'),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
     return _Shortcuts(
       shell: this,
       child: Scaffold(
         body: Column(children: [
-          if (!_full) _TitleBar(shell: this, maximized: _maximized, command: _command, flash: _flash),
+          if (!_fullScreen) _TitleBar(shell: this, maximized: _maximized, command: _command, flash: _flash),
           const AppUpdateBar(),
           Expanded(
-            child: LayoutBuilder(builder: (context, c) {
-              final w = c.maxWidth;
-              _width = w;
-              final rail = w >= 720 && !_full;
-              final split = w > 1024 && (_page == 'home' || (_page == 'history' && historyPane));
-              Widget content;
-              if (split) {
-                // History slides out to the left as it's put away, and back in, the cleaner
-                // widening and narrowing beside it. Put away, it can't be reached by Tab or a click.
-                final paneWidth = (w > 1300 ? 400.0 : 360.0) + 1;
-                content = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  ClipRect(
-                    child: AnimatedContainer(
-                      duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 280),
-                      curve: Curves.easeOutCubic,
-                      width: historyPane ? paneWidth : 0,
-                      child: OverflowBox(
-                        alignment: Alignment.centerRight,
-                        minWidth: paneWidth,
-                        maxWidth: paneWidth,
-                        child: ExcludeFocus(
-                          excluding: !historyPane,
-                          child: IgnorePointer(
-                            ignoring: !historyPane,
-                            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                              Expanded(child: HistoryPage(pane: true, onHide: toggleHistoryPane)),
-                              VerticalDivider(width: 1, color: fx.border),
-                            ]),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(child: HomePage(showHistoryButton: !historyPane)),
-                ]);
-              } else {
-                // Pages built once and kept, so switching back keeps their place. Share history
-                // only while it's on show: leaving it ends sharing.
-                content = Stack(children: [
-                  for (final id in const ['home', 'history', 'look'])
-                    if (_built.contains(id))
-                      Offstage(
-                        offstage: _page != id,
-                        child: TickerMode(enabled: _page == id, child: _pageWidget(id, wide: false)),
-                      ),
-                  if (_page == 'sync') _pageWidget('sync', wide: false),
-                ]);
-              }
-              Widget body = RepaintBoundary(key: _content, child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: content));
-              Widget side = _Rail(page: _page, extended: railWide, onToggle: toggleRail);
-              final glass = fx.glass;
-              switch (glass) {
-                case Glass.fluent:
-                  // The page on a layer over the Mica, its corner by the rail rounded.
-                  body = DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: fx.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.only(topLeft: Radius.circular(rail ? glass!.control : 0)),
-                        side: BorderSide(color: fx.border),
-                      ),
-                    ),
-                    child: body,
-                  );
-                case Glass.tahoe:
-                  side = Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 2, 0, 8),
-                    child: GlassPane(blur: !AppLook.I.backdrop, child: side),
-                  );
-                case Glass.frosted:
-                  side = ColoredBox(color: fx.surface, child: side);
-                case null:
-                  break;
-              }
-              final divider = glass == null || glass == Glass.frosted;
-              return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                if (rail) side,
-                if (rail && divider) VerticalDivider(width: 1, color: fx.border),
-                Expanded(child: body),
-              ]);
-            }),
+            child: LayoutBuilder(builder: _railAndPage),
           ),
-          LayoutBuilder(builder: (context, c) {
-            final narrow = MediaQuery.sizeOf(context).width < 720 && !_full;
-            if (!narrow) return const SizedBox.shrink();
-            return NavigationBar(
-              selectedIndex: AppNav.pages.indexOf(_page).clamp(0, 3),
-              onDestinationSelected: (i) => AppNav.showPage(AppNav.pages[i]),
-              destinations: const [
-                NavigationDestination(icon: Icon(Icons.cleaning_services_outlined), label: 'Fix'),
-                NavigationDestination(icon: Icon(Icons.history), label: 'History'),
-                NavigationDestination(icon: Icon(Icons.devices_outlined), label: 'Share'),
-                NavigationDestination(icon: Icon(Icons.palette_outlined), label: 'Look'),
-              ],
-            );
+          LayoutBuilder(builder: (context, _) {
+            return _bottomBar(context);
           }),
         ]),
       ),
@@ -266,6 +394,7 @@ class DesktopShellState extends State<DesktopShell> with WindowListener {
   }
 }
 
+/// The navigation rail: its collapse toggle, the pages, and the app's other buttons below them.
 class _Rail extends StatelessWidget {
   const _Rail({required this.page, required this.extended, required this.onToggle});
   final String page;
@@ -277,49 +406,128 @@ class _Rail extends StatelessWidget {
   static const _narrow = 80.0;
   static const _wide = 256.0; // NavigationRail's minExtendedWidth
 
-  @override
-  Widget build(BuildContext context) {
-    final fx = context.fx;
-    // History's count in the brand colour, as the site's is: a count, not an alert (Badge's
-    // default is red).
-    final badge = fx.uwu ? fx.brandFillStrong : Theme.of(context).colorScheme.primary;
-    final badgeInk = badge.computeLuminance() > 0.4 ? const Color(0xFF121815) : Colors.white;
-    return NavigationRail(
-      extended: extended,
-      backgroundColor: fx.uwu ? fx.surface : null,
-      selectedIndex: AppNav.pages.indexOf(page),
-      onDestinationSelected: (i) => AppNav.showPage(AppNav.pages[i]),
-      labelType: extended ? NavigationRailLabelType.none : NavigationRailLabelType.all,
-      // The toggle and the buttons below the pages move with the rail as it opens and closes
-      // (its own animation), keeping in line with the pages' icons.
-      leading: Builder(
-        builder: (context) {
-          final open = NavigationRail.extendedAnimation(context);
-          return AnimatedBuilder(
-            animation: open,
-            builder: (context, _) => SizedBox(
-              width: _narrow + (_wide - _narrow) * open.value,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SizedBox(
-                  width: _narrow,
-                  child: Center(
-                    child: IconButton(
-                      tooltip: extended ? 'Collapse sidebar (Ctrl+B)' : 'Expand sidebar (Ctrl+B)',
-                      onPressed: onToggle,
-                      icon: Icon(extended ? Icons.menu_open : Icons.menu),
-                    ),
-                  ),
+  /// The collapse or expand button at the top, moving with the rail as it opens and closes.
+  Widget _toggleButton(BuildContext context) {
+    final open = NavigationRail.extendedAnimation(context);
+    String tooltip;
+    IconData icon;
+    if (extended) {
+      tooltip = 'Collapse sidebar (Ctrl+B)';
+      icon = Icons.menu_open;
+    } else {
+      tooltip = 'Expand sidebar (Ctrl+B)';
+      icon = Icons.menu;
+    }
+    return AnimatedBuilder(
+      animation: open,
+      builder: (context, _) {
+        return SizedBox(
+          width: _narrow + (_wide - _narrow) * open.value,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: _narrow,
+              child: Center(
+                child: IconButton(
+                  tooltip: tooltip,
+                  onPressed: onToggle,
+                  icon: Icon(icon),
                 ),
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// The buttons below the pages, moving with the rail as it opens and closes.
+  Widget _actions(BuildContext context) {
+    final open = NavigationRail.extendedAnimation(context);
+    return AnimatedBuilder(
+      animation: open,
+      builder: (context, _) {
+        Widget item(Widget icon, String label, VoidCallback onTap) {
+          return _RailAction(icon: icon, label: label, onTap: onTap, open: open.value);
+        }
+
+        return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TourTarget(
+            id: 'rail.tour',
+            child: item(const Icon(Icons.help_outline), 'Show me around', () {
+              showTourPicker(context);
+            }),
+          ),
+          item(const Icon(Icons.bug_report_outlined), 'Report a bug', openBugReport),
+          item(const SvgIcon(telegramSvg, size: 20), 'Telegram Bot', () {
+            openLink(telegramUrl);
+          }),
+          item(const SvgIcon(discordSvg, size: 20), 'Invite Discord Bot', () {
+            openLink(discordUrl);
+          }),
+          item(const Icon(Icons.coffee_outlined), 'Buy me a coffee', () {
+            openLink(coffeeUrl);
+          }),
+        ]);
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fx;
+    // History's count in the brand colour, as the site's is: a count, not an alert (Badge's
+    // default is red).
+    Color badge;
+    Color? background;
+    if (palette.uwu) {
+      badge = palette.brandFillStrong;
+      background = palette.surface;
+    } else {
+      badge = Theme.of(context).colorScheme.primary;
+    }
+    Color badgeInk;
+    if (badge.computeLuminance() > 0.4) {
+      badgeInk = const Color(0xFF121815);
+    } else {
+      badgeInk = Colors.white;
+    }
+    NavigationRailLabelType labelType;
+    if (extended) {
+      labelType = NavigationRailLabelType.none;
+    } else {
+      labelType = NavigationRailLabelType.all;
+    }
+    final historyIcon = TourTarget(
+      id: 'rail.history',
+      child: ValueListenableBuilder(
+        valueListenable: History.changed,
+        builder: (_, _, _) {
+          return Badge.count(
+            count: History.load().length,
+            isLabelVisible: History.load().isNotEmpty,
+            backgroundColor: badge,
+            textColor: badgeInk,
+            child: const Icon(Icons.history),
           );
         },
       ),
+    );
+    return NavigationRail(
+      extended: extended,
+      backgroundColor: background,
+      selectedIndex: AppNav.pages.indexOf(page),
+      onDestinationSelected: (index) {
+        AppNav.showPage(AppNav.pages[index]);
+      },
+      labelType: labelType,
+      // The toggle and the buttons below the pages move with the rail as it opens and closes
+      // (its own animation), keeping in line with the pages' icons.
+      leading: Builder(builder: _toggleButton),
       destinations: [
         const NavigationRailDestination(icon: Icon(Icons.cleaning_services_outlined), selectedIcon: Icon(Icons.cleaning_services), label: Text('Fix')),
         NavigationRailDestination(
-          icon: TourTarget(id: 'rail.history', child: ValueListenableBuilder(valueListenable: History.changed, builder: (_, _, _) => Badge.count(count: History.load().length, isLabelVisible: History.load().isNotEmpty, backgroundColor: badge, textColor: badgeInk, child: const Icon(Icons.history)))),
+          icon: historyIcon,
           label: const Text('History'),
         ),
         const NavigationRailDestination(icon: Icon(Icons.devices_outlined), selectedIcon: Icon(Icons.devices), label: Text('Share history')),
@@ -332,24 +540,7 @@ class _Rail extends StatelessWidget {
           alignment: Alignment.bottomLeft,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: Builder(
-              builder: (context) {
-                final open = NavigationRail.extendedAnimation(context);
-                return AnimatedBuilder(
-                  animation: open,
-                  builder: (context, _) {
-                    Widget item(Widget icon, String label, VoidCallback onTap) => _RailAction(icon: icon, label: label, onTap: onTap, open: open.value);
-                    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      TourTarget(id: 'rail.tour', child: item(const Icon(Icons.help_outline), 'Show me around', () => showTourPicker(context))),
-                      item(const Icon(Icons.bug_report_outlined), 'Report a bug', openBugReport),
-                      item(const SvgIcon(telegramSvg, size: 20), 'Telegram Bot', () => openLink(telegramUrl)),
-                      item(const SvgIcon(discordSvg, size: 20), 'Invite Discord Bot', () => openLink(discordUrl)),
-                      item(const Icon(Icons.coffee_outlined), 'Buy me a coffee', () => openLink(coffeeUrl)),
-                    ]);
-                  },
-                );
-              },
-            ),
+            child: Builder(builder: _actions),
           ),
         ),
       ),
@@ -374,8 +565,18 @@ class _RailAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final rail = NavigationRailTheme.of(context);
-    final ink = rail.unselectedIconTheme?.color ?? theme.colorScheme.onSurfaceVariant;
-    final style = rail.unselectedLabelTextStyle ?? theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface);
+    Color ink;
+    if (rail.unselectedIconTheme?.color != null) {
+      ink = rail.unselectedIconTheme!.color!;
+    } else {
+      ink = theme.colorScheme.onSurfaceVariant;
+    }
+    TextStyle? style;
+    if (rail.unselectedLabelTextStyle != null) {
+      style = rail.unselectedLabelTextStyle;
+    } else {
+      style = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface);
+    }
     final width = _Rail._narrow + (_Rail._wide - _Rail._narrow) * open;
     final inner = width - _inset * 2;
     // The name only once there's room for some of it.
@@ -412,10 +613,15 @@ class _RailAction extends StatelessWidget {
       ),
     );
     // Collapsed, the name is a tooltip instead; open, it's on the button.
-    return open < 0.5 ? Tooltip(message: label, child: button) : Semantics(button: true, child: button);
+    if (open < 0.5) {
+      return Tooltip(message: label, child: button);
+    }
+    return Semantics(button: true, child: button);
   }
 }
 
+/// The title bar: Back, Forward, Reload, the command bar, the page's own buttons, the update
+/// button once one's downloaded, and the window's buttons (not on macOS, which has its own).
 class _TitleBar extends StatelessWidget {
   const _TitleBar({required this.shell, required this.maximized, required this.command, required this.flash});
   final DesktopShellState shell;
@@ -423,47 +629,159 @@ class _TitleBar extends StatelessWidget {
   final GlobalKey<_CommandBarState> command;
   final String? flash;
 
+  /// Fluent 2: plain white in a light theme and plain black in a dark one. The other desktop
+  /// glass: clear, over the backdrop, as macOS's title bar is.
+  Color _barColor(BuildContext context, Fx palette) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    switch (palette.glass) {
+      case Glass.fluent:
+        if (dark) {
+          return Colors.black;
+        }
+        return Colors.white;
+      case null:
+        if (palette.uwu) {
+          return palette.brandFill;
+        }
+        return Theme.of(context).colorScheme.surfaceContainer;
+      default:
+        return Colors.transparent;
+    }
+  }
+
+  /// The update button while an update is downloaded and ready to install.
+  Widget _updateButton() {
+    if (AppUpdate.I.state != 'ready') {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E8E3E), foregroundColor: Colors.white, visualDensity: VisualDensity.compact),
+        onPressed: () {
+          Desktop.updater?.install();
+        },
+        icon: const Icon(Icons.system_update_alt, size: 16),
+        label: const Text('Update'),
+      ),
+    );
+  }
+
+  /// Minimise, maximise or restore, and close, on Windows and Linux; on macOS just a gap.
+  List<Widget> _windowButtons(Color ink) {
+    if (Desktop.mac) {
+      return const [SizedBox(width: 8)];
+    }
+    IconData maximizeIcon;
+    String maximizeTooltip;
+    if (maximized) {
+      maximizeIcon = Icons.filter_none;
+      maximizeTooltip = 'Restore';
+    } else {
+      maximizeIcon = Icons.crop_square;
+      maximizeTooltip = 'Maximise';
+    }
+    return [
+      const SizedBox(width: 6),
+      _WinButton(icon: Icons.remove, ink: ink, onTap: windowManager.minimize, tooltip: 'Minimise'),
+      _WinButton(
+        icon: maximizeIcon,
+        ink: ink,
+        onTap: () async {
+          if (maximized) {
+            await windowManager.unmaximize();
+          } else {
+            await windowManager.maximize();
+          }
+        },
+        tooltip: maximizeTooltip,
+      ),
+      _WinButton(icon: Icons.close, ink: ink, onTap: Desktop.hide, tooltip: 'Close', close: true),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
-    final scheme = Theme.of(context).colorScheme;
-    // Fluent 2: plain white in a light theme and plain black in a dark one. The other desktop
-    // glass: clear, over the backdrop, as macOS's title bar is.
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final bar = switch (fx.glass) {
-      Glass.fluent => dark ? Colors.black : Colors.white,
-      null => fx.uwu ? fx.brandFill : scheme.surfaceContainer,
-      _ => Colors.transparent,
-    };
-    final ink = bar == Colors.transparent ? fx.ink : (bar.computeLuminance() > 0.45 ? const Color(0xFF121815) : Colors.white);
-    Widget btn(IconData icon, String tip, VoidCallback? onTap) => Tooltip(
-          message: tip,
-          waitDuration: const Duration(milliseconds: 400),
-          child: SizedBox(
-            width: 34,
-            height: 32,
-            child: IconButton(padding: EdgeInsets.zero, iconSize: 18, color: ink, disabledColor: ink.withValues(alpha: 0.35), onPressed: onTap, icon: Icon(icon)),
-          ),
-        );
+    final palette = context.fx;
+    final bar = _barColor(context, palette);
+    Color ink;
+    if (bar == Colors.transparent) {
+      ink = palette.ink;
+    } else if (bar.computeLuminance() > 0.45) {
+      ink = const Color(0xFF121815);
+    } else {
+      ink = Colors.white;
+    }
+    Widget titleButton(IconData icon, String tooltip, VoidCallback? onTap) {
+      return Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 400),
+        child: SizedBox(
+          width: 34,
+          height: 32,
+          child: IconButton(padding: EdgeInsets.zero, iconSize: 18, color: ink, disabledColor: ink.withValues(alpha: 0.35), onPressed: onTap, icon: Icon(icon)),
+        ),
+      );
+    }
+
+    // On macOS, room for its own window buttons at the left.
+    double leadingGap;
+    if (Desktop.mac) {
+      leadingGap = 78;
+    } else {
+      leadingGap = 8;
+    }
+    String historyPaneTooltip;
+    if (shell.historyPane) {
+      historyPaneTooltip = 'Hide history (Ctrl+Shift+H)';
+    } else {
+      historyPaneTooltip = 'Show history beside (Ctrl+Shift+H)';
+    }
     return Container(
       height: 40,
       color: bar,
       child: Stack(children: [
-        Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.translucent, onDoubleTap: () async => await windowManager.isMaximized() ? windowManager.unmaximize() : windowManager.maximize(), child: const DragToMoveArea(child: SizedBox.expand()))),
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onDoubleTap: () async {
+              if (await windowManager.isMaximized()) {
+                await windowManager.unmaximize();
+              } else {
+                await windowManager.maximize();
+              }
+            },
+            child: const DragToMoveArea(child: SizedBox.expand()),
+          ),
+        ),
         Row(children: [
-          SizedBox(width: Desktop.mac ? 78 : 8),
+          SizedBox(width: leadingGap),
           ValueListenableBuilder(
             valueListenable: AppNav.canGo,
-            builder: (_, can, _) => Row(children: [
-              btn(Icons.arrow_back, 'Back (Alt+Left)', can.$1 ? AppNav.back : null),
-              btn(Icons.arrow_forward, 'Forward (Alt+Right)', can.$2 ? AppNav.forward : null),
-            ]),
+            builder: (_, canGo, _) {
+              final (canGoBack, canGoForward) = canGo;
+              VoidCallback? onBack;
+              VoidCallback? onForward;
+              if (canGoBack) {
+                onBack = AppNav.back;
+              }
+              if (canGoForward) {
+                onForward = AppNav.forward;
+              }
+              return Row(children: [
+                titleButton(Icons.arrow_back, 'Back (Alt+Left)', onBack),
+                titleButton(Icons.arrow_forward, 'Forward (Alt+Right)', onForward),
+              ]);
+            },
           ),
           ValueListenableBuilder(
             valueListenable: AppNav.reloading,
-            builder: (_, busy, _) => busy
-                ? SizedBox(width: 34, height: 32, child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: ink))))
-                : btn(Icons.refresh, 'Reload (F5)', AppNav.reload),
+            builder: (_, busy, _) {
+              if (busy) {
+                return SizedBox(width: 34, height: 32, child: Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: ink))));
+              }
+              return titleButton(Icons.refresh, 'Reload (F5)', AppNav.reload);
+            },
           ),
           Expanded(
             child: Center(
@@ -475,31 +793,21 @@ class _TitleBar extends StatelessWidget {
           ),
           // History beside the cleaner, on a window wide enough for it, on the pages it's beside.
           if (MediaQuery.sizeOf(context).width > 1024 && (AppNav.page.value == 'home' || AppNav.page.value == 'history'))
-            btn(Icons.vertical_split_outlined, shell.historyPane ? 'Hide history (Ctrl+Shift+H)' : 'Show history beside (Ctrl+Shift+H)', shell.toggleHistoryPane),
-          btn(Icons.link, 'Copy link (Ctrl+Shift+C)', shell.copyLink),
-          btn(Icons.photo_camera_outlined, 'Screenshot', () => shell.screenshot()),
-          btn(Icons.view_day_outlined, 'Long screenshot', () => shell.screenshot(long: true)),
+            titleButton(Icons.vertical_split_outlined, historyPaneTooltip, shell.toggleHistoryPane),
+          titleButton(Icons.link, 'Copy link (Ctrl+Shift+C)', shell.copyLink),
+          titleButton(Icons.photo_camera_outlined, 'Screenshot', () {
+            shell.screenshot();
+          }),
+          titleButton(Icons.view_day_outlined, 'Long screenshot', () {
+            shell.screenshot(long: true);
+          }),
           ListenableBuilder(
             listenable: AppUpdate.I,
-            builder: (_, _) => AppUpdate.I.state == 'ready'
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E8E3E), foregroundColor: Colors.white, visualDensity: VisualDensity.compact),
-                      onPressed: () => Desktop.updater?.install(),
-                      icon: const Icon(Icons.system_update_alt, size: 16),
-                      label: const Text('Update'),
-                    ),
-                  )
-                : const SizedBox.shrink(),
+            builder: (_, _) {
+              return _updateButton();
+            },
           ),
-          if (!Desktop.mac) ...[
-            const SizedBox(width: 6),
-            _WinButton(icon: Icons.remove, ink: ink, onTap: windowManager.minimize, tip: 'Minimise'),
-            _WinButton(icon: maximized ? Icons.filter_none : Icons.crop_square, ink: ink, onTap: () async => maximized ? windowManager.unmaximize() : windowManager.maximize(), tip: maximized ? 'Restore' : 'Maximise'),
-            _WinButton(icon: Icons.close, ink: ink, onTap: Desktop.hide, tip: 'Close', close: true),
-          ] else
-            const SizedBox(width: 8),
+          ..._windowButtons(ink),
         ]),
       ]),
     );
@@ -508,39 +816,65 @@ class _TitleBar extends StatelessWidget {
 
 /// Windows' and Linux's window buttons, full bar height and 46 px wide, close red on hover.
 class _WinButton extends StatefulWidget {
-  const _WinButton({required this.icon, required this.ink, required this.onTap, required this.tip, this.close = false});
+  const _WinButton({required this.icon, required this.ink, required this.onTap, required this.tooltip, this.close = false});
   final IconData icon;
   final Color ink;
   final VoidCallback onTap;
-  final String tip;
+  final String tooltip;
   final bool close;
 
   @override
-  State<_WinButton> createState() => _WinButtonState();
+  State<_WinButton> createState() {
+    return _WinButtonState();
+  }
 }
 
 class _WinButtonState extends State<_WinButton> {
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: widget.tip,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: Container(
-              width: 46,
-              height: 40,
-              color: _hover ? (widget.close ? const Color(0xFFE81123) : widget.ink.withValues(alpha: 0.1)) : Colors.transparent,
-              child: Icon(widget.icon, size: 16, color: _hover && widget.close ? Colors.white : widget.ink),
-            ),
+  Widget build(BuildContext context) {
+    Color background;
+    if (!_hover) {
+      background = Colors.transparent;
+    } else if (widget.close) {
+      background = const Color(0xFFE81123);
+    } else {
+      background = widget.ink.withValues(alpha: 0.1);
+    }
+    Color iconColor;
+    if (_hover && widget.close) {
+      iconColor = Colors.white;
+    } else {
+      iconColor = widget.ink;
+    }
+    return Semantics(
+      button: true,
+      label: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) {
+          setState(() {
+            _hover = true;
+          });
+        },
+        onExit: (_) {
+          setState(() {
+            _hover = false;
+          });
+        },
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            width: 46,
+            height: 40,
+            color: background,
+            child: Icon(widget.icon, size: 16, color: iconColor),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// The command bar: at rest the page's name; clicked, or Ctrl+K, a live search of the app's
@@ -552,7 +886,9 @@ class _CommandBar extends StatefulWidget {
   final String? flash;
 
   @override
-  State<_CommandBar> createState() => _CommandBarState();
+  State<_CommandBar> createState() {
+    return _CommandBarState();
+  }
 }
 
 class _Command {

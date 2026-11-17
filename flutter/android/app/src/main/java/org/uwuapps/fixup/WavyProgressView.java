@@ -28,72 +28,80 @@ import com.google.android.material.color.MaterialColors;
 
 public class WavyProgressView extends View {
     // How long a wave takes to drift by its own length, and the sweep to cross once.
-    private static final long DRIFT_MS = 1000;
-    private static final long SWEEP_MS = 1800;
+    private static final long DRIFT_MILLISECONDS = 1000;
+    private static final long SWEEP_MILLISECONDS = 1800;
 
-    private final Paint mActive = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint mTrack = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint mStop = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path mPath = new Path();
-    private final float mThickness;
-    private final float mAmplitude;
-    private final float mWavelength;
-    private final float mGap;
+    private final Paint activePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint stopPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path wavePath = new Path();
+    private final float thickness;
+    private final float amplitude;
+    private final float wavelength;
+    private final float gap;
 
-    // Shown from 0 to 1, chasing where it's been set (mTarget) a little each frame, so a download's
+    // Shown from 0 to 1, chasing where it's been set (target) a little each frame, so a download's
     // many small steps glide rather than each starting an animation of its own.
-    private float mProgress;
-    private float mTarget;
-    private boolean mIndeterminate = true;
-    private long mLastFrame;
+    private float progress;
+    private float target;
+    private boolean indeterminate = true;
+    private long lastFrame;
     // Running while it's on screen: the wave's drift, and the sweep.
-    private ValueAnimator mTicker;
-    private float mPhase;
-    private float mSweep;
+    private ValueAnimator ticker;
+    private float phase;
+    private float sweep;
 
-    public WavyProgressView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        float dp = getResources().getDisplayMetrics().density;
-        mThickness = 4 * dp;
-        mAmplitude = 3 * dp;
-        mWavelength = 40 * dp;
-        mGap = 4 * dp;
-        for (Paint paint : new Paint[] {mActive, mTrack}) {
+    public WavyProgressView(Context context, AttributeSet attributes) {
+        super(context, attributes);
+        float density = getResources().getDisplayMetrics().density;
+        thickness = 4 * density;
+        amplitude = 3 * density;
+        wavelength = 40 * density;
+        gap = 4 * density;
+        for (Paint paint : new Paint[] {activePaint, trackPaint}) {
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(mThickness);
+            paint.setStrokeWidth(thickness);
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND);
         }
         int primary = MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary);
-        mActive.setColor(primary);
-        mStop.setColor(primary);
-        mTrack.setColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondaryContainer));
+        activePaint.setColor(primary);
+        stopPaint.setColor(primary);
+        trackPaint.setColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorSecondaryContainer));
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
 
     public boolean isIndeterminate() {
-        return mIndeterminate;
+        return indeterminate;
     }
 
     public void setIndeterminate(boolean indeterminate) {
-        if (mIndeterminate == indeterminate) return;
-        mIndeterminate = indeterminate;
-        if (!indeterminate) mProgress = mTarget = 0;
+        if (this.indeterminate == indeterminate) {
+            return;
+        }
+        this.indeterminate = indeterminate;
+        if (!indeterminate) {
+            target = 0;
+            progress = 0;
+        }
         invalidate();
     }
 
     // From 0 to 100, eased there if `animate`.
     public void setProgress(int percent, boolean animate) {
-        mTarget = Math.max(0, Math.min(100, percent)) / 100f;
-        if (!animate || mTicker == null) mProgress = mTarget;
+        target = Math.max(0, Math.min(100, percent)) / 100f;
+        if (!animate || ticker == null) {
+            progress = target;
+        }
         invalidate();
         sendAccessibilityEvent(android.view.accessibility.AccessibilityEvent.TYPE_VIEW_SELECTED);
     }
 
     @Override
-    protected void onMeasure(int widthSpec, int heightSpec) {
-        int height = Math.round(mThickness + 2 * mAmplitude) + getPaddingTop() + getPaddingBottom();
-        setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthSpec), resolveSize(height, heightSpec));
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        int height = Math.round(thickness + 2 * amplitude) + getPaddingTop() + getPaddingBottom();
+        setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
+                resolveSize(height, heightMeasureSpec));
     }
 
     @Override
@@ -109,87 +117,131 @@ public class WavyProgressView extends View {
     }
 
     @Override
-    protected void onVisibilityChanged(View changed, int visibility) {
-        super.onVisibilityChanged(changed, visibility);
-        if (isShown()) tick();
-        else stopTicking();
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        if (isShown()) {
+            tick();
+        } else {
+            stopTicking();
+        }
     }
 
     private boolean moving() {
         return android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled();
     }
 
+    /**
+     * Starts the animator that runs while the bar is on screen (unless animations are off): each
+     * frame moves the wave's phase, the indeterminate sweep, and the shown progress a step nearer
+     * its target.
+     */
     private void tick() {
-        if (mTicker != null || !isAttachedToWindow() || !isShown() || !moving()) return;
-        mTicker = ValueAnimator.ofFloat(0, 1).setDuration(SWEEP_MS);
-        mTicker.setRepeatCount(ValueAnimator.INFINITE);
-        mTicker.setInterpolator(new LinearInterpolator());
+        if (ticker != null || !isAttachedToWindow() || !isShown() || !moving()) {
+            return;
+        }
+        ticker = ValueAnimator.ofFloat(0, 1).setDuration(SWEEP_MILLISECONDS);
+        ticker.setRepeatCount(ValueAnimator.INFINITE);
+        ticker.setInterpolator(new LinearInterpolator());
         long start = System.currentTimeMillis();
-        mLastFrame = start;
-        mTicker.addUpdateListener(a -> {
+        lastFrame = start;
+        ticker.addUpdateListener((animation) -> {
             long now = System.currentTimeMillis();
-            mPhase = (float) (2 * Math.PI * ((now - start) % DRIFT_MS) / DRIFT_MS);
-            mSweep = (float) a.getAnimatedValue();
+            phase = (float) (2 * Math.PI * ((now - start) % DRIFT_MILLISECONDS) / DRIFT_MILLISECONDS);
+            sweep = (float) animation.getAnimatedValue();
             // A fifth of the way there every 30 ms or so, whatever the frame rate.
-            float step = 1 - (float) Math.pow(0.8, (now - mLastFrame) / 30.0);
-            mProgress += (mTarget - mProgress) * Math.min(1, step);
-            if (Math.abs(mTarget - mProgress) < 0.001f) mProgress = mTarget;
-            mLastFrame = now;
+            float step = 1 - (float) Math.pow(0.8, (now - lastFrame) / 30.0);
+            progress += (target - progress) * Math.min(1, step);
+            if (Math.abs(target - progress) < 0.001f) {
+                progress = target;
+            }
+            lastFrame = now;
             invalidate();
         });
-        mTicker.start();
+        ticker.start();
     }
 
     private void stopTicking() {
-        if (mTicker != null) mTicker.cancel();
-        mTicker = null;
-        mProgress = mTarget;
+        if (ticker != null) {
+            ticker.cancel();
+        }
+        ticker = null;
+        progress = target;
     }
 
+    /**
+     * Draws the bar: while indeterminate, a wavy stretch sweeping across with the flat track
+     * either side; otherwise the wave up to the progress, a gap, the flat track to the end, and
+     * the stop dot.
+     */
     @Override
     protected void onDraw(Canvas canvas) {
-        float half = mThickness / 2;
-        float left = getPaddingLeft() + half;
-        float right = getWidth() - getPaddingRight() - half;
-        float cy = getPaddingTop() + (getHeight() - getPaddingTop() - getPaddingBottom()) / 2f;
-        if (right <= left) return;
+        float halfThickness = thickness / 2;
+        float left = getPaddingLeft() + halfThickness;
+        float right = getWidth() - getPaddingRight() - halfThickness;
+        float centerLine = getPaddingTop() + (getHeight() - getPaddingTop() - getPaddingBottom()) / 2f;
+        if (right <= left) {
+            return;
+        }
         float width = right - left;
 
-        if (mIndeterminate) {
+        if (indeterminate) {
             // A stretch 40% as long as the bar, its front easing in from the left and out past
             // the right, with the track either side of it.
-            float eased = (float) (0.5 - Math.cos(Math.PI * mSweep) / 2);
+            float eased = (float) (0.5 - Math.cos(Math.PI * sweep) / 2);
             float head = left + (width * 1.4f) * eased;
             float tail = head - width * 0.4f;
             float from = Math.max(left, tail);
             float to = Math.min(right, head);
-            if (to > from) wave(canvas, from, to, cy, mAmplitude, mWavelength / 2);
-            if (from - mGap - mThickness > left) canvas.drawLine(left, cy, from - mGap - mThickness, cy, mTrack);
-            if (to + mGap + mThickness < right) canvas.drawLine(to + mGap + mThickness, cy, right, cy, mTrack);
+            if (to > from) {
+                wave(canvas, from, to, centerLine, amplitude, wavelength / 2);
+            }
+            if (from - gap - thickness > left) {
+                canvas.drawLine(left, centerLine, from - gap - thickness, centerLine, trackPaint);
+            }
+            if (to + gap + thickness < right) {
+                canvas.drawLine(to + gap + thickness, centerLine, right, centerLine, trackPaint);
+            }
             return;
         }
 
-        float end = left + width * mProgress;
+        float end = left + width * progress;
         // Flat at the very start and as it finishes, as Material's does.
-        float amplitude = mAmplitude * Math.max(0, Math.min(1, Math.min(mProgress / 0.1f, (1 - mProgress) / 0.05f)));
-        if (end > left) wave(canvas, left, end, cy, amplitude, mWavelength);
-        float trackFrom = mProgress > 0 ? end + mGap + mThickness : left;
-        if (trackFrom < right) canvas.drawLine(trackFrom, cy, right, cy, mTrack);
+        float shownAmplitude = amplitude * Math.max(0, Math.min(1, Math.min(progress / 0.1f, (1 - progress) / 0.05f)));
+        if (end > left) {
+            wave(canvas, left, end, centerLine, shownAmplitude, wavelength);
+        }
+        float trackFrom;
+        if (progress > 0) {
+            trackFrom = end + gap + thickness;
+        } else {
+            trackFrom = left;
+        }
+        if (trackFrom < right) {
+            canvas.drawLine(trackFrom, centerLine, right, centerLine, trackPaint);
+        }
         // The stop dot at the end, till the wave reaches it.
-        if (mProgress < 1) canvas.drawCircle(right, cy, half, mStop);
+        if (progress < 1) {
+            canvas.drawCircle(right, centerLine, halfThickness, stopPaint);
+        }
     }
 
     // A wave from x `from` to `to`, its phase fixed to the bar so it drifts rather than slides.
-    private void wave(Canvas canvas, float from, float to, float cy, float amplitude, float wavelength) {
-        mPath.rewind();
-        float step = Math.max(1f, wavelength / 24);
-        for (float x = from; ; x = Math.min(to, x + step)) {
-            float y = cy + amplitude * (float) Math.sin(2 * Math.PI * (x - getPaddingLeft()) / wavelength - mPhase);
-            if (x == from) mPath.moveTo(x, y);
-            else mPath.lineTo(x, y);
-            if (x >= to) break;
+    private void wave(Canvas canvas, float from, float to, float centerLine, float waveAmplitude, float waveLength) {
+        wavePath.rewind();
+        float step = Math.max(1f, waveLength / 24);
+        for (float horizontal = from; ; horizontal = Math.min(to, horizontal + step)) {
+            float vertical = centerLine + waveAmplitude
+                    * (float) Math.sin(2 * Math.PI * (horizontal - getPaddingLeft()) / waveLength - phase);
+            if (horizontal == from) {
+                wavePath.moveTo(horizontal, vertical);
+            } else {
+                wavePath.lineTo(horizontal, vertical);
+            }
+            if (horizontal >= to) {
+                break;
+            }
         }
-        canvas.drawPath(mPath, mActive);
+        canvas.drawPath(wavePath, activePaint);
     }
 
     // Read out as a progress bar, with how far it's got.
@@ -197,9 +249,9 @@ public class WavyProgressView extends View {
     public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
         info.setClassName(ProgressBar.class.getName());
-        if (!mIndeterminate) {
+        if (!indeterminate) {
             info.setRangeInfo(AccessibilityNodeInfo.RangeInfo.obtain(
-                    AccessibilityNodeInfo.RangeInfo.RANGE_TYPE_PERCENT, 0, 100, Math.round(mProgress * 100)));
+                    AccessibilityNodeInfo.RangeInfo.RANGE_TYPE_PERCENT, 0, 100, Math.round(progress * 100)));
         }
     }
 }

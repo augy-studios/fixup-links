@@ -3,7 +3,7 @@
    open unless this browser last left it collapsed.
 
    Also keeps it, and the sticky header, below an update bar while one shows (js/sw-update.js,
-   js/app-update.js), by publishing the bar's height as --banner-h. */
+   js/app-update.js), by publishing the bar's height as --banner-height. */
 'use strict';
 
 (function () {
@@ -15,16 +15,25 @@
   let trayTab;
   let trayButtons;
 
+  // Opens or collapses the tray, and remembers the choice unless told not to ({ save: false }).
   function setTray(open, { save = true } = {}) {
     tray.classList.toggle('collapsed', !open);
     trayTab.setAttribute('aria-expanded', String(open));
-    trayTab.setAttribute('aria-label', open ? 'Hide menu' : 'Show menu');
+    if (open) {
+      trayTab.setAttribute('aria-label', 'Hide menu');
+    } else {
+      trayTab.setAttribute('aria-label', 'Show menu');
+    }
     // Off-screen buttons must not take focus or clicks.
     trayButtons.inert = !open;
     document.body.classList.toggle('tray-open', open);
     if (save) {
       try {
-        localStorage.setItem(TRAY_KEY, open ? '1' : '0');
+        let storedValue = '0';
+        if (open) {
+          storedValue = '1';
+        }
+        localStorage.setItem(TRAY_KEY, storedValue);
       } catch {
         // Remembered for this page view only.
       }
@@ -46,11 +55,13 @@
 
     // The head script painted a stored collapse without transitions. Hand back to the real
     // state a frame later, so later toggles animate.
-    requestAnimationFrame(() => {
+    requestAnimationFrame(function () {
       document.documentElement.classList.remove('tray-start-collapsed');
     });
 
-    trayTab.addEventListener('click', () => setTray(tray.classList.contains('collapsed')));
+    trayTab.addEventListener('click', function () {
+      setTray(tray.classList.contains('collapsed'));
+    });
   }
 
   // The update bars are drawn into <body> by script whenever they're ready, and only one
@@ -62,22 +73,30 @@
     let watched = [];
 
     function measure() {
-      const shown = watched.find((el) => el.offsetHeight > 0);
-      root.style.setProperty('--banner-h', `${shown ? shown.offsetHeight : 0}px`);
+      const shown = watched.find(function (banner) {
+        return banner.offsetHeight > 0;
+      });
+      let bannerHeight = 0;
+      if (shown) {
+        bannerHeight = shown.offsetHeight;
+      }
+      root.style.setProperty('--banner-height', `${bannerHeight}px`);
     }
 
-    function rewatch() {
+    function watchCurrentBanners() {
       sizer.disconnect();
       watched = [...document.querySelectorAll(BANNERS)];
-      watched.forEach((el) => sizer.observe(el));
+      for (const banner of watched) {
+        sizer.observe(banner);
+      }
       measure();
     }
 
-    new MutationObserver(rewatch).observe(document.body, { childList: true });
-    rewatch();
+    new MutationObserver(watchCurrentBanners).observe(document.body, { childList: true });
+    watchCurrentBanners();
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', function () {
     initTray();
     watchBanners();
   });

@@ -19,11 +19,20 @@ Future<void> copyText(String text, {String said = 'Copied to clipboard'}) async 
 Future<String> pasteText() async {
   if (Native.has('paste')) {
     try {
-      return '${(await Native.call('Fixup', 'paste'))?['text'] ?? ''}';
+      final answer = await Native.call('Fixup', 'paste');
+      final pastedText = answer?['text'];
+      if (pastedText == null) {
+        return '';
+      }
+      return '$pastedText';
     } catch (_) {}
   }
   final data = await Clipboard.getData(Clipboard.kTextPlain);
-  return data?.text ?? '';
+  final copiedText = data?.text;
+  if (copiedText == null) {
+    return '';
+  }
+  return copiedText;
 }
 
 /// A link in whatever opens it: X's app for fixupx.com, or the browser.
@@ -31,13 +40,17 @@ Future<void> openLink(String url) async {
   if (Native.has('open')) {
     try {
       await Native.call('Fixup', 'open', {'url': url});
-    } on NativeError catch (e) {
-      AppNav.say(e.message);
+    } on NativeError catch (error) {
+      AppNav.say(error.message);
     }
     return;
   }
-  final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).catchError((_) => false);
-  if (!ok) AppNav.say('Nothing here opens that link.');
+  final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).catchError((_) {
+    return false;
+  });
+  if (!opened) {
+    AppNav.say('Nothing here opens that link.');
+  }
 }
 
 /// The share sheet on a phone; on a computer, which has none worth the name, the clipboard.
@@ -52,9 +65,11 @@ Future<void> shareLink(String url) async {
 }
 
 /// The QR code window, as the site's: the link in black on white, with the link under it.
-Future<void> showQr(BuildContext context, String url) => showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
+Future<void> showQr(BuildContext context, String url) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
         title: const Text('QR Code'),
         content: SizedBox(
           width: 280,
@@ -68,6 +83,15 @@ Future<void> showQr(BuildContext context, String url) => showDialog<void>(
             SelectableText(url, textAlign: TextAlign.center, style: TextStyle(color: context.fx.muted, fontSize: 13)),
           ]),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-      ),
-    );
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    },
+  );
+}

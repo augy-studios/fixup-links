@@ -14,7 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'store.dart';
 
 const historyKey = 'uwufix_history';
-const maxHistory = 100;
+const maximumHistoryEntries = 100;
 
 class HistoryEntry {
   const HistoryEntry({required this.id, required this.original, required this.cleaned, required this.platform, this.title, required this.date});
@@ -26,25 +26,81 @@ class HistoryEntry {
   final String? title;
   final String date; // ISO 8601, as the site's new Date().toISOString()
 
-  DateTime get when => DateTime.tryParse(date) ?? DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime get when {
+    final parsed = DateTime.tryParse(date);
+    if (parsed == null) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    return parsed;
+  }
 
-  HistoryEntry copyWith({int? id, String? cleaned, String? title}) =>
-      HistoryEntry(id: id ?? this.id, original: original, cleaned: cleaned ?? this.cleaned, platform: platform, title: title ?? this.title, date: date);
+  HistoryEntry copyWith({int? id, String? cleaned, String? title}) {
+    var newId = this.id;
+    if (id != null) {
+      newId = id;
+    }
+    var newCleaned = this.cleaned;
+    if (cleaned != null) {
+      newCleaned = cleaned;
+    }
+    var newTitle = this.title;
+    if (title != null) {
+      newTitle = title;
+    }
+    return HistoryEntry(id: newId, original: original, cleaned: newCleaned, platform: platform, title: newTitle, date: date);
+  }
 
-  Map<String, Object?> toJson() => {'id': id, 'original': original, 'cleaned': cleaned, 'platform': platform, 'title': title, 'date': date};
+  Map<String, Object?> toJson() {
+    return {'id': id, 'original': original, 'cleaned': cleaned, 'platform': platform, 'title': title, 'date': date};
+  }
 
-  static HistoryEntry? fromJson(Object? v) {
-    if (v is! Map) return null;
-    final cleaned = v['cleaned'];
-    final date = v['date'];
-    if (cleaned is! String || date is! String) return null;
-    final id = v['id'];
+  /// An entry as the app itself saved it, or null for one that isn't an entry at all. Missing
+  /// fields get the same defaults the site gives them.
+  static HistoryEntry? fromJson(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    final cleaned = value['cleaned'];
+    final date = value['date'];
+    if (cleaned is! String || date is! String) {
+      return null;
+    }
+    final rawId = value['id'];
+    int id;
+    if (rawId is num) {
+      id = rawId.toInt();
+    } else {
+      final parsedDate = DateTime.tryParse(date);
+      if (parsedDate == null) {
+        id = 0;
+      } else {
+        id = parsedDate.millisecondsSinceEpoch;
+      }
+    }
+    String original;
+    if (value['original'] is String) {
+      original = value['original'] as String;
+    } else {
+      original = cleaned;
+    }
+    String platform;
+    if (value['platform'] is String) {
+      platform = value['platform'] as String;
+    } else {
+      platform = 'General';
+    }
+    String? title;
+    if (value['title'] is String) {
+      title = value['title'] as String;
+    } else {
+      title = null;
+    }
     return HistoryEntry(
-      id: id is num ? id.toInt() : (DateTime.tryParse(date)?.millisecondsSinceEpoch ?? 0),
-      original: v['original'] is String ? v['original'] as String : cleaned,
+      id: id,
+      original: original,
       cleaned: cleaned,
-      platform: v['platform'] is String ? v['platform'] as String : 'General',
-      title: v['title'] is String ? v['title'] as String : null,
+      platform: platform,
+      title: title,
       date: date,
     );
   }
@@ -58,30 +114,61 @@ class History {
   static final changed = ValueNotifier<int>(0);
 
   static List<HistoryEntry> load() {
-    final out = <HistoryEntry>[];
-    for (final v in Store.I.list(historyKey)) {
-      final e = HistoryEntry.fromJson(v);
-      if (e != null) out.add(e);
+    final entries = <HistoryEntry>[];
+    for (final value in Store.I.list(historyKey)) {
+      final entry = HistoryEntry.fromJson(value);
+      if (entry != null) {
+        entries.add(entry);
+      }
     }
-    return out;
+    return entries;
   }
 
   static void save(List<HistoryEntry> items) {
-    Store.I.putJson(historyKey, [for (final e in items) e.toJson()]);
+    final jsonItems = <Map<String, Object?>>[];
+    for (final entry in items) {
+      jsonItems.add(entry.toJson());
+    }
+    Store.I.putJson(historyKey, jsonItems);
     changed.value++;
   }
 
   /// A link just cleaned, at the top; an earlier one with the same cleaned link goes.
   static HistoryEntry add(String original, String cleaned, String platform, {String? title, DateTime? now}) {
-    final at = now ?? DateTime.now();
-    final entry = HistoryEntry(id: at.millisecondsSinceEpoch, original: original, cleaned: cleaned, platform: platform, title: title, date: isoMs(at));
-    var list = [entry, ...load().where((h) => h.cleaned != cleaned)];
-    if (list.length > maxHistory) list = list.sublist(0, maxHistory);
+    var cleanedAt = DateTime.now();
+    if (now != null) {
+      cleanedAt = now;
+    }
+    final entry = HistoryEntry(
+      id: cleanedAt.millisecondsSinceEpoch,
+      original: original,
+      cleaned: cleaned,
+      platform: platform,
+      title: title,
+      date: isoMilliseconds(cleanedAt),
+    );
+    var list = <HistoryEntry>[entry];
+    for (final earlier in load()) {
+      if (earlier.cleaned != cleaned) {
+        list.add(earlier);
+      }
+    }
+    if (list.length > maximumHistoryEntries) {
+      list = list.sublist(0, maximumHistoryEntries);
+    }
     save(list);
     return entry;
   }
 
-  static void remove(int id) => save([for (final h in load()) if (h.id != id) h]);
+  static void remove(int id) {
+    final kept = <HistoryEntry>[];
+    for (final entry in load()) {
+      if (entry.id != id) {
+        kept.add(entry);
+      }
+    }
+    save(kept);
+  }
 
   static void clear() {
     Store.I.remove(historyKey);
@@ -90,9 +177,13 @@ class History {
 
   static void update(int id, {String? title, String? cleaned}) {
     final list = load();
-    final i = list.indexWhere((h) => h.id == id);
-    if (i == -1) return;
-    list[i] = list[i].copyWith(title: title, cleaned: cleaned);
+    final index = list.indexWhere((entry) {
+      return entry.id == id;
+    });
+    if (index == -1) {
+      return;
+    }
+    list[index] = list[index].copyWith(title: title, cleaned: cleaned);
     save(list);
   }
 }
@@ -100,32 +191,71 @@ class History {
 // ---------- merging, for sharing between devices ----------
 
 /// A time as JavaScript's toISOString() writes it: UTC, to the millisecond.
-String isoMs(DateTime t) => DateTime.fromMillisecondsSinceEpoch(t.millisecondsSinceEpoch, isUtc: true).toIso8601String();
+String isoMilliseconds(DateTime time) {
+  return DateTime.fromMillisecondsSinceEpoch(time.millisecondsSinceEpoch, isUtc: true).toIso8601String();
+}
 
-final _web = RegExp(r'^https?://', caseSensitive: false);
+final _webLink = RegExp(r'^https?://', caseSensitive: false);
 
-String _cut(String s, int n) => s.length > n ? s.substring(0, n) : s;
+String _cut(String text, int maximumLength) {
+  if (text.length > maximumLength) {
+    return text.substring(0, maximumLength);
+  }
+  return text;
+}
 
 /// An entry from another device, as one to keep, or null for one to drop.
-HistoryEntry? sanitizeEntry(Object? v) {
-  if (v is! Map) return null;
-  final cleaned = v['cleaned'];
-  final date = v['date'];
-  if (cleaned is! String || cleaned.length > 2048 || !_web.hasMatch(cleaned)) return null;
-  if (date is! String || date.length > 40) return null;
+HistoryEntry? sanitizeEntry(Object? value) {
+  if (value is! Map) {
+    return null;
+  }
+  final cleaned = value['cleaned'];
+  final date = value['date'];
+  if (cleaned is! String || cleaned.length > 2048 || !_webLink.hasMatch(cleaned)) {
+    return null;
+  }
+  if (date is! String || date.length > 40) {
+    return null;
+  }
   final when = DateTime.tryParse(date);
-  if (when == null) return null;
-  final original = v['original'];
-  final platform = v['platform'];
-  final title = v['title'];
-  final id = v['id'];
+  if (when == null) {
+    return null;
+  }
+  final original = value['original'];
+  final platform = value['platform'];
+  final title = value['title'];
+  final rawId = value['id'];
+  int id;
+  if (rawId is num && rawId.isFinite && rawId == rawId.roundToDouble()) {
+    id = rawId.toInt();
+  } else {
+    id = when.millisecondsSinceEpoch;
+  }
+  String keptOriginal;
+  if (original is String && original.isNotEmpty) {
+    keptOriginal = _cut(original, 4096);
+  } else {
+    keptOriginal = cleaned;
+  }
+  String keptPlatform;
+  if (platform is String && platform.isNotEmpty) {
+    keptPlatform = _cut(platform, 60);
+  } else {
+    keptPlatform = 'General';
+  }
+  String? keptTitle;
+  if (title is String && title.isNotEmpty) {
+    keptTitle = _cut(title, 300);
+  } else {
+    keptTitle = null;
+  }
   return HistoryEntry(
-    id: id is num && id.isFinite && id == id.roundToDouble() ? id.toInt() : when.millisecondsSinceEpoch,
-    original: original is String && original.isNotEmpty ? _cut(original, 4096) : cleaned,
+    id: id,
+    original: keptOriginal,
     cleaned: cleaned,
-    platform: platform is String && platform.isNotEmpty ? _cut(platform, 60) : 'General',
-    title: title is String && title.isNotEmpty ? _cut(title, 300) : null,
-    date: isoMs(when),
+    platform: keptPlatform,
+    title: keptTitle,
+    date: isoMilliseconds(when),
   );
 }
 
@@ -135,37 +265,63 @@ typedef Merged = ({List<HistoryEntry> items, int added});
 /// Two histories as one (see the top of this file). [theirs] is sanitized here.
 Merged mergeHistory(List<HistoryEntry> mine, List<Object?> theirs) {
   final byLink = <String, HistoryEntry>{};
-  for (final e in mine) {
-    byLink.putIfAbsent(e.cleaned, () => e);
+  for (final entry in mine) {
+    byLink.putIfAbsent(entry.cleaned, () {
+      return entry;
+    });
   }
   final known = byLink.keys.toSet();
   for (final raw in theirs) {
-    final e = sanitizeEntry(raw);
-    if (e == null) continue;
-    final had = byLink[e.cleaned];
+    final entry = sanitizeEntry(raw);
+    if (entry == null) {
+      continue;
+    }
+    final had = byLink[entry.cleaned];
     if (had == null) {
-      byLink[e.cleaned] = e;
-    } else if (e.when.isAfter(had.when)) {
-      byLink[e.cleaned] = e.title == null && had.title != null ? e.copyWith(title: had.title) : e;
-    } else if (had.title == null && e.title != null) {
-      byLink[e.cleaned] = had.copyWith(title: e.title);
+      byLink[entry.cleaned] = entry;
+    } else if (entry.when.isAfter(had.when)) {
+      if (entry.title == null && had.title != null) {
+        byLink[entry.cleaned] = entry.copyWith(title: had.title);
+      } else {
+        byLink[entry.cleaned] = entry;
+      }
+    } else if (had.title == null && entry.title != null) {
+      byLink[entry.cleaned] = had.copyWith(title: entry.title);
     }
   }
-  final all = byLink.values.toList()
-    ..sort((a, b) {
-      final d = b.when.compareTo(a.when);
-      return d != 0 ? d : b.id.compareTo(a.id);
-    });
-  final kept = all.length > maxHistory ? all.sublist(0, maxHistory) : all;
+  final all = byLink.values.toList();
+  all.sort((first, second) {
+    final difference = second.when.compareTo(first.when);
+    if (difference != 0) {
+      return difference;
+    }
+    return second.id.compareTo(first.id);
+  });
+  List<HistoryEntry> kept;
+  if (all.length > maximumHistoryEntries) {
+    kept = all.sublist(0, maximumHistoryEntries);
+  } else {
+    kept = all;
+  }
   final ids = <int>{};
   final items = <HistoryEntry>[];
-  for (final e in kept) {
-    var id = e.id;
+  for (final entry in kept) {
+    var id = entry.id;
     while (ids.contains(id)) {
       id++;
     }
     ids.add(id);
-    items.add(id == e.id ? e : e.copyWith(id: id));
+    if (id == entry.id) {
+      items.add(entry);
+    } else {
+      items.add(entry.copyWith(id: id));
+    }
   }
-  return (items: items, added: items.where((e) => !known.contains(e.cleaned)).length);
+  var added = 0;
+  for (final entry in items) {
+    if (!known.contains(entry.cleaned)) {
+      added++;
+    }
+  }
+  return (items: items, added: added);
 }

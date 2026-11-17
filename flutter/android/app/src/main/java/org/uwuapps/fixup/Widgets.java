@@ -31,32 +31,41 @@ public final class Widgets {
 
     public static class Bar extends AppWidgetProvider {
         @Override
-        public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-            for (int id : ids) draw(context, manager, id, manager.getAppWidgetOptions(id));
+        public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
+            for (int widgetId : widgetIds) {
+                draw(context, manager, widgetId, manager.getAppWidgetOptions(widgetId));
+            }
         }
 
         @Override
-        public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int id, Bundle options) {
-            draw(context, manager, id, options);
+        public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int widgetId, Bundle options) {
+            draw(context, manager, widgetId, options);
         }
 
-        private static void draw(Context context, AppWidgetManager manager, int id, Bundle options) {
+        private static void draw(Context context, AppWidgetManager manager, int widgetId, Bundle options) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_bar);
             views.setOnClickPendingIntent(R.id.widget_open, openApp(context));
             views.setOnClickPendingIntent(R.id.widget_paste, fixCopied(context));
             // The width it's been given in portrait; 0 when the launcher doesn't say.
-            int width = options == null ? 0 : options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
-            views.setViewVisibility(R.id.widget_words, width > 0 && width < BAR_WORDS_MIN_WIDTH ? View.GONE : View.VISIBLE);
-            manager.updateAppWidget(id, views);
+            int width = 0;
+            if (options != null) {
+                width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
+            }
+            if (width > 0 && width < BAR_WORDS_MIN_WIDTH) {
+                views.setViewVisibility(R.id.widget_words, View.GONE);
+            } else {
+                views.setViewVisibility(R.id.widget_words, View.VISIBLE);
+            }
+            manager.updateAppWidget(widgetId, views);
         }
     }
 
     public static class Paste extends AppWidgetProvider {
         @Override
-        public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
+        public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_paste);
             views.setOnClickPendingIntent(R.id.widget_paste, fixCopied(context));
-            manager.updateAppWidget(ids, views);
+            manager.updateAppWidget(widgetIds, views);
         }
     }
 

@@ -23,61 +23,80 @@
 namespace {
 
 constexpr wchar_t kAppId[] = L"org.uwuapps.fixup";
-constexpr wchar_t kMutex[] = L"org.uwuapps.fixup.single-instance";
+constexpr wchar_t kMutexName[] = L"org.uwuapps.fixup.single-instance";
 constexpr wchar_t kWindowClass[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 constexpr wchar_t kTitle[] = L"uwuFix";
 
 // The first copy's window, found by its class and title.
-HWND FindRunning() { return ::FindWindowW(kWindowClass, kTitle); }
+HWND FindRunning() {
+  return ::FindWindowW(kWindowClass, kTitle);
+}
 
-// This copy's command line, as UTF-8 arguments joined by newlines, to the first copy.
+// This copy's command line, as UTF-8 arguments joined by newlines, to the first copy. Lets the
+// first copy take the foreground, since it's about to show itself. Whether there was a first copy.
 bool ForwardToRunning() {
   HWND running = FindRunning();
-  if (!running) return false;
-  std::vector<std::string> args = GetCommandLineArguments();
+  if (!running) {
+    return false;
+  }
+  std::vector<std::string> arguments = GetCommandLineArguments();
   std::string joined;
-  for (const auto& a : args) {
-    if (!joined.empty()) joined += "\n";
-    joined += a;
+  for (const auto& argument : arguments) {
+    if (!joined.empty()) {
+      joined += "\n";
+    }
+    joined += argument;
   }
   COPYDATASTRUCT data;
   data.dwData = 0x75777546;  // "uwuF"
   data.cbData = static_cast<DWORD>(joined.size());
-  data.lpData = joined.empty() ? nullptr : const_cast<char*>(joined.data());
-  DWORD pid = 0;
-  ::GetWindowThreadProcessId(running, &pid);
-  ::AllowSetForegroundWindow(pid);
+  if (joined.empty()) {
+    data.lpData = nullptr;
+  } else {
+    data.lpData = const_cast<char*>(joined.data());
+  }
+  DWORD process_id = 0;
+  ::GetWindowThreadProcessId(running, &process_id);
+  ::AllowSetForegroundWindow(process_id);
   ::SendMessageW(running, WM_COPYDATA, 0, reinterpret_cast<LPARAM>(&data));
   return true;
 }
 
-// A Jump List task: this exe with an argument.
-IShellLinkW* Task(const std::wstring& exe, const wchar_t* title, const wchar_t* arg) {
+// A Jump List task: this exe with an argument, shown with the given title.
+IShellLinkW* Task(const std::wstring& executable_path, const wchar_t* title, const wchar_t* argument) {
   IShellLinkW* link = nullptr;
-  if (FAILED(::CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link)))) return nullptr;
-  link->SetPath(exe.c_str());
-  link->SetArguments(arg);
-  link->SetIconLocation(exe.c_str(), 0);
+  if (FAILED(::CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link)))) {
+    return nullptr;
+  }
+  link->SetPath(executable_path.c_str());
+  link->SetArguments(argument);
+  link->SetIconLocation(executable_path.c_str(), 0);
   link->SetDescription(title);
   IPropertyStore* store = nullptr;
   if (SUCCEEDED(link->QueryInterface(IID_PPV_ARGS(&store)))) {
-    PROPVARIANT pv;
-    if (SUCCEEDED(::InitPropVariantFromString(title, &pv))) {
-      store->SetValue(PKEY_Title, pv);
+    PROPVARIANT title_value;
+    if (SUCCEEDED(::InitPropVariantFromString(title, &title_value))) {
+      store->SetValue(PKEY_Title, title_value);
       store->Commit();
-      ::PropVariantClear(&pv);
+      ::PropVariantClear(&title_value);
     }
     store->Release();
   }
   return link;
 }
 
+// Sets the Jump List (the taskbar icon's right-click menu) to the app's four tasks, each starting
+// this exe with --task=<id>.
 void SetJumpList() {
   wchar_t path[MAX_PATH];
-  if (!::GetModuleFileNameW(nullptr, path, MAX_PATH)) return;
-  std::wstring exe(path);
+  if (!::GetModuleFileNameW(nullptr, path, MAX_PATH)) {
+    return;
+  }
+  std::wstring executable_path(path);
   ICustomDestinationList* list = nullptr;
-  if (FAILED(::CoCreateInstance(CLSID_DestinationList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&list)))) return;
+  if (FAILED(::CoCreateInstance(CLSID_DestinationList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&list)))) {
+    return;
+  }
   list->SetAppID(kAppId);
   UINT slots = 0;
   IObjectArray* removed = nullptr;
@@ -91,7 +110,8 @@ void SetJumpList() {
           {L"Add a Fix a link widget", L"--task=widget"},
       };
       for (auto& item : items) {
-        if (IShellLinkW* link = Task(exe, item[0], item[1])) {
+        IShellLinkW* link = Task(executable_path, item[0], item[1]);
+        if (link != nullptr) {
           tasks->AddObject(link);
           link->Release();
         }
@@ -104,7 +124,9 @@ void SetJumpList() {
       tasks->Release();
     }
     list->CommitList();
-    if (removed) removed->Release();
+    if (removed) {
+      removed->Release();
+    }
   }
   list->Release();
 }
@@ -115,7 +137,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t* command_line, _In_ int show_command) {
   // One copy at a time. desktop_multi_window's extra windows are engines in this process, not
   // copies, so they never come here.
-  HANDLE mutex = ::CreateMutexW(nullptr, TRUE, kMutex);
+  HANDLE mutex = ::CreateMutexW(nullptr, TRUE, kMutexName);
   if (mutex && ::GetLastError() == ERROR_ALREADY_EXISTS) {
     if (ForwardToRunning()) {
       ::CloseHandle(mutex);
@@ -154,6 +176,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   ::CoUninitialize();
-  if (mutex) ::CloseHandle(mutex);
+  if (mutex) {
+    ::CloseHandle(mutex);
+  }
   return EXIT_SUCCESS;
 }

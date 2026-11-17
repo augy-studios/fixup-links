@@ -29,15 +29,21 @@ scheduler = AsyncIOScheduler(
 
 
 async def _update_bio(bot_token: str, db_path: str):
+    """Scheduled job: counts the chats the bot knows and writes that number
+    into the bot's short description. Errors are logged, never raised."""
     try:
-        conn = await aiosqlite.connect(db_path)
-        conn.row_factory = aiosqlite.Row
+        connection = await aiosqlite.connect(db_path)
+        connection.row_factory = aiosqlite.Row
         try:
-            chat_count = await db.count_known_chats(conn)
+            chat_count = await db.count_known_chats(connection)
         finally:
-            await conn.close()
+            await connection.close()
 
-        text = f'Cleaning links in {chat_count} chat{"s" if chat_count != 1 else ""}.'
+        if chat_count != 1:
+            plural_suffix = 's'
+        else:
+            plural_suffix = ''
+        text = f'Cleaning links in {chat_count} chat{plural_suffix}.'
         bot = Bot(token=bot_token)
         async with bot:
             await bot.set_my_short_description(short_description=text[:120])

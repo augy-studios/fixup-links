@@ -27,7 +27,11 @@ public class PluginCall {
     PluginCall(String pluginId, String methodName, JSObject data, Answer answer) {
         this.pluginId = pluginId;
         this.methodName = methodName;
-        this.data = data == null ? new JSObject() : data;
+        if (data == null) {
+            this.data = new JSObject();
+        } else {
+            this.data = data;
+        }
         this.answer = answer;
     }
 
@@ -65,13 +69,19 @@ public class PluginCall {
     }
 
     public Long getLong(String name, Long fallback) {
-        Object v = data.opt(name);
-        return v instanceof Number ? Long.valueOf(((Number) v).longValue()) : fallback;
+        Object value = data.opt(name);
+        if (value instanceof Number) {
+            return Long.valueOf(((Number) value).longValue());
+        }
+        return fallback;
     }
 
     public Double getDouble(String name, Double fallback) {
-        Object v = data.opt(name);
-        return v instanceof Number ? Double.valueOf(((Number) v).doubleValue()) : fallback;
+        Object value = data.opt(name);
+        if (value instanceof Number) {
+            return Double.valueOf(((Number) value).doubleValue());
+        }
+        return fallback;
     }
 
     public Boolean getBoolean(String name) {
@@ -87,8 +97,11 @@ public class PluginCall {
     }
 
     public JSObject getObject(String name, JSObject fallback) {
-        Object v = data.opt(name);
-        return v instanceof JSONObject ? JSObject.from((JSONObject) v) : fallback;
+        Object value = data.opt(name);
+        if (value instanceof JSONObject) {
+            return JSObject.from((JSONObject) value);
+        }
+        return fallback;
     }
 
     public JSArray getArray(String name) {
@@ -96,8 +109,11 @@ public class PluginCall {
     }
 
     public JSArray getArray(String name, JSArray fallback) {
-        Object v = data.opt(name);
-        return v instanceof JSONArray ? JSArray.from((JSONArray) v) : fallback;
+        Object value = data.opt(name);
+        if (value instanceof JSONArray) {
+            return JSArray.from((JSONArray) value);
+        }
+        return fallback;
     }
 
     /** Kept to answer later, rather than finished with the plugin method's return. */
@@ -118,7 +134,9 @@ public class PluginCall {
     }
 
     public void resolve(JSObject result) {
-        if (answered) return;
+        if (answered) {
+            return;
+        }
         answered = true;
         answer.resolve(result);
     }
@@ -131,19 +149,23 @@ public class PluginCall {
         reject(message, code, null, null);
     }
 
-    public void reject(String message, Exception e) {
-        reject(message, null, e, null);
+    public void reject(String message, Exception exception) {
+        reject(message, null, exception, null);
     }
 
-    public void reject(String message, String code, Exception e) {
-        reject(message, code, e, null);
+    public void reject(String message, String code, Exception exception) {
+        reject(message, code, exception, null);
     }
 
     /** The Dart future fails with a NativeError of this message, with its code and data. */
-    public void reject(String message, String code, Exception e, JSObject data) {
-        if (answered) return;
+    public void reject(String message, String code, Exception exception, JSObject data) {
+        if (answered) {
+            return;
+        }
         answered = true;
-        if (e != null) android.util.Log.w("Fixup", pluginId + "." + methodName + ": " + message, e);
+        if (exception != null) {
+            android.util.Log.w("Fixup", pluginId + "." + methodName + ": " + message, exception);
+        }
         answer.reject(message, code, data);
     }
 }

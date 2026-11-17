@@ -134,8 +134,8 @@ PLATFORM_TRACKER_PATTERNS = {
 # so no fixed list keeps up with them. The posting is addressed entirely by its
 # path, so the whole query string goes. Only /job/ pages qualify: on the search
 # listing above them those same params ARE the search.
-STRIP_ALL_PARAM_HOSTS = ('myworkdayjobs.com', 'myworkdaysite.com')
-STRIP_ALL_PARAM_PATH = '/job/'
+STRIP_ALL_PARAMETER_HOSTS = ('myworkdayjobs.com', 'myworkdaysite.com')
+STRIP_ALL_PARAMETER_PATH = '/job/'
 
 PLATFORM_LABELS = {
     'twitter.com': 'X / Twitter', 'x.com': 'X / Twitter',
@@ -173,7 +173,7 @@ MASTODON_INSTANCES = (
 # The test is on the hostname alone: labels separated by dots, ending in a TLD
 # of at least two letters. That accepts anything actually resolvable and
 # rejects ordinary words, which have no dot, and sentences, which have spaces.
-_HOSTNAME_RE = re.compile(
+_HOSTNAME_PATTERN = re.compile(
     r'^(?=.{1,253}$)'
     r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+'  # one or more labels
     r'[a-z]{2,63}$',                                 # TLD
@@ -183,7 +183,7 @@ _HOSTNAME_RE = re.compile(
 # Hosts that are valid but can't be a shared link's destination on their own.
 # A bare IP is left to the scheme-prefixed path so a typo'd version number
 # ("1.2.3.4") isn't treated as a link.
-_IPV4_RE = re.compile(r'^\d{1,3}(?:\.\d{1,3}){3}$')
+_IPV4_PATTERN = re.compile(r'^\d{1,3}(?:\.\d{1,3}){3}$')
 
 # Filenames mentioned in chat ("open notes.txt", "see report.pdf") parse as a
 # host with a letters-only TLD, so the common extensions are excluded. Only
@@ -199,48 +199,69 @@ _FILE_EXTENSIONS = frozenset((
 ))
 
 
+def hostname_of(url_parts) -> str:
+    """The hostname of a urlsplit() result, or '' when it has none."""
+    hostname = url_parts.hostname
+    if not hostname:
+        return ''
+    return hostname
+
+
 def _is_valid_hostname(hostname: str, *, has_path: bool = False) -> bool:
-    if not hostname or _IPV4_RE.match(hostname):
+    """Whether a scheme-less input's hostname really looks like a link's host
+    (dotted labels ending in a letters-only TLD, not a bare IP or filename)."""
+    if not hostname or _IPV4_PATTERN.match(hostname):
         return False
-    if not _HOSTNAME_RE.match(hostname):
+    if not _HOSTNAME_PATTERN.match(hostname):
         return False
     # Several file extensions are also real TLDs (.app, .zip, .dev, .sh), so
     # the exclusion only applies to a bare host. With a path attached it's
     # unambiguously a link - a filename doesn't carry one.
     if has_path:
         return True
-    return hostname.rsplit('.', 1)[-1].lower() not in _FILE_EXTENSIONS
+    top_level_domain = hostname.rsplit('.', 1)[-1].lower()
+    return top_level_domain not in _FILE_EXTENSIONS
 
 
-def _is_tracker_param(key: str, platform_set: set[str] | None,
-                      platform_pattern: re.Pattern | None = None) -> bool:
+def _is_tracker_parameter(key: str, platform_set: set[str] | None,
+                          platform_pattern: re.Pattern | None = None) -> bool:
     """Matching is always case-insensitive: query keys arrive in whatever case
     the sharing app produced (?UTM_Source=..., ?FBCLID=...), and those are the
     same tracker."""
-    lower = key.lower()
-    if lower.startswith(TRACKER_PREFIXES):
+    lowercase_key = key.lower()
+    if lowercase_key.startswith(TRACKER_PREFIXES):
         return True
-    if lower in UNIVERSAL_TRACKERS:
+    if lowercase_key in UNIVERSAL_TRACKERS:
         return True
-    if platform_pattern and platform_pattern.match(lower):
+    if platform_pattern and platform_pattern.match(lowercase_key):
         return True
-    return bool(platform_set and lower in platform_set)
+    if platform_set and lowercase_key in platform_set:
+        return True
+    return False
 
 
 def _match_host(hostname: str, key: str) -> bool:
     return hostname == key or hostname.endswith('.' + key)
 
 
-def _strips_all_params(hostname: str, path: str) -> bool:
-    return (any(_match_host(hostname, h) for h in STRIP_ALL_PARAM_HOSTS)
-            and STRIP_ALL_PARAM_PATH in path)
+def _strips_all_parameters(hostname: str, path: str) -> bool:
+    if STRIP_ALL_PARAMETER_PATH not in path:
+        return False
+    for strip_host in STRIP_ALL_PARAMETER_HOSTS:
+        if _match_host(hostname, strip_host):
+            return True
+    return False
 
 
 def _embed_converters():
+    """Builds the EMBED_CONVERTERS table: one (platform name, hosts, convert)
+    entry per platform with an embed-friendly mirror. Each convert function
+    takes the lowercased host and the path and returns the (host, path) the
+    cleaned link should use - unchanged when the page needs no embed fix."""
     def twitter(host, path):
-        m = re.match(r'^/[^/]+/(status/\d+)$', path)
-        if m:
-            path = '/i/' + m.group(1)
+        match = re.match(r'^/[^/]+/(status/\d+)$', path)
+        if match:
+            path = '/i/' + match.group(1)
         return 'fixupx.com', path
 
     def instagram(host, path):
@@ -316,12 +337,17 @@ def _embed_converters():
     def mastodon(host, path):
         # FxMastodon isn't a plain host swap - the instance becomes the first
         # path segment: fx.zillanlabs.tech/mastodon.social/@user/12345
-        instance = host[4:] if host.startswith('www.') else host
+        if host.startswith('www.'):
+            instance = host[4:]
+        else:
+            instance = host
         if re.match(r'^/@[^/]+/[^/]+', path):
             return 'fx.zillanlabs.tech', '/' + instance + path
         return host, path
 
-    mastodon_hosts = set(MASTODON_INSTANCES) | {'www.' + i for i in MASTODON_INSTANCES}
+    mastodon_hosts = set(MASTODON_INSTANCES)
+    for instance in MASTODON_INSTANCES:
+        mastodon_hosts.add('www.' + instance)
 
     return [
         ('X / Twitter', {'x.com', 'twitter.com', 'www.x.com', 'www.twitter.com'}, twitter),
@@ -375,27 +401,36 @@ def detect_platform(hostname: str) -> str | None:
     return None
 
 
-def _extract_google_dest(query_pairs: list[tuple[str, str]]) -> str | None:
-    q = dict(query_pairs)
-    dest = q.get('url') or q.get('q')
-    if not dest:
+def _extract_google_destination(query_pairs: list[tuple[str, str]]) -> str | None:
+    query = dict(query_pairs)
+    destination = query.get('url')
+    if not destination:
+        destination = query.get('q')
+    if not destination:
         return None
     try:
-        parts = urlsplit(dest)
+        parts = urlsplit(destination)
         if parts.scheme in ('http', 'https') and parts.netloc:
-            return dest
+            return destination
     except ValueError:
         pass
     return None
 
 
 def clean_url(raw_input: str) -> CleanResult:
+    """Cleans one shared link: adds https:// to a bare host, normalizes
+    YouTube hosts, unwraps Google redirect links, strips tracking parameters,
+    swaps in an embed-friendly domain where one exists, and labels the
+    platform. Raises InvalidUrlError when the input isn't a usable link."""
     text = raw_input.strip()
     if not text:
         raise InvalidUrlError('Please enter a URL.')
 
     had_scheme = bool(re.match(r'^https?://', text, re.I))
-    candidate = text if had_scheme else 'https://' + text
+    if had_scheme:
+        candidate = text
+    else:
+        candidate = 'https://' + text
     try:
         parts = urlsplit(candidate)
     except ValueError:
@@ -408,12 +443,15 @@ def clean_url(raw_input: str) -> CleanResult:
     # hostname has to actually look like one before https:// is assumed.
     if not had_scheme:
         has_path = bool(parts.path.strip('/') or parts.query or parts.fragment)
-        if not _is_valid_hostname(parts.hostname or '', has_path=has_path):
+        if not _is_valid_hostname(hostname_of(parts), has_path=has_path):
             raise InvalidUrlError("That doesn't look like a link.")
 
-    full_host = parts.hostname or ''
-    full_host_l = full_host.lower()
-    hostname = full_host_l[4:] if full_host_l.startswith('www.') else full_host_l
+    full_host = hostname_of(parts)
+    full_host_lowercase = full_host.lower()
+    if full_host_lowercase.startswith('www.'):
+        hostname = full_host_lowercase[4:]
+    else:
+        hostname = full_host_lowercase
     changes: list[Change] = []
 
     query_pairs = parse_qsl(parts.query, keep_blank_values=True)
@@ -422,60 +460,83 @@ def clean_url(raw_input: str) -> CleanResult:
     if hostname == 'youtu.be':
         video_id = parts.path.strip('/')
         if video_id:
-            query_pairs = [('v', video_id)] + [(k, v) for k, v in query_pairs if k.lower() != 'v']
-            full_host_l = 'www.youtube.com'
+            normalized_pairs = [('v', video_id)]
+            for key, value in query_pairs:
+                if key.lower() != 'v':
+                    normalized_pairs.append((key, value))
+            query_pairs = normalized_pairs
+            full_host_lowercase = 'www.youtube.com'
             hostname = 'youtube.com'
             parts = parts._replace(path='/watch')
             changes.append(Change('embed', 'Converted youtu.be to youtube.com'))
 
     # 0b. Normalize the mobile YouTube host so links open the full site
-    if full_host_l == 'm.youtube.com':
-        full_host_l = 'www.youtube.com'
+    if full_host_lowercase == 'm.youtube.com':
+        full_host_lowercase = 'www.youtube.com'
         hostname = 'youtube.com'
         changes.append(Change('embed', 'Converted m.youtube.com to www.youtube.com'))
 
     # 1. Google Search - extract destination
     if hostname == 'google.com' or hostname.endswith('.google.com'):
-        dest = _extract_google_dest(query_pairs)
-        if dest:
+        destination = _extract_google_destination(query_pairs)
+        if destination:
             changes.append(Change('redirect', 'Extracted destination from Google Search'))
-            return CleanResult(cleaned=dest, changes=changes, platform='Google Search', was_converted=False)
+            return CleanResult(cleaned=destination, changes=changes, platform='Google Search', was_converted=False)
 
     # 2. Remove platform-specific + universal trackers
-    platform_key = next((k for k in PLATFORM_TRACKERS if _match_host(hostname, k)), None)
-    platform_set = PLATFORM_TRACKERS.get(platform_key) if platform_key else None
-    platform_pattern = PLATFORM_TRACKER_PATTERNS.get(platform_key) if platform_key else None
-    strip_all = _strips_all_params(hostname, parts.path)
+    platform_key = None
+    for tracker_host in PLATFORM_TRACKERS:
+        if _match_host(hostname, tracker_host):
+            platform_key = tracker_host
+            break
+    platform_set = None
+    platform_pattern = None
+    if platform_key:
+        platform_set = PLATFORM_TRACKERS.get(platform_key)
+        platform_pattern = PLATFORM_TRACKER_PATTERNS.get(platform_key)
+    strip_all_parameters = _strips_all_parameters(hostname, parts.path)
 
     kept_pairs = []
-    removed = []
+    removed_keys = []
     for key, value in query_pairs:
-        if strip_all or _is_tracker_param(key, platform_set, platform_pattern):
-            removed.append(key)
+        if strip_all_parameters or _is_tracker_parameter(key, platform_set, platform_pattern):
+            removed_keys.append(key)
         else:
             kept_pairs.append((key, value))
 
-    if removed:
-        changes.append(Change('trackers', f"Removed {len(removed)} tracker{'s' if len(removed) > 1 else ''}"))
+    if removed_keys:
+        if len(removed_keys) > 1:
+            plural_suffix = 's'
+        else:
+            plural_suffix = ''
+        changes.append(Change('trackers', f'Removed {len(removed_keys)} tracker{plural_suffix}'))
 
     # 3. Embed conversion
     converted_platform = None
-    new_host = full_host_l
+    new_host = full_host_lowercase
     new_path = parts.path
     for name, hosts, convert in EMBED_CONVERTERS:
-        if full_host_l in hosts:
-            before = new_host
-            new_host, new_path = convert(full_host_l, parts.path)
-            if new_host != before:
+        if full_host_lowercase in hosts:
+            host_before = new_host
+            new_host, new_path = convert(full_host_lowercase, parts.path)
+            if new_host != host_before:
                 changes.append(Change('embed', f'Converted to embed-friendly domain ({new_host})'))
                 converted_platform = name
             break
 
     # 4. Platform label
-    platform_label = converted_platform or detect_platform(hostname) or 'General'
+    if converted_platform:
+        platform_label = converted_platform
+    else:
+        platform_label = detect_platform(hostname)
+        if not platform_label:
+            platform_label = 'General'
 
     # 5. Rebuild URL
-    new_query = '&'.join(f'{quote(k, safe="")}={quote(v, safe="")}' for k, v in kept_pairs)
+    encoded_pairs = []
+    for key, value in kept_pairs:
+        encoded_pairs.append(f'{quote(key, safe="")}={quote(value, safe="")}')
+    new_query = '&'.join(encoded_pairs)
     # Keep the fragment: it's the anchor the sharer picked (a Reddit comment,
     # a docs heading, a video timestamp), not tracking.
     cleaned = urlunsplit((parts.scheme, new_host, new_path, new_query, parts.fragment))
@@ -495,9 +556,9 @@ def clean_url(raw_input: str) -> CleanResult:
 
 # ===== REDIRECT / TITLE RESOLUTION =====
 
-_PRIVATE_NETS = True  # marker; real check done via ipaddress below
+_PRIVATE_NETWORKS = True  # marker; real check done via ipaddress below
 
-_TITLE_RE = re.compile(rb'<title[^>]*>([^<]*)</title>', re.I)
+_TITLE_PATTERN = re.compile(rb'<title[^>]*>([^<]*)</title>', re.I)
 
 _USER_AGENT = (
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -506,14 +567,17 @@ _USER_AGENT = (
 
 
 def _is_blocked_host(hostname: str) -> bool:
+    """Whether a host must not be fetched: empty, localhost, or an IP address
+    (given directly or resolved via DNS) that isn't on the public internet."""
     if not hostname:
         return True
-    h = hostname.lower()
-    if h == 'localhost' or h.endswith('.localhost'):
+    lowercase_host = hostname.lower()
+    if lowercase_host == 'localhost' or lowercase_host.endswith('.localhost'):
         return True
     try:
-        ip = ipaddress.ip_address(h)
-        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast
+        address = ipaddress.ip_address(lowercase_host)
+        return (address.is_private or address.is_loopback or address.is_link_local
+                or address.is_reserved or address.is_multicast)
     except ValueError:
         pass
     # Resolve the hostname and reject if it lands on a non-public address
@@ -521,16 +585,17 @@ def _is_blocked_host(hostname: str) -> bool:
     # cloud metadata endpoint, etc.) so the bot can't be used to probe the
     # VPS's internal network via a crafted /fix link.
     try:
-        infos = socket.getaddrinfo(h, None)
+        address_infos = socket.getaddrinfo(lowercase_host, None)
     except socket.gaierror:
         return False
-    for info in infos:
-        addr = info[4][0]
+    for address_info in address_infos:
+        address_text = address_info[4][0]
         try:
-            ip = ipaddress.ip_address(addr)
+            address = ipaddress.ip_address(address_text)
         except ValueError:
             continue
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+        if (address.is_private or address.is_loopback or address.is_link_local
+                or address.is_reserved or address.is_multicast):
             return True
     return False
 
@@ -538,10 +603,10 @@ def _is_blocked_host(hostname: str) -> bool:
 async def resolve_url(session: aiohttp.ClientSession, url: str) -> dict:
     """Follows redirects and extracts a page title, mirroring main-site/api/resolve.js."""
     parts = urlsplit(url)
-    if parts.scheme not in ('http', 'https') or _is_blocked_host(parts.hostname or ''):
+    if parts.scheme not in ('http', 'https') or _is_blocked_host(hostname_of(parts)):
         return {'final_url': None, 'title': None}
 
-    hostname = (parts.hostname or '').lower()
+    hostname = hostname_of(parts).lower()
     is_youtube = hostname == 'youtube.com' or hostname.endswith('.youtube.com') or hostname == 'youtu.be'
 
     timeout = aiohttp.ClientTimeout(total=10)
@@ -552,29 +617,31 @@ async def resolve_url(session: aiohttp.ClientSession, url: str) -> dict:
     }
 
     try:
-        async with session.get(url, headers=headers, timeout=timeout, allow_redirects=True, max_redirects=10) as resp:
-            final_url = str(resp.url)
+        async with session.get(url, headers=headers, timeout=timeout, allow_redirects=True, max_redirects=10) as response:
+            final_url = str(response.url)
             title = None
 
             if is_youtube:
-                final_host = (urlsplit(final_url).hostname or '').lower().removeprefix('www.')
+                final_host = hostname_of(urlsplit(final_url)).lower().removeprefix('www.')
                 if final_host != 'youtube.com' and 'youtu.be' not in final_url:
                     final_url = url
                 try:
-                    oembed = f'https://www.youtube.com/oembed?url={final_url}&format=json'
-                    async with session.get(oembed, timeout=aiohttp.ClientTimeout(total=8)) as oe:
-                        if oe.ok:
-                            data = await oe.json(content_type=None)
+                    oembed_url = f'https://www.youtube.com/oembed?url={final_url}&format=json'
+                    async with session.get(oembed_url, timeout=aiohttp.ClientTimeout(total=8)) as oembed_response:
+                        if oembed_response.ok:
+                            data = await oembed_response.json(content_type=None)
                             title = data.get('title')
                 except Exception:
                     pass
             else:
-                content_type = resp.headers.get('content-type', '')
+                content_type = response.headers.get('content-type', '')
                 if 'text/html' in content_type:
-                    body = await resp.content.read(20000)
-                    m = _TITLE_RE.search(body)
-                    if m:
-                        title = m.group(1).decode('utf-8', 'ignore').strip() or None
+                    body = await response.content.read(20000)
+                    match = _TITLE_PATTERN.search(body)
+                    if match:
+                        title = match.group(1).decode('utf-8', 'ignore').strip()
+                        if not title:
+                            title = None
 
             return {'final_url': final_url, 'title': title}
     except Exception:

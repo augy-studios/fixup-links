@@ -23,12 +23,20 @@ AUTOFIX_LIMIT = 3
 
 
 async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Answers a pending /fix or /batch prompt if there is one, otherwise
+    fixes up to AUTOFIX_LIMIT links found in the message."""
     message = update.effective_message
-    text = (message.text or '').strip()
+    text = message.text
+    if not text:
+        text = ''
+    text = text.strip()
 
     if context.user_data.pop(fix_module.AWAITING_FIX_KEY, False):
         urls = linkfix.find_urls(text)
-        raw_link = urls[0] if urls else text
+        if urls:
+            raw_link = urls[0]
+        else:
+            raw_link = text
         await fix_module._send_fix_result(update, context, raw_link, reply_to=message.message_id)
         return
 

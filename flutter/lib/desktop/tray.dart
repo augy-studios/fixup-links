@@ -20,23 +20,36 @@ import 'desktop.dart';
 import 'notify.dart';
 import 'updater.dart';
 
+/// The tray icon and its menu, and what clicking either does.
 class Tray with TrayListener {
   Tray._();
-  static final Tray _i = Tray._();
+  static final Tray _instance = Tray._();
   static bool _started = false;
 
+  /// The icon file for this system: Windows' .ico, macOS's template image, or a PNG.
+  static String get _iconPath {
+    if (Platform.isWindows) {
+      return 'assets/desktop/tray.ico';
+    }
+    if (Platform.isMacOS) {
+      return 'assets/desktop/tray_template.png';
+    }
+    return 'assets/desktop/tray.png';
+  }
+
   static Future<void> init() async {
-    if (_started) return;
+    if (_started) {
+      return;
+    }
     _started = true;
     try {
-      await trayManager.setIcon(
-        Platform.isWindows ? 'assets/desktop/tray.ico' : Platform.isMacOS ? 'assets/desktop/tray_template.png' : 'assets/desktop/tray.png',
-        isTemplate: Platform.isMacOS,
-      );
-      if (!Platform.isLinux) await trayManager.setToolTip(Desktop.name);
-      trayManager.addListener(_i);
-      AppUpdate.I.addListener(_i._rebuild);
-      await _i._rebuild();
+      await trayManager.setIcon(_iconPath, isTemplate: Platform.isMacOS);
+      if (!Platform.isLinux) {
+        await trayManager.setToolTip(Desktop.name);
+      }
+      trayManager.addListener(_instance);
+      AppUpdate.I.addListener(_instance._rebuild);
+      await _instance._rebuild();
     } catch (_) {
       // No tray here (some Linux desktops): the window's close button then really closes it.
       _started = false;
@@ -44,36 +57,48 @@ class Tray with TrayListener {
   }
 
   static Future<void> dispose() async {
-    if (!_started) return;
+    if (!_started) {
+      return;
+    }
     try {
       await trayManager.destroy();
     } catch (_) {}
   }
 
+  /// The menu, as it should be now: the update item while there's one, and the sign-in box ticked
+  /// or not.
   Future<void> _rebuild() async {
-    final u = AppUpdate.I;
+    final update = AppUpdate.I;
     final updater = Desktop.updater;
     final login = await startsAtSignIn();
-    final checking = u.state == 'checking';
-    await trayManager.setContextMenu(Menu(items: [
-      if (updater?.ready == true) ...[
-        MenuItem(key: 'restart', label: 'Restart to update to ${u.version}'),
-        MenuItem.separator(),
-      ] else if (u.version != null && u.state == 'available' && updater?.canInstall == false) ...[
-        MenuItem(key: 'download', label: 'Download version ${u.version}'),
-        MenuItem.separator(),
-      ],
+    final checking = update.state == 'checking';
+    String checkLabel;
+    if (checking) {
+      checkLabel = 'Checking for updates...';
+    } else {
+      checkLabel = 'Check for updates...';
+    }
+    final items = <MenuItem>[];
+    if (updater?.ready == true) {
+      items.add(MenuItem(key: 'restart', label: 'Restart to update to ${update.version}'));
+      items.add(MenuItem.separator());
+    } else if (update.version != null && update.state == 'available' && updater?.canInstall == false) {
+      items.add(MenuItem(key: 'download', label: 'Download version ${update.version}'));
+      items.add(MenuItem.separator());
+    }
+    items.addAll([
       MenuItem(key: 'open', label: 'Open uwuFix'),
       MenuItem(key: 'paste', label: 'Fix copied link'),
       MenuItem(key: 'history', label: 'History'),
       MenuItem(key: 'widget', label: 'Add a Fix a link widget'),
       MenuItem(key: 'welcome', label: 'Make it yours...'),
       MenuItem.separator(),
-      MenuItem(key: 'check', label: checking ? 'Checking for updates...' : 'Check for updates...', disabled: checking),
+      MenuItem(key: 'check', label: checkLabel, disabled: checking),
       MenuItem.checkbox(key: 'login', label: 'Start when I sign in', checked: login),
       MenuItem.separator(),
       MenuItem(key: 'quit', label: 'Quit'),
-    ]));
+    ]);
+    await trayManager.setContextMenu(Menu(items: items));
   }
 
   @override
@@ -97,17 +122,21 @@ class Tray with TrayListener {
   }
 
   @override
-  void onTrayMenuItemClick(MenuItem item) async {
-    switch (item.key) {
+  void onTrayMenuItemClick(MenuItem menuItem) async {
+    switch (menuItem.key) {
       case 'restart':
         await Desktop.updater?.install();
       case 'download':
-        await Native.call('Fixup', 'open', {'url': releasesLatest}).catchError((_) => null);
+        await Native.call('Fixup', 'open', {'url': releasesLatest}).catchError((_) {
+          return null;
+        });
       case 'open':
         await Desktop.show();
       case 'paste' || 'history' || 'widget' || 'welcome':
-        if (item.key != 'widget') await Desktop.show();
-        runTask(item.key!);
+        if (menuItem.key != 'widget') {
+          await Desktop.show();
+        }
+        runTask(menuItem.key!);
       case 'check':
         await _check();
       case 'login':
@@ -120,19 +149,19 @@ class Tray with TrayListener {
 
   // Check for updates... always says what it found.
   Future<void> _check() async {
-    final u = AppUpdate.I;
-    await u.check(asked: true);
-    switch (u.state) {
+    final update = AppUpdate.I;
+    await update.check(asked: true);
+    switch (update.state) {
       case 'upToDate':
-        await DeskNotify.show('uwuFix is up to date', '${Desktop.version} is the newest version.');
+        await DesktopNotify.show('uwuFix is up to date', '${Desktop.version} is the newest version.');
       case 'failed':
-        await DeskNotify.show('Couldn’t check for updates', 'Check you’re online, then try again.');
+        await DesktopNotify.show('Couldn’t check for updates', 'Check you’re online, then try again.');
       case 'available':
         if (Desktop.updater?.canInstall == true) {
-          await DeskNotify.show('Downloading uwuFix ${u.version}', 'It’s ready to install in a minute or two.');
-          await u.update();
+          await DesktopNotify.show('Downloading uwuFix ${update.version}', 'It’s ready to install in a minute or two.');
+          await update.update();
         } else {
-          await DeskNotify.show('uwuFix ${u.version} is out', 'Click to download it from GitHub.', payload: 'release');
+          await DesktopNotify.show('uwuFix ${update.version} is out', 'Click to download it from GitHub.', payload: 'release');
         }
     }
     await _rebuild();

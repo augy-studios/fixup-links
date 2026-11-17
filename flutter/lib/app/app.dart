@@ -21,7 +21,9 @@ class UwuFixApp extends StatefulWidget {
   final Widget? home;
 
   @override
-  State<UwuFixApp> createState() => _UwuFixAppState();
+  State<UwuFixApp> createState() {
+    return _UwuFixAppState();
+  }
 }
 
 class _UwuFixAppState extends State<UwuFixApp> with WidgetsBindingObserver {
@@ -40,43 +42,70 @@ class _UwuFixAppState extends State<UwuFixApp> with WidgetsBindingObserver {
   // A new wallpaper or accent colour while the app was away.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) AppLook.I.readDevice();
+    if (state == AppLifecycleState.resumed) {
+      AppLook.I.readDevice();
+    }
   }
 
+  /// The home screen: a test's own, else the quick screen, the desktop's shell or the phone's.
+  Widget _homeScreen() {
+    if (widget.home != null) {
+      return widget.home!;
+    }
+    if (isQuick) {
+      return const QuickScreen();
+    }
+    if (widget.desktopShell != null) {
+      return widget.desktopShell!;
+    }
+    return const PhoneShell();
+  }
+
+  /// The MaterialApp, rebuilt whenever the look changes.
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: AppLook.I,
-        builder: (context, _) {
-          final look = AppLook.I;
-          return MaterialApp(
-            title: 'uwuFix',
-            debugShowCheckedModeBanner: false,
-            navigatorKey: AppNav.navigatorKey,
-            scaffoldMessengerKey: AppNav.messengerKey,
-            navigatorObservers: [PageObserver()],
-            theme: look.theme(Brightness.light),
-            darkTheme: look.theme(Brightness.dark),
-            themeMode: look.themeMode,
-            // Text as large as the device asks, up to twice, so layouts hold.
-            // Report a bug's Screenshot a page draws what's in the RepaintBoundary, and its button
-            // floats over it, outside, so it isn't in the picture.
-            builder: (context, child) {
-              final app = MediaQuery.withClampedTextScaling(
-                maxScaleFactor: 2,
-                child: Stack(children: [
-                  // A desktop's glass lies over its backdrop (widgets/glass.dart).
-                  Positioned.fill(child: RepaintBoundary(key: AppNav.shotKey, child: GlassBackdrop(child: child!))),
-                  ValueListenableBuilder(
-                    valueListenable: AppNav.shooting,
-                    builder: (context, on, _) => on ? const ShotBar() : const SizedBox.shrink(),
-                  ),
-                ]),
-              );
-              // The pointing hand over buttons on a computer (widgets/pointer.dart).
-              return onDesktop ? PointerOverButtons(child: app) : app;
-            },
-            home: widget.home ?? (isQuick ? const QuickScreen() : widget.desktopShell ?? const PhoneShell()),
-          );
-        },
-      );
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: AppLook.I,
+      builder: (context, _) {
+        final look = AppLook.I;
+        return MaterialApp(
+          title: 'uwuFix',
+          debugShowCheckedModeBanner: false,
+          navigatorKey: AppNav.navigatorKey,
+          scaffoldMessengerKey: AppNav.messengerKey,
+          navigatorObservers: [PageObserver()],
+          theme: look.theme(Brightness.light),
+          darkTheme: look.theme(Brightness.dark),
+          themeMode: look.themeMode,
+          // Text as large as the device asks, up to twice, so layouts hold.
+          // Report a bug's Screenshot a page draws what's in the RepaintBoundary, and its button
+          // floats over it, outside, so it isn't in the picture.
+          builder: (context, child) {
+            final app = MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 2,
+              child: Stack(children: [
+                // A desktop's glass lies over its backdrop (widgets/glass.dart).
+                Positioned.fill(child: RepaintBoundary(key: AppNav.shotKey, child: GlassBackdrop(child: child!))),
+                ValueListenableBuilder(
+                  valueListenable: AppNav.shooting,
+                  builder: (context, shooting, _) {
+                    if (shooting) {
+                      return const ShotBar();
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ]),
+            );
+            // The pointing hand over buttons on a computer (widgets/pointer.dart).
+            if (onDesktop) {
+              return PointerOverButtons(child: app);
+            }
+            return app;
+          },
+          home: _homeScreen(),
+        );
+      },
+    );
+  }
 }

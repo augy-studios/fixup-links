@@ -12,7 +12,7 @@ import FlutterMacOS
 class AppDelegate: FlutterAppDelegate {
   static var channel: FlutterMethodChannel?
   // Links that came before the Dart side was listening.
-  static var pending: [String] = []
+  static var pendingLinks: [String] = []
 
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return false
@@ -28,14 +28,18 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   override func application(_ application: NSApplication, open urls: [URL]) {
-    let links = urls.map { $0.absoluteString }
+    var links: [String] = []
+    for url in urls {
+      links.append(url.absoluteString)
+    }
     if let channel = AppDelegate.channel {
       channel.invokeMethod("open", arguments: links)
     } else {
-      AppDelegate.pending.append(contentsOf: links)
+      AppDelegate.pendingLinks.append(contentsOf: links)
     }
   }
 
+  // The Dock icon's menu: one item per task, each passing its task's name to the Dart side.
   override func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
     let menu = NSMenu()
     for (title, task) in [

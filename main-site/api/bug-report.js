@@ -45,15 +45,28 @@
 // Counts kept in this instance: { key: [times] }. An instance lives minutes to hours, so these
 // are a brake, not a wall.
 const seen = new Map();
-function countWithin(key, ms) {
+function countWithin(key, windowMs) {
   const now = Date.now();
-  const list = (seen.get(key) || []).filter((t) => now - t < ms);
+  let times = seen.get(key);
+  if (!times) {
+    times = [];
+  }
+  const list = [];
+  for (const time of times) {
+    if (now - time < windowMs) {
+      list.push(time);
+    }
+  }
   list.push(now);
   seen.set(key, list);
-  if (seen.size > 5000) seen.clear();
+  if (seen.size > 5000) {
+    seen.clear();
+  }
   return list.length;
 }
-const rateLimited = async (key, perMinute) => countWithin(`m:${key}`, 60 * 1000) > perMinute;
+async function rateLimited(key, perMinute) {
+  return countWithin(`m:${key}`, 60 * 1000) > perMinute;
+}
 
 const MAX_TEXT = 2000;
 const MAX_CONTACT = 200;
@@ -70,125 +83,250 @@ const PLATFORMS = { web: "Web", pwa: "Web, installed", android: "Android app", d
 const ID_LETTERS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 const ID_LENGTH = 4;
 
+function randomBytes(count) {
+  return crypto.getRandomValues(new Uint8Array(count));
+}
+
 // "20261103-7K3Q": the day in Singapore it was sent, and ID_LENGTH random letters.
-export function reportId(now = new Date(), random = (n) => crypto.getRandomValues(new Uint8Array(n))) {
+export function reportId(now = new Date(), random = randomBytes) {
   const day = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
-  const letters = [...random(ID_LENGTH)].map((b) => ID_LETTERS[b % ID_LETTERS.length]).join("");
+  let letters = "";
+  for (const byte of random(ID_LENGTH)) {
+    letters += ID_LETTERS[byte % ID_LETTERS.length];
+  }
   return `${day}-${letters}`;
 }
 
 // The whole-page screenshots among `count` pictures, as their indexes: `full` as sent, each
 // once and in range, anything else left out.
 export function fullShots(full, count) {
-  if (!Array.isArray(full)) return [];
-  return [...new Set(full.filter((i) => Number.isInteger(i) && i >= 0 && i < count))].sort((a, b) => a - b);
+  if (!Array.isArray(full)) {
+    return [];
+  }
+  const indexes = new Set();
+  for (const index of full) {
+    if (Number.isInteger(index) && index >= 0 && index < count) {
+      indexes.add(index);
+    }
+  }
+  return [...indexes].sort(function (first, second) {
+    return first - second;
+  });
 }
 
 // BUG_REPORT_CHAT_ID as [{ chat_id, message_thread_id? }], in order; anything that isn't a chat
 // ID, an @name or a chat ID with a topic is left out.
 export function chats(value = process.env.BUG_REPORT_CHAT_ID) {
-  return String(value || "")
-    .split(/[\s,]+/)
-    .map((t) => {
-      const m = t.match(/^(-?\d+)(?:\/(\d+))?$/);
-      if (m) return m[2] ? { chat_id: m[1], message_thread_id: Number(m[2]) } : { chat_id: m[1] };
-      return /^@[A-Za-z]\w{3,}$/.test(t) ? { chat_id: t } : null;
-    })
-    .filter(Boolean);
+  let text = "";
+  if (value) {
+    text = String(value);
+  }
+  const result = [];
+  for (const entry of text.split(/[\s,]+/)) {
+    const match = entry.match(/^(-?\d+)(?:\/(\d+))?$/);
+    if (match) {
+      if (match[2]) {
+        result.push({ chat_id: match[1], message_thread_id: Number(match[2]) });
+      } else {
+        result.push({ chat_id: match[1] });
+      }
+    } else if (/^@[A-Za-z]\w{3,}$/.test(entry)) {
+      result.push({ chat_id: entry });
+    }
+  }
+  return result;
 }
 
-export const configured = () => Boolean(process.env.BUG_REPORT_BOT_TOKEN && chats().length);
+export function configured() {
+  return Boolean(process.env.BUG_REPORT_BOT_TOKEN && chats().length);
+}
 
 // A string as given, trimmed and cut to `max`, with control characters other than new lines
 // and tabs taken out. Anything that isn't a string is "".
-function clean(v, max, { lines = false } = {}) {
-  if (typeof v !== "string") return "";
-  const s = v.replace(lines ? /[\u0000-\u0008\u000b-\u001f\u007f]/g : /[\u0000-\u001f\u007f]/g, "").trim();
-  return s.length > max ? s.slice(0, max) : s;
+function clean(value, max, { lines = false } = {}) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  let controlCharacters = /[\u0000-\u001f\u007f]/g;
+  if (lines) {
+    controlCharacters = /[\u0000-\u0008\u000b-\u001f\u007f]/g;
+  }
+  const cleaned = value.replace(controlCharacters, "").trim();
+  if (cleaned.length > max) {
+    return cleaned.slice(0, max);
+  }
+  return cleaned;
+}
+
+// The value cleaned, or the fallback when nothing's left of it.
+function cleanOr(value, max, fallback) {
+  const cleaned = clean(value, max);
+  if (cleaned) {
+    return cleaned;
+  }
+  return fallback;
 }
 
 // The pictures sent, as [{ type, bytes }], or null if any isn't one (a bad data URL, too big,
 // too many).
 export function images(list) {
-  if (list == null) return [];
-  if (!Array.isArray(list) || list.length > MAX_IMAGES) return null;
-  const out = [];
-  for (const item of list) {
-    const m = typeof item === "string" ? IMAGE_RE.exec(item) : null;
-    if (!m) return null;
-    const bytes = Buffer.from(m[2], "base64");
-    if (!bytes.length || bytes.length > MAX_IMAGE_BYTES) return null;
-    out.push({ type: m[1], bytes });
+  if (list == null) {
+    return [];
   }
-  return out;
+  if (!Array.isArray(list) || list.length > MAX_IMAGES) {
+    return null;
+  }
+  const result = [];
+  for (const item of list) {
+    let match = null;
+    if (typeof item === "string") {
+      match = IMAGE_RE.exec(item);
+    }
+    if (!match) {
+      return null;
+    }
+    const bytes = Buffer.from(match[2], "base64");
+    if (!bytes.length || bytes.length > MAX_IMAGE_BYTES) {
+      return null;
+    }
+    result.push({ type: match[1], bytes });
+  }
+  return result;
+}
+
+// A picture's file extension: "jpg" for JPEG, otherwise its type ("png", "webp").
+function extensionOf(picture) {
+  if (picture.type === "jpeg") {
+    return "jpg";
+  }
+  return picture.type;
+}
+
+// A picture's bytes as a file to upload.
+function pictureBlob(picture) {
+  return new Blob([picture.bytes], { type: `image/${picture.type}` });
+}
+
+// A Telegram form with the chat's fields (chat_id, message_thread_id) filled in, and, with
+// `replyTo`, set to reply to that message.
+function chatForm(chat, replyTo) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(chat)) {
+    form.append(key, String(value));
+  }
+  if (replyTo) {
+    form.append("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
+  }
+  return form;
+}
+
+// A reply's JSON, or null if it isn't JSON.
+async function readJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+// The error for a reply Telegram refused, with its reason when it gave one.
+async function telegramError(response) {
+  const reply = await readJson(response);
+  const reason = reply?.description;
+  if (reason) {
+    return new Error(`Telegram replied ${response.status}: ${reason}`);
+  }
+  return new Error(`Telegram replied ${response.status}`);
 }
 
 // The pictures to one chat, replying to the report (`replyTo`): one as a photo, more as an album.
-async function sendImages(chat, pics, replyTo, id) {
-  const form = new FormData();
-  for (const [k, v] of Object.entries(chat)) form.append(k, String(v));
-  if (replyTo) form.append("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
-  const caption = `${pics.length === 1 ? "Picture" : `${pics.length} pictures`} for report ${id}`;
-  const file = (p, i) => new Blob([p.bytes], { type: `image/${p.type}` });
+async function sendImages(chat, pictures, replyTo, id) {
+  const form = chatForm(chat, replyTo);
+  let caption;
+  if (pictures.length === 1) {
+    caption = `Picture for report ${id}`;
+  } else {
+    caption = `${pictures.length} pictures for report ${id}`;
+  }
   let method;
-  if (pics.length === 1) {
+  if (pictures.length === 1) {
     method = "sendPhoto";
-    form.append("photo", file(pics[0]), `picture.${pics[0].type === "jpeg" ? "jpg" : pics[0].type}`);
+    form.append("photo", pictureBlob(pictures[0]), `picture.${extensionOf(pictures[0])}`);
     form.append("caption", caption);
   } else {
     method = "sendMediaGroup";
-    pics.forEach((p, i) => form.append(`p${i}`, file(p, i), `picture${i + 1}.${p.type === "jpeg" ? "jpg" : p.type}`));
-    form.append("media", JSON.stringify(pics.map((p, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 && { caption }) }))));
+    const media = [];
+    for (let index = 0; index < pictures.length; index++) {
+      const picture = pictures[index];
+      form.append(`p${index}`, pictureBlob(picture), `picture${index + 1}.${extensionOf(picture)}`);
+      const entry = { type: "photo", media: `attach://p${index}` };
+      // The album's caption goes on its first picture.
+      if (index === 0) {
+        entry.caption = caption;
+      }
+      media.push(entry);
+    }
+    form.append("media", JSON.stringify(media));
   }
-  const r = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/${method}`, { method: "POST", body: form, signal: AbortSignal.timeout(TELEGRAM_MS * 2) });
-  if (!r.ok) {
-    const reason = await r.json().then((d) => d?.description).catch(() => null);
-    throw new Error(`Telegram replied ${r.status}${reason ? `: ${reason}` : ""}`);
+  const response = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/${method}`, { method: "POST", body: form, signal: AbortSignal.timeout(TELEGRAM_MS * 2) });
+  if (!response.ok) {
+    throw await telegramError(response);
   }
 }
 
 // A whole-page screenshot (`full`), as a file, so Telegram keeps it at its full size: replying to
 // the report where it's known, captioned with the report's ID.
-async function sendFile(chat, pic, n, id, replyTo) {
-  const form = new FormData();
-  for (const [k, v] of Object.entries(chat)) form.append(k, String(v));
-  if (replyTo) form.append("reply_parameters", JSON.stringify({ message_id: replyTo, allow_sending_without_reply: true }));
-  const ext = pic.type === "jpeg" ? "jpg" : pic.type;
-  form.append("document", new Blob([pic.bytes], { type: `image/${pic.type}` }), `report-${id}-page-${n}.${ext}`);
-  form.append("caption", `Whole page, picture ${n}, at full size: report ${id}`);
+async function sendFile(chat, picture, pictureNumber, id, replyTo) {
+  const form = chatForm(chat, replyTo);
+  const extension = extensionOf(picture);
+  form.append("document", pictureBlob(picture), `report-${id}-page-${pictureNumber}.${extension}`);
+  form.append("caption", `Whole page, picture ${pictureNumber}, at full size: report ${id}`);
   form.append("disable_content_type_detection", "true");
-  const r = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/sendDocument`, { method: "POST", body: form, signal: AbortSignal.timeout(TELEGRAM_MS * 2) });
-  if (!r.ok) {
-    const reason = await r.json().then((d) => d?.description).catch(() => null);
-    throw new Error(`Telegram replied ${r.status}${reason ? `: ${reason}` : ""}`);
+  const response = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/sendDocument`, { method: "POST", body: form, signal: AbortSignal.timeout(TELEGRAM_MS * 2) });
+  if (!response.ok) {
+    throw await telegramError(response);
   }
 }
 
 // What the form added, as [label, value], in order: the report's ID first.
 function details(body) {
-  const platform = PLATFORMS[body.platform] || "Unknown";
+  let platform = PLATFORMS[body.platform];
+  if (!platform) {
+    platform = "Unknown";
+  }
   const version = clean(body.version, 60);
-  return [
-    ...(body.id ? [["Report", body.id]] : []),
-    ["App", `${platform}${version ? ` ${version}` : ""}`],
-    ["Device", clean(body.device, 200) || "not given"],
-    ["Page", clean(body.page, 100) || "not given"],
-    ["Language", clean(body.lang, 10) || "not given"],
-    ["Contact", clean(body.contact, MAX_CONTACT) || "none given"],
-  ];
+  let app = platform;
+  if (version) {
+    app = `${platform} ${version}`;
+  }
+  const rows = [];
+  if (body.id) {
+    rows.push(["Report", body.id]);
+  }
+  rows.push(["App", app]);
+  rows.push(["Device", cleanOr(body.device, 200, "not given")]);
+  rows.push(["Page", cleanOr(body.page, 100, "not given")]);
+  rows.push(["Language", cleanOr(body.lang, 10, "not given")]);
+  rows.push(["Contact", cleanOr(body.contact, MAX_CONTACT, "none given")]);
+  return rows;
 }
 
 // The message Augy gets as plain text, where a rich message won't go: what the form added,
 // then what was typed.
 export function message(body) {
-  const lines = [
-    `Bug report${body.id ? ` ${body.id}` : ""}, uwuFix`,
-    "",
-    ...details(body).map(([k, v]) => `${k}: ${v}`),
-    ...(Array.isArray(body.images) && body.images.length ? [`Pictures: ${body.images.length}, below`] : []),
-    "",
-    clean(body.text, MAX_TEXT, { lines: true }),
-  ];
+  let heading = "Bug report, uwuFix";
+  if (body.id) {
+    heading = `Bug report ${body.id}, uwuFix`;
+  }
+  const lines = [heading, ""];
+  for (const [label, value] of details(body)) {
+    lines.push(`${label}: ${value}`);
+  }
+  if (Array.isArray(body.images) && body.images.length) {
+    lines.push(`Pictures: ${body.images.length}, below`);
+  }
+  lines.push("");
+  lines.push(clean(body.text, MAX_TEXT, { lines: true }));
   return lines.join("\n");
 }
 
@@ -203,132 +341,249 @@ export function escapeMd(text) {
     .replace(/^(\s*\d+)([.)])/gm, "$1\\$2");
 }
 // A table cell: escaped, on one line.
-const escapeCell = (text) => escapeMd(String(text).replace(/\s*\n\s*/g, " "));
+function escapeCell(text) {
+  return escapeMd(String(text).replace(/\s*\n\s*/g, " "));
+}
 
-// The rich message: a heading, the form's details as a table, what was typed under a heading of
-// its own (each line kept a line), then each picture as a block of its own, `p0`, `p1`... the
-// ids of the files uploaded with it.
+/**
+ * The rich message: a heading, the form's details as a table, what was typed under a heading of
+ * its own (each line kept a line), then each picture as a block of its own, `p0`, `p1`... the
+ * ids of the files uploaded with it.
+ */
 export function richMarkdown(body, pictures = 0) {
-  const typed = clean(body.text, MAX_TEXT, { lines: true }).split("\n").map((l) => escapeMd(l));
+  const typed = [];
+  for (const line of clean(body.text, MAX_TEXT, { lines: true }).split("\n")) {
+    typed.push(escapeMd(line));
+  }
+  let heading = "# Bug report";
+  if (body.id) {
+    heading = `# Bug report ${escapeMd(body.id)}`;
+  }
   const lines = [
-    `# Bug report${body.id ? ` ${escapeMd(body.id)}` : ""}`,
+    heading,
     "*uwuFix*",
     "",
     "| Detail | Given |",
     "| --- | --- |",
-    ...details(body).map(([k, v]) => `| ${k} | ${escapeCell(v)} |`),
-    "",
-    "## What went wrong",
-    "",
-    // Two spaces at a line's end keep the next on a line of its own; a blank line stays one.
-    ...typed.map((l, i) => (i < typed.length - 1 && l && typed[i + 1] ? `${l}  ` : l)),
   ];
+  for (const [label, value] of details(body)) {
+    lines.push(`| ${label} | ${escapeCell(value)} |`);
+  }
+  lines.push("", "## What went wrong", "");
+  // Two spaces at a line's end keep the next on a line of its own; a blank line stays one.
+  for (let index = 0; index < typed.length; index++) {
+    const line = typed[index];
+    if (index < typed.length - 1 && line && typed[index + 1]) {
+      lines.push(`${line}  `);
+    } else {
+      lines.push(line);
+    }
+  }
   if (pictures) {
-    lines.push("", `## ${pictures === 1 ? "Picture" : `Pictures (${pictures})`}`);
-    for (let i = 0; i < pictures; i++) lines.push("", `![](tg://photo?id=p${i}${pictures > 1 ? ` "Picture ${i + 1} of ${pictures}"` : ""})`);
+    if (pictures === 1) {
+      lines.push("", "## Picture");
+    } else {
+      lines.push("", `## Pictures (${pictures})`);
+    }
+    for (let index = 0; index < pictures; index++) {
+      if (pictures > 1) {
+        lines.push("", `![](tg://photo?id=p${index} "Picture ${index + 1} of ${pictures}")`);
+      } else {
+        lines.push("", `![](tg://photo?id=p${index})`);
+      }
+    }
   }
   return lines.join("\n");
 }
 
 // The report as a rich message to one chat, its pictures in it: a form, so the files go with it.
 // Its message's ID, for the whole-page files to reply to, or null if Telegram didn't say.
-async function sendRich(chat, body, pics) {
-  const form = new FormData();
-  for (const [k, v] of Object.entries(chat)) form.append(k, String(v));
-  form.append("rich_message", JSON.stringify({
-    markdown: richMarkdown(body, pics.length),
-    ...(pics.length && { media: pics.map((p, i) => ({ id: `p${i}`, media: { type: "photo", media: `attach://p${i}` } })) }),
-  }));
-  pics.forEach((p, i) => form.append(`p${i}`, new Blob([p.bytes], { type: `image/${p.type}` }), `picture${i + 1}.${p.type === "jpeg" ? "jpg" : p.type}`));
-  const r = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/sendRichMessage`, {
-    method: "POST", body: form, signal: AbortSignal.timeout(TELEGRAM_MS * (pics.length ? 2 : 1)),
+async function sendRich(chat, body, pictures) {
+  const form = chatForm(chat, null);
+  const richMessage = { markdown: richMarkdown(body, pictures.length) };
+  if (pictures.length) {
+    const media = [];
+    for (let index = 0; index < pictures.length; index++) {
+      media.push({ id: `p${index}`, media: { type: "photo", media: `attach://p${index}` } });
+    }
+    richMessage.media = media;
+  }
+  form.append("rich_message", JSON.stringify(richMessage));
+  for (let index = 0; index < pictures.length; index++) {
+    const picture = pictures[index];
+    form.append(`p${index}`, pictureBlob(picture), `picture${index + 1}.${extensionOf(picture)}`);
+  }
+  let timeoutMs = TELEGRAM_MS;
+  if (pictures.length) {
+    timeoutMs = TELEGRAM_MS * 2;
+  }
+  const response = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/sendRichMessage`, {
+    method: "POST", body: form, signal: AbortSignal.timeout(timeoutMs),
   });
-  if (r.ok) return r.json().then((d) => d?.result?.message_id ?? null).catch(() => null);
-  const reason = await r.json().then((d) => d?.description).catch(() => null);
-  throw new Error(`Telegram replied ${r.status}${reason ? `: ${reason}` : ""}`);
+  if (response.ok) {
+    const reply = await readJson(response);
+    const messageId = reply?.result?.message_id;
+    if (messageId === null || messageId === undefined) {
+      return null;
+    }
+    return messageId;
+  }
+  throw await telegramError(response);
 }
 
 // Over the hour's limit: one IP's, or everyone's.
 async function overHour(ip) {
-  if (countWithin(`h:${ip}`, 3600 * 1000) > PER_HOUR) return true;
+  if (countWithin(`h:${ip}`, 3600 * 1000) > PER_HOUR) {
+    return true;
+  }
   return countWithin("h:all", 3600 * 1000) > ALL_PER_HOUR;
 }
 
-export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "method not allowed" });
+// What to log for a failed send: "Telegram took too long" for a timeout, otherwise its message.
+function describeFailure(error) {
+  if (error.name === "TimeoutError") {
+    return "Telegram took too long";
   }
-  if (!configured()) return res.status(503).json({ error: "Bug reports can't be sent from the app yet." });
+  return error.message;
+}
+
+// The caller's IP, as Vercel passes it on, or "unknown".
+function callerIp(request) {
+  const realIp = request.headers["x-real-ip"];
+  if (realIp) {
+    return realIp;
+  }
+  let forwardedFor = request.headers["x-forwarded-for"];
+  if (!forwardedFor) {
+    forwardedFor = "";
+  }
+  const firstForwarded = String(forwardedFor).split(",")[0].trim();
+  if (firstForwarded) {
+    return firstForwarded;
+  }
+  return "unknown";
+}
+
+/**
+ * The endpoint: checks the request (method, origin, size, text, pictures, rate limits, the
+ * honeypot), then sends the report to every chat at once, as a rich message or as plain text
+ * where that won't go, and answers with its ID if at least one chat took it.
+ */
+export default async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
+  if (request.method !== "POST") {
+    response.setHeader("Allow", "POST");
+    return response.status(405).json({ error: "method not allowed" });
+  }
+  if (!configured()) {
+    return response.status(503).json({ error: "Bug reports can't be sent from the app yet." });
+  }
 
   // Only from the site's own page: a browser sends Origin with a cross-site POST.
-  const origin = req.headers.origin;
+  const origin = request.headers.origin;
   if (origin) {
     let host = "";
-    try { host = new URL(origin).host; } catch { /* not a URL: refused below */ }
-    if (host !== req.headers.host) return res.status(403).json({ error: "Not from this site." });
+    try {
+      host = new URL(origin).host;
+    } catch { /* not a URL: refused below */ }
+    if (host !== request.headers.host) {
+      return response.status(403).json({ error: "Not from this site." });
+    }
   }
 
-  const body = req.body && typeof req.body === "object" ? req.body : null;
-  if (!body) return res.status(400).json({ error: "Nothing was sent." });
-  const pics = images(body.images);
-  if (!pics) return res.status(400).json({ error: `Pictures must be images, at most ${MAX_IMAGES}, each under ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024 * 10) / 10} MB.` });
-  if (JSON.stringify({ ...body, images: undefined }).length > MAX_BODY) return res.status(413).json({ error: "That's too long to send." });
-  if (typeof body.text !== "string" || clean(body.text, MAX_TEXT + 1, { lines: true }).length < 5) return res.status(400).json({ error: "Please say what went wrong." });
-  if (body.text.trim().length > MAX_TEXT) return res.status(400).json({ error: `Please keep it under ${MAX_TEXT} characters.` });
+  let body = null;
+  if (request.body && typeof request.body === "object") {
+    body = request.body;
+  }
+  if (!body) {
+    return response.status(400).json({ error: "Nothing was sent." });
+  }
+  const pictures = images(body.images);
+  if (!pictures) {
+    return response.status(400).json({ error: `Pictures must be images, at most ${MAX_IMAGES}, each under ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024 * 10) / 10} MB.` });
+  }
+  if (JSON.stringify({ ...body, images: undefined }).length > MAX_BODY) {
+    return response.status(413).json({ error: "That's too long to send." });
+  }
+  if (typeof body.text !== "string" || clean(body.text, MAX_TEXT + 1, { lines: true }).length < 5) {
+    return response.status(400).json({ error: "Please say what went wrong." });
+  }
+  if (body.text.trim().length > MAX_TEXT) {
+    return response.status(400).json({ error: `Please keep it under ${MAX_TEXT} characters.` });
+  }
 
-  const ip = req.headers["x-real-ip"] || String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-  if (await rateLimited(`bug:${ip}`, PER_MINUTE)) return res.status(429).json({ error: "That's a lot of reports at once. Try again in a minute." });
+  const ip = callerIp(request);
+  if (await rateLimited(`bug:${ip}`, PER_MINUTE)) {
+    return response.status(429).json({ error: "That's a lot of reports at once. Try again in a minute." });
+  }
   // The bot's field: no message, and no sign it was noticed.
-  if (body.website) return res.status(200).json({ id: reportId() });
-  if (await overHour(ip)) return res.status(429).json({ error: "That's a lot of reports this hour. Try again later." });
+  if (body.website) {
+    return response.status(200).json({ id: reportId() });
+  }
+  if (await overHour(ip)) {
+    return response.status(429).json({ error: "That's a lot of reports this hour. Try again later." });
+  }
 
   // To every chat at once, as a rich message, or as before where that won't go. One that took
   // it is enough; the others are logged.
   const id = reportId();
   const report = { ...body, id };
-  const full = fullShots(body.full, pics.length);
+  const full = fullShots(body.full, pictures.length);
   // Each whole-page screenshot as a file too, after the report; the report counts as sent even
   // if they don't go.
-  const files = async (chat, i, replyTo) => {
-    for (const k of full) {
-      await sendFile(chat, pics[k], k + 1, id, replyTo).catch((err) => console.error(`bug-report: chat ${i + 1}: whole page ${k + 1}: ${err.message}`));
+  async function sendFiles(chat, chatIndex, replyTo) {
+    for (const pictureIndex of full) {
+      try {
+        await sendFile(chat, pictures[pictureIndex], pictureIndex + 1, id, replyTo);
+      } catch (error) {
+        console.error(`bug-report: chat ${chatIndex + 1}: whole page ${pictureIndex + 1}: ${error.message}`);
+      }
     }
-  };
+  }
   const text = message(report);
-  const results = await Promise.all(chats().map(async (chat, i) => {
+
+  // The report to one chat: true if it took it.
+  async function sendToChat(chat, chatIndex) {
     try {
-      const sent = await sendRich(chat, report, pics);
-      await files(chat, i, sent);
+      const sent = await sendRich(chat, report, pictures);
+      await sendFiles(chat, chatIndex, sent);
       return true;
-    } catch (err) {
-      console.error(`bug-report: chat ${i + 1}: rich message: ${err.name === "TimeoutError" ? "Telegram took too long" : err.message}; sending it as plain text`);
+    } catch (error) {
+      console.error(`bug-report: chat ${chatIndex + 1}: rich message: ${describeFailure(error)}; sending it as plain text`);
     }
     try {
-      const r = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/sendMessage`, {
+      const telegramResponse = await fetch(`https://api.telegram.org/bot${process.env.BUG_REPORT_BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...chat, text, link_preview_options: { is_disabled: true } }),
         signal: AbortSignal.timeout(TELEGRAM_MS),
       });
-      if (r.ok) {
+      if (telegramResponse.ok) {
         // Then its pictures, replying to it. The report counts as sent even if they don't go.
-        const replyTo = await r.json().then((d) => d?.result?.message_id).catch(() => null);
-        if (pics.length) {
-          await sendImages(chat, pics, replyTo, id).catch((err) => console.error(`bug-report: chat ${i + 1}: pictures: ${err.message}`));
+        const reply = await readJson(telegramResponse);
+        const replyTo = reply?.result?.message_id;
+        if (pictures.length) {
+          try {
+            await sendImages(chat, pictures, replyTo, id);
+          } catch (error) {
+            console.error(`bug-report: chat ${chatIndex + 1}: pictures: ${error.message}`);
+          }
         }
-        await files(chat, i, replyTo);
+        await sendFiles(chat, chatIndex, replyTo);
         return true;
       }
       // Telegram's reason, for the logs: never the token, which is only in the address.
-      const reason = await r.json().then((d) => d?.description).catch(() => null);
-      console.error(`bug-report: chat ${i + 1}: Telegram replied ${r.status}${reason ? `: ${reason}` : ""}`);
-    } catch (err) {
-      console.error(`bug-report: chat ${i + 1}: ${err.name === "TimeoutError" ? "Telegram took too long" : err.message}`);
+      const refusal = await telegramError(telegramResponse);
+      console.error(`bug-report: chat ${chatIndex + 1}: ${refusal.message}`);
+    } catch (error) {
+      console.error(`bug-report: chat ${chatIndex + 1}: ${describeFailure(error)}`);
     }
     return false;
-  }));
-  if (!results.includes(true)) return res.status(502).json({ error: "Couldn't send it right now. Please try again." });
-  return res.status(200).json({ id });
+  }
+
+  const results = await Promise.all(chats().map(sendToChat));
+  if (!results.includes(true)) {
+    return response.status(502).json({ error: "Couldn't send it right now. Please try again." });
+  }
+  return response.status(200).json({ id });
 }

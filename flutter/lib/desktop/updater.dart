@@ -34,8 +34,9 @@ import 'settings.dart';
 
 const releasesLatest =
     'https://github.com/augy-studios/fixup-links/releases/latest';
-const _download = '$releasesLatest/download/';
+const _downloadBase = '$releasesLatest/download/';
 
+/// One release's update file for this platform: its version, file name, checksum and size.
 class UpdateFile {
   const UpdateFile(this.version, this.file, this.sha512, this.size);
   final String version;
@@ -47,34 +48,61 @@ class UpdateFile {
   /// (the Mac's .zip for this processor).
   static UpdateFile? parse(String text, {bool Function(String name)? want}) {
     try {
-      final y = loadYaml(text);
-      if (y is! Map) return null;
-      final version = '${y['version'] ?? ''}';
-      if (!RegExp(r'^\d+(\.\d+)*$').hasMatch(version)) return null;
-      final files = (y['files'] as List?) ?? const [];
-      for (final f in files) {
-        if (f is! Map) continue;
-        final url = '${f['url'] ?? ''}';
-        if (url.isEmpty || (want != null && !want(url))) continue;
-        return UpdateFile(
-          version,
-          url,
-          '${f['sha512'] ?? ''}',
-          (f['size'] as num?)?.toInt() ?? 0,
-        );
+      final yaml = loadYaml(text);
+      if (yaml is! Map) {
+        return null;
       }
-      final path = '${y['path'] ?? ''}';
+      final version = _text(yaml, 'version');
+      if (!RegExp(r'^\d+(\.\d+)*$').hasMatch(version)) {
+        return null;
+      }
+      final files = yaml['files'] as List?;
+      if (files != null) {
+        for (final file in files) {
+          if (file is! Map) {
+            continue;
+          }
+          final url = _text(file, 'url');
+          if (url.isEmpty || (want != null && !want(url))) {
+            continue;
+          }
+          final size = (file['size'] as num?)?.toInt();
+          int sizeInBytes;
+          if (size == null) {
+            sizeInBytes = 0;
+          } else {
+            sizeInBytes = size;
+          }
+          return UpdateFile(
+            version,
+            url,
+            _text(file, 'sha512'),
+            sizeInBytes,
+          );
+        }
+      }
+      final path = _text(yaml, 'path');
       if (path.isNotEmpty && (want == null || want(path))) {
-        return UpdateFile(version, path, '${y['sha512'] ?? ''}', 0);
+        return UpdateFile(version, path, _text(yaml, 'sha512'), 0);
       }
     } catch (_) {}
     return null;
+  }
+
+  /// [map][key] as text, or '' when it's missing.
+  static String _text(Map map, String key) {
+    final value = map[key];
+    if (value == null) {
+      return '';
+    }
+    return '$value';
   }
 }
 
 /// How this copy was installed, and so what it can do with an update.
 enum InstallKind { nsis, appImage, mac, other, source }
 
+/// Finds, downloads and installs new versions of the desktop app, as this install allows.
 class DesktopUpdater implements UpdateBackend {
   DesktopUpdater(this.running);
   final String running;
@@ -84,18 +112,24 @@ class DesktopUpdater implements UpdateBackend {
   Timer? _hourly;
   DateTime _lastTick = DateTime.now();
 
+  /// How this copy was installed: the Windows installer's (its uninstaller beside it), an
+  /// AppImage, a Mac bundle it can write over, or anything else.
   static InstallKind get kind {
-    if (Desktop.fromSource) return InstallKind.source;
-    final exe = File(Platform.resolvedExecutable);
+    if (Desktop.fromSource) {
+      return InstallKind.source;
+    }
+    final executable = File(Platform.resolvedExecutable);
     if (Platform.isWindows) {
-      return File('${exe.parent.path}\\Uninstall uwuFix.exe').existsSync()
-          ? InstallKind.nsis
-          : InstallKind.other;
+      if (File('${executable.parent.path}\\Uninstall uwuFix.exe').existsSync()) {
+        return InstallKind.nsis;
+      }
+      return InstallKind.other;
     }
     if (Platform.isLinux) {
-      return Platform.environment.containsKey('APPIMAGE')
-          ? InstallKind.appImage
-          : InstallKind.other;
+      if (Platform.environment.containsKey('APPIMAGE')) {
+        return InstallKind.appImage;
+      }
+      return InstallKind.other;
     }
     if (Platform.isMacOS) {
       final app = _macBundle;
@@ -118,134 +152,187 @@ class DesktopUpdater implements UpdateBackend {
 
   static Directory? get _macBundle {
     final path = Platform.resolvedExecutable;
-    final at = path.indexOf('.app/');
-    return at == -1 ? null : Directory(path.substring(0, at + 4));
+    final bundleEnd = path.indexOf('.app/');
+    if (bundleEnd == -1) {
+      return null;
+    }
+    return Directory(path.substring(0, bundleEnd + 4));
   }
 
-  String get _ymlName {
-    if (Platform.isWindows) return 'latest.yml';
-    if (Platform.isMacOS) return 'latest-mac.yml';
-    return _arm ? 'latest-linux-arm64.yml' : 'latest-linux.yml';
+  String get _yamlName {
+    if (Platform.isWindows) {
+      return 'latest.yml';
+    }
+    if (Platform.isMacOS) {
+      return 'latest-mac.yml';
+    }
+    if (_arm) {
+      return 'latest-linux-arm64.yml';
+    }
+    return 'latest-linux.yml';
   }
 
   static bool get _arm {
-    final v = Platform.version.toLowerCase();
-    return v.contains('arm64') || v.contains('aarch64');
+    final dartVersion = Platform.version.toLowerCase();
+    return dartVersion.contains('arm64') || dartVersion.contains('aarch64');
   }
 
   bool _want(String name) {
     if (Platform.isMacOS) {
-      return name.endsWith('.zip') &&
-          name.contains(_arm ? '-mac-arm64' : '-mac-x64');
+      String processorSuffix;
+      if (_arm) {
+        processorSuffix = '-mac-arm64';
+      } else {
+        processorSuffix = '-mac-x64';
+      }
+      return name.endsWith('.zip') && name.contains(processorSuffix);
     }
-    if (Platform.isLinux) return name.endsWith('.AppImage');
+    if (Platform.isLinux) {
+      return name.endsWith('.AppImage');
+    }
     return name.endsWith('.exe');
   }
 
   @override
-  bool get canInstall => const {
-    InstallKind.nsis,
-    InstallKind.appImage,
-    InstallKind.mac,
-  }.contains(kind);
+  bool get canInstall {
+    return const {
+      InstallKind.nsis,
+      InstallKind.appImage,
+      InstallKind.mac,
+    }.contains(kind);
+  }
 
   /// The newest version's update file, or null if this is it.
   Future<UpdateFile?> find({
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    if (kind == InstallKind.source) return null;
-    final r = await http
+    if (kind == InstallKind.source) {
+      return null;
+    }
+    final response = await http
         .get(
-          Uri.parse('$_download$_ymlName'),
+          Uri.parse('$_downloadBase$_yamlName'),
           headers: {'user-agent': Desktop.userAgent},
         )
         .timeout(timeout);
-    if (r.statusCode == 404) return null; // no release with desktop files yet
-    if (r.statusCode != 200) {
-      throw HttpException('GitHub replied ${r.statusCode}');
+    if (response.statusCode == 404) {
+      return null; // no release with desktop files yet
     }
-    final f = UpdateFile.parse(r.body, want: _want);
-    if (f == null || !AppUpdate.newer(f.version, running)) return null;
-    return _found = f;
+    if (response.statusCode != 200) {
+      throw HttpException('GitHub replied ${response.statusCode}');
+    }
+    final file = UpdateFile.parse(response.body, want: _want);
+    if (file == null || !AppUpdate.newer(file.version, running)) {
+      return null;
+    }
+    _found = file;
+    return file;
   }
 
   @override
   Future<({String version, String page})?> latest() async {
-    final f = await find();
-    return f == null ? null : (version: f.version, page: releasesLatest);
+    final file = await find();
+    if (file == null) {
+      return null;
+    }
+    return (version: file.version, page: releasesLatest);
   }
 
+  /// Downloads the update file, checking its SHA-512 as it comes, and on a Mac unpacks it; then
+  /// says it's ready to install.
   @override
   Future<void> download(
     void Function(double? progress, String? detail) progress,
   ) async {
-    final f = _found ?? await find();
-    if (f == null) return;
-    final dir = Directory(
-      '${Directory.systemTemp.path}${Platform.pathSeparator}uwufix-update',
-    )..createSync(recursive: true);
-    final out = File('${dir.path}${Platform.pathSeparator}${f.file}');
-    final req = http.Request('GET', Uri.parse('$_download${f.file}'))
-      ..headers['user-agent'] = Desktop.userAgent;
-    final res = await http.Client().send(req);
-    if (res.statusCode != 200) {
-      throw HttpException('GitHub replied ${res.statusCode}');
+    UpdateFile? file = _found;
+    if (file == null) {
+      file = await find();
+      if (file == null) {
+        return;
+      }
     }
-    final total = res.contentLength ?? f.size;
-    final sink = out.openWrite();
+    final directory = Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}uwufix-update',
+    );
+    directory.createSync(recursive: true);
+    final output = File('${directory.path}${Platform.pathSeparator}${file.file}');
+    final request = http.Request('GET', Uri.parse('$_downloadBase${file.file}'));
+    request.headers['user-agent'] = Desktop.userAgent;
+    final response = await http.Client().send(request);
+    if (response.statusCode != 200) {
+      throw HttpException('GitHub replied ${response.statusCode}');
+    }
+    int total;
+    if (response.contentLength != null) {
+      total = response.contentLength!;
+    } else {
+      total = file.size;
+    }
+    final sink = output.openWrite();
     final digest = _Sink();
     final hasher = sha512.startChunkedConversion(digest);
     var done = 0;
-    await for (final chunk in res.stream) {
+    await for (final chunk in response.stream) {
       sink.add(chunk);
       hasher.add(chunk);
       done += chunk.length;
-      progress(
-        total > 0 ? done / total : null,
-        total > 0 ? '${_mb(done)} of ${_mb(total)}' : _mb(done),
-      );
+      if (total > 0) {
+        progress(done / total, '${_megabytes(done)} of ${_megabytes(total)}');
+      } else {
+        progress(null, _megabytes(done));
+      }
     }
     await sink.close();
     hasher.close();
-    if (f.sha512.isNotEmpty && base64.encode(digest.value!.bytes) != f.sha512) {
-      out.deleteSync();
+    if (file.sha512.isNotEmpty && base64.encode(digest.value!.bytes) != file.sha512) {
+      output.deleteSync();
       throw const FormatException(
         'The download doesn’t match the file on GitHub.',
       );
     }
     if (Platform.isMacOS) {
       // Unpacked now, so quitting only has to swap it in.
-      final unpacked = Directory('${dir.path}/unpacked');
-      if (unpacked.existsSync()) unpacked.deleteSync(recursive: true);
+      final unpacked = Directory('${directory.path}/unpacked');
+      if (unpacked.existsSync()) {
+        unpacked.deleteSync(recursive: true);
+      }
       unpacked.createSync();
-      final r = await Process.run('ditto', [
+      final result = await Process.run('ditto', [
         '-x',
         '-k',
-        out.path,
+        output.path,
         unpacked.path,
       ]);
-      if (r.exitCode != 0) {
+      if (result.exitCode != 0) {
         throw const FormatException('The update wouldn’t unpack.');
       }
     }
-    _downloaded = out;
+    _downloaded = output;
     _say(
-      f.version,
+      file.version,
       'ready',
-      'uwuFix ${f.version} is ready',
+      'uwuFix ${file.version} is ready',
       'Click to restart and update. Otherwise it updates the next time you quit.',
       'update',
     );
   }
 
-  static String _mb(int bytes) => '${(bytes / 1000000).toStringAsFixed(1)} MB';
+  static String _megabytes(int bytes) {
+    return '${(bytes / 1000000).toStringAsFixed(1)} MB';
+  }
 
-  bool get ready => _downloaded != null;
+  bool get ready {
+    return _downloaded != null;
+  }
 
+  /// Installs the downloaded update as this install allows, then quits; [reopen] starts the new
+  /// version once it's in place.
   @override
   Future<void> install({bool reopen = true}) async {
     final file = _downloaded;
-    if (file == null) return;
+    if (file == null) {
+      return;
+    }
     switch (kind) {
       case InstallKind.nsis:
         await Process.start(file.path, [
@@ -269,18 +356,24 @@ class DesktopUpdater implements UpdateBackend {
       case InstallKind.mac:
         final app = _macBundle!;
         final unpacked = Directory('${file.parent.path}/unpacked');
-        final newApp = unpacked.listSync().whereType<Directory>().firstWhere(
-          (d) => d.path.endsWith('.app'),
-        );
+        final newApp = unpacked.listSync().whereType<Directory>().firstWhere((directory) {
+          return directory.path.endsWith('.app');
+        });
+        String reopenLine;
+        if (reopen) {
+          reopenLine = 'open "\$OLD"';
+        } else {
+          reopenLine = '';
+        }
         // Waits for this process to end, swaps the bundles (keeping the old if the move fails),
         // clears the quarantine flag and reopens it.
-        final script = File('${file.parent.path}/swap.sh')
-          ..writeAsStringSync('''#!/bin/sh
+        final script = File('${file.parent.path}/swap.sh');
+        script.writeAsStringSync('''#!/bin/sh
 while kill -0 $pid 2>/dev/null; do sleep 0.3; done
 OLD="${app.path}"
 mv "\$OLD" "\$OLD.old" && if mv "${newApp.path}" "\$OLD"; then rm -rf "\$OLD.old"; else mv "\$OLD.old" "\$OLD"; fi
 xattr -dr com.apple.quarantine "\$OLD" 2>/dev/null
-${reopen ? 'open "\$OLD"' : ''}
+$reopenLine
 ''');
         await Process.start('/bin/sh', [
           script.path,
@@ -300,31 +393,45 @@ ${reopen ? 'open "\$OLD"' : ''}
     String payload, {
     bool asked = false,
   }) {
-    if (!asked && DeskSettings.get('updateNotices') == false) return;
-    final said = Map<String, dynamic>.from(
-      (DeskSettings.get('updateSaid') as Map?) ?? const {},
-    );
-    final list = [...((said[version] as List?) ?? const [])];
-    if (!asked && list.contains(what)) return;
-    DeskSettings.set('updateSaid', {
+    if (!asked && DesktopSettings.get('updateNotices') == false) {
+      return;
+    }
+    final storedSaid = DesktopSettings.get('updateSaid') as Map?;
+    Map<String, dynamic> said;
+    if (storedSaid == null) {
+      said = <String, dynamic>{};
+    } else {
+      said = Map<String, dynamic>.from(storedSaid);
+    }
+    final storedList = said[version] as List?;
+    final list = <dynamic>[];
+    if (storedList != null) {
+      list.addAll(storedList);
+    }
+    if (!asked && list.contains(what)) {
+      return;
+    }
+    DesktopSettings.set('updateSaid', {
       version: [...list, what],
     });
-    DeskNotify.show(title, body, payload: payload);
+    DesktopNotify.show(title, body, payload: payload);
   }
 
   /// A check on its own, as the timers do it: downloads what this install can install, says what
   /// it can't.
   Future<void> background() async {
     try {
-      final f = await find();
-      if (f == null || ready) return;
-      AppUpdate.I.version = f.version;
+      final file = await find();
+      if (file == null || ready) {
+        return;
+      }
+      AppUpdate.I.version = file.version;
       AppUpdate.I.page = releasesLatest;
       if (!canInstall) {
         _say(
-          f.version,
+          file.version,
           'out',
-          'uwuFix ${f.version} is out',
+          'uwuFix ${file.version} is out',
           'Click to download it from GitHub.',
           'release',
         );
@@ -335,9 +442,9 @@ ${reopen ? 'open "\$OLD"' : ''}
         await AppUpdate.I.update();
       } catch (_) {
         _say(
-          f.version,
+          file.version,
           'failed',
-          'Couldn’t download uwuFix ${f.version}',
+          'Couldn’t download uwuFix ${file.version}',
           'It tries again within the hour, or click to download it from GitHub.',
           'release',
         );
@@ -367,13 +474,19 @@ ${reopen ? 'open "\$OLD"' : ''}
     });
   }
 
-  void dispose() => _hourly?.cancel();
+  void dispose() {
+    _hourly?.cancel();
+  }
 }
 
+/// Holds the SHA-512 digest once the download's hasher is closed.
 class _Sink implements Sink<Digest> {
   Digest? value;
   @override
-  void add(Digest data) => value = data;
+  void add(Digest data) {
+    value = data;
+  }
+
   @override
   void close() {}
 }

@@ -20,6 +20,7 @@ import 'package:http/http.dart' as http;
 
 import 'binarypack.dart';
 
+/// The pairing's constants, its codes, and the broker's address.
 class P2P {
   P2P._();
   static const prefix = 'uwufix-sync-';
@@ -27,101 +28,146 @@ class P2P {
   static const codeLength = 6;
   static const protocolVersion = 1;
   static const connectTimeout = Duration(seconds: 15);
-  static const _host = '0.peerjs.com';
-  static const _ice = [
+  static const _brokerHost = '0.peerjs.com';
+  static const _iceServers = [
     {'urls': 'stun:stun.l.google.com:19302'},
     {'urls': 'stun:stun.cloudflare.com:3478'},
   ];
-  static const _mtu = 16300;
+  // The largest message sent whole; anything bigger goes as chunks (PeerJS's own limit).
+  static const _maximumMessageSize = 16300;
 
   static String generateCode() {
-    final r = math.Random.secure();
-    return [for (var i = 0; i < codeLength; i++) alphabet[r.nextInt(alphabet.length)]].join();
+    final random = math.Random.secure();
+    final code = StringBuffer();
+    for (var index = 0; index < codeLength; index++) {
+      code.write(alphabet[random.nextInt(alphabet.length)]);
+    }
+    return code.toString();
   }
 
   static String normalise(String input) {
-    final s = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    return s.length > codeLength ? s.substring(0, codeLength) : s;
+    final lettersAndDigits = input.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (lettersAndDigits.length > codeLength) {
+      return lettersAndDigits.substring(0, codeLength);
+    }
+    return lettersAndDigits;
   }
 
   static bool isValid(String input) {
-    final c = normalise(input);
-    return c.length == codeLength && c.split('').every(alphabet.contains);
+    final code = normalise(input);
+    if (code.length != codeLength) {
+      return false;
+    }
+    for (final character in code.split('')) {
+      if (!alphabet.contains(character)) {
+        return false;
+      }
+    }
+    return true;
   }
 
-  static String _token() => math.Random.secure().nextInt(1 << 32).toRadixString(36) + math.Random.secure().nextInt(1 << 32).toRadixString(36);
+  static String _token() {
+    final firstPart = math.Random.secure().nextInt(1 << 32).toRadixString(36);
+    final secondPart = math.Random.secure().nextInt(1 << 32).toRadixString(36);
+    return firstPart + secondPart;
+  }
 }
 
 /// What went wrong, as js/p2p.js's describePeerError says it.
-String peerError(String type) => switch (type) {
-      'peer-unavailable' => 'Nobody is sharing with that code. Check it and try again.',
-      'unavailable-id' => 'That code is already in use. Make a new one.',
-      'network' || 'server-error' || 'socket-error' || 'socket-closed' => 'Cannot reach the pairing service. Everything else still works.',
-      _ => 'The connection failed.',
-    };
+String peerError(String type) {
+  switch (type) {
+    case 'peer-unavailable':
+      return 'Nobody is sharing with that code. Check it and try again.';
+    case 'unavailable-id':
+      return 'That code is already in use. Make a new one.';
+    case 'network':
+    case 'server-error':
+    case 'socket-error':
+    case 'socket-closed':
+      return 'Cannot reach the pairing service. Everything else still works.';
+    default:
+      return 'The connection failed.';
+  }
+}
 
 /// The broker: registering an id, relaying offers, answers and candidates.
 class _Broker {
   _Broker(this.id, this.onMessage, this.onClosed);
   final String id;
-  final void Function(Map<String, dynamic> m) onMessage;
+  final void Function(Map<String, dynamic> message) onMessage;
   final void Function() onClosed;
-  WebSocket? _ws;
-  Timer? _beat;
-  final _open = Completer<void>();
+  WebSocket? _socket;
+  Timer? _heartbeat;
+  final _opened = Completer<void>();
 
+  /// Opens the broker's socket and registers [id]: done once the broker says OPEN, failing with
+  /// 'unavailable-id', 'server-error' or 'socket-closed'. Sends a heartbeat every 5 seconds.
   Future<void> connect() async {
-    final url = 'wss://${P2P._host}:443/peerjs?key=peerjs&id=${Uri.encodeComponent(id)}&token=${P2P._token()}&version=1.5.4';
-    _ws = await WebSocket.connect(url).timeout(const Duration(seconds: 15));
-    _ws!.listen((raw) {
-      Map<String, dynamic> m;
+    final url = 'wss://${P2P._brokerHost}:443/peerjs?key=peerjs&id=${Uri.encodeComponent(id)}&token=${P2P._token()}&version=1.5.4';
+    _socket = await WebSocket.connect(url).timeout(const Duration(seconds: 15));
+    _socket!.listen((raw) {
+      Map<String, dynamic> message;
       try {
-        m = Map<String, dynamic>.from(jsonDecode('$raw') as Map);
+        message = Map<String, dynamic>.from(jsonDecode('$raw') as Map);
       } catch (_) {
         return;
       }
-      if (m['type'] == 'OPEN' && !_open.isCompleted) _open.complete();
-      if (m['type'] == 'ID-TAKEN' && !_open.isCompleted) _open.completeError('unavailable-id');
-      if (m['type'] == 'ERROR' && !_open.isCompleted) _open.completeError('server-error');
-      onMessage(m);
+      if (message['type'] == 'OPEN' && !_opened.isCompleted) {
+        _opened.complete();
+      }
+      if (message['type'] == 'ID-TAKEN' && !_opened.isCompleted) {
+        _opened.completeError('unavailable-id');
+      }
+      if (message['type'] == 'ERROR' && !_opened.isCompleted) {
+        _opened.completeError('server-error');
+      }
+      onMessage(message);
     }, onDone: () {
-      _beat?.cancel();
-      if (!_open.isCompleted) _open.completeError('socket-closed');
+      _heartbeat?.cancel();
+      if (!_opened.isCompleted) {
+        _opened.completeError('socket-closed');
+      }
       onClosed();
     }, onError: (_) {});
-    _beat = Timer.periodic(const Duration(seconds: 5), (_) => send({'type': 'HEARTBEAT'}));
-    return _open.future;
+    _heartbeat = Timer.periodic(const Duration(seconds: 5), (_) {
+      send({'type': 'HEARTBEAT'});
+    });
+    return _opened.future;
   }
 
-  void send(Map<String, Object?> m) {
+  void send(Map<String, Object?> message) {
     try {
-      _ws?.add(jsonEncode(m));
+      _socket?.add(jsonEncode(message));
     } catch (_) {}
   }
 
   void close() {
-    _beat?.cancel();
-    _ws?.close();
-    _ws = null;
+    _heartbeat?.cancel();
+    _socket?.close();
+    _socket = null;
   }
 
   /// A random id from the broker, for a guest.
   static Future<String> newId() async {
-    final r = await http.get(Uri.parse('https://${P2P._host}:443/peerjs/id?ts=${DateTime.now().millisecondsSinceEpoch}${math.Random().nextDouble()}')).timeout(const Duration(seconds: 15));
-    if (r.statusCode != 200) throw 'server-error';
-    return r.body.trim();
+    final cacheBuster = '${DateTime.now().millisecondsSinceEpoch}${math.Random().nextDouble()}';
+    final response = await http.get(Uri.parse('https://${P2P._brokerHost}:443/peerjs/id?ts=$cacheBuster')).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw 'server-error';
+    }
+    return response.body.trim();
   }
 }
 
 /// One data channel to the other device.
 class PeerLink {
-  PeerLink._(this.peer, this.connectionId, this.pc);
+  PeerLink._(this.peer, this.connectionId, this.peerConnection);
   final String peer;
   final String connectionId;
-  final RTCPeerConnection pc;
-  RTCDataChannel? _dc;
+  final RTCPeerConnection peerConnection;
+  RTCDataChannel? _dataChannel;
   bool open = false;
-  final List<RTCIceCandidate> _early = [];
+  // Candidates that came before the remote description, added once it's set.
+  final List<RTCIceCandidate> _earlyCandidates = [];
   bool _remoteSet = false;
   final Map<int, List<Uint8List?>> _chunks = {};
   int _chunkId = 0;
@@ -130,98 +176,130 @@ class PeerLink {
   void Function(Map<String, dynamic> message)? onMessage;
   void Function()? onClose;
 
-  void _bind(RTCDataChannel dc) {
-    _dc = dc;
-    dc.onDataChannelState = (s) {
-      if (s == RTCDataChannelState.RTCDataChannelOpen && !open) {
+  void _bind(RTCDataChannel dataChannel) {
+    _dataChannel = dataChannel;
+    dataChannel.onDataChannelState = (state) {
+      if (state == RTCDataChannelState.RTCDataChannelOpen && !open) {
         open = true;
         onOpen?.call();
-      } else if (s == RTCDataChannelState.RTCDataChannelClosed) {
-        _closed();
+      } else if (state == RTCDataChannelState.RTCDataChannelClosed) {
+        _markClosed();
       }
     };
-    dc.onMessage = (m) => _receive(m.isBinary ? m.binary : Uint8List.fromList(utf8.encode(m.text)));
+    dataChannel.onMessage = (message) {
+      if (message.isBinary) {
+        _receive(message.binary);
+      } else {
+        _receive(Uint8List.fromList(utf8.encode(message.text)));
+      }
+    };
   }
 
-  bool _gone = false;
-  void _closed() {
-    if (_gone) return;
-    _gone = true;
+  bool _alreadyClosed = false;
+  void _markClosed() {
+    if (_alreadyClosed) {
+      return;
+    }
+    _alreadyClosed = true;
     open = false;
     onClose?.call();
   }
 
+  /// One message off the channel: a chunk is kept until its message is whole, then that is read;
+  /// a message with a type is passed on.
   void _receive(Uint8List bytes) {
-    Object? v;
+    Object? value;
     try {
-      v = BinaryPack.unpack(bytes);
+      value = BinaryPack.unpack(bytes);
     } catch (_) {
       return;
     }
-    if (v is Map && v['__peerData'] != null) {
-      final id = (v['__peerData'] as num).toInt();
-      final total = (v['total'] as num).toInt();
-      final n = (v['n'] as num).toInt();
-      final list = _chunks[id] ??= List<Uint8List?>.filled(total, null);
-      if (n < total && v['data'] is Uint8List) list[n] = v['data'] as Uint8List;
-      if (list.every((c) => c != null)) {
+    if (value is Map && value['__peerData'] != null) {
+      final id = (value['__peerData'] as num).toInt();
+      final total = (value['total'] as num).toInt();
+      final chunkNumber = (value['n'] as num).toInt();
+      var list = _chunks[id];
+      if (list == null) {
+        list = List<Uint8List?>.filled(total, null);
+        _chunks[id] = list;
+      }
+      if (chunkNumber < total && value['data'] is Uint8List) {
+        list[chunkNumber] = value['data'] as Uint8List;
+      }
+      var allArrived = true;
+      for (final chunk in list) {
+        if (chunk == null) {
+          allArrived = false;
+          break;
+        }
+      }
+      if (allArrived) {
         _chunks.remove(id);
         final whole = BytesBuilder(copy: false);
-        for (final c in list) {
-          whole.add(c!);
+        for (final chunk in list) {
+          whole.add(chunk!);
         }
         _receive(whole.takeBytes());
       }
       return;
     }
-    if (v is Map && v['type'] is String) onMessage?.call(Map<String, dynamic>.from(v));
+    if (value is Map && value['type'] is String) {
+      onMessage?.call(Map<String, dynamic>.from(value));
+    }
   }
 
+  /// Sends a message, packed, and as numbered chunks when it's too big for one.
   void send(Map<String, Object?> message) {
-    final dc = _dc;
-    if (dc == null || !open) return;
+    final dataChannel = _dataChannel;
+    if (dataChannel == null || !open) {
+      return;
+    }
     final bytes = BinaryPack.pack(message);
-    if (bytes.length <= P2P._mtu) {
-      dc.send(RTCDataChannelMessage.fromBinary(bytes));
+    if (bytes.length <= P2P._maximumMessageSize) {
+      dataChannel.send(RTCDataChannelMessage.fromBinary(bytes));
       return;
     }
     final id = _chunkId++;
-    final total = (bytes.length / P2P._mtu).ceil();
-    for (var n = 0; n < total; n++) {
-      final part = Uint8List.sublistView(bytes, n * P2P._mtu, math.min(bytes.length, (n + 1) * P2P._mtu));
-      dc.send(RTCDataChannelMessage.fromBinary(BinaryPack.pack({'__peerData': id, 'n': n, 'total': total, 'data': part})));
+    final total = (bytes.length / P2P._maximumMessageSize).ceil();
+    for (var chunkNumber = 0; chunkNumber < total; chunkNumber++) {
+      final start = chunkNumber * P2P._maximumMessageSize;
+      final end = math.min(bytes.length, (chunkNumber + 1) * P2P._maximumMessageSize);
+      final part = Uint8List.sublistView(bytes, start, end);
+      dataChannel.send(RTCDataChannelMessage.fromBinary(BinaryPack.pack({'__peerData': id, 'n': chunkNumber, 'total': total, 'data': part})));
     }
   }
 
-  Future<void> _remote(Map sdp) async {
-    await pc.setRemoteDescription(RTCSessionDescription('${sdp['sdp']}', '${sdp['type']}'));
+  Future<void> _setRemoteDescription(Map sdp) async {
+    await peerConnection.setRemoteDescription(RTCSessionDescription('${sdp['sdp']}', '${sdp['type']}'));
     _remoteSet = true;
-    for (final c in _early) {
-      await pc.addCandidate(c);
+    for (final candidate in _earlyCandidates) {
+      await peerConnection.addCandidate(candidate);
     }
-    _early.clear();
+    _earlyCandidates.clear();
   }
 
-  Future<void> _candidate(Map c) async {
-    final cand = RTCIceCandidate(c['candidate'] as String?, c['sdpMid'] as String?, (c['sdpMLineIndex'] as num?)?.toInt());
+  Future<void> _addCandidate(Map candidateMap) async {
+    final candidate = RTCIceCandidate(candidateMap['candidate'] as String?, candidateMap['sdpMid'] as String?, (candidateMap['sdpMLineIndex'] as num?)?.toInt());
     if (_remoteSet) {
-      await pc.addCandidate(cand);
+      await peerConnection.addCandidate(candidate);
     } else {
-      _early.add(cand);
+      _earlyCandidates.add(candidate);
     }
   }
 
   Future<void> close() async {
     try {
-      await _dc?.close();
+      await _dataChannel?.close();
     } catch (_) {}
     try {
-      await pc.close();
+      await peerConnection.close();
     } catch (_) {}
-    _closed();
+    _markClosed();
   }
 
-  static Future<RTCPeerConnection> _pc() => createPeerConnection({'iceServers': P2P._ice, 'sdpSemantics': 'unified-plan'});
+  static Future<RTCPeerConnection> _createPeerConnection() {
+    return createPeerConnection({'iceServers': P2P._iceServers, 'sdpSemantics': 'unified-plan'});
+  }
 }
 
 /// The status a session reports: connecting, waiting, connected, dropped, unreachable, error.
@@ -231,7 +309,7 @@ typedef PeerStatus = void Function(String status, {String? message, bool taken})
 class PeerHost {
   PeerHost(this.onStatus, this.onMessage);
   final PeerStatus onStatus;
-  final void Function(Map<String, dynamic> m) onMessage;
+  final void Function(Map<String, dynamic> message) onMessage;
   _Broker? _broker;
   PeerLink? link;
   bool _closed = false;
@@ -239,53 +317,72 @@ class PeerHost {
   Future<void> start(String code) async {
     onStatus('connecting');
     _broker = _Broker(P2P.prefix + code, _onBroker, () {
-      if (!_closed && link == null) onStatus('error', message: peerError('socket-closed'));
+      if (!_closed && link == null) {
+        onStatus('error', message: peerError('socket-closed'));
+      }
     });
     try {
       await _broker!.connect();
       onStatus('waiting');
-    } catch (e) {
-      onStatus('error', message: peerError('$e'), taken: e == 'unavailable-id');
+    } catch (error) {
+      onStatus('error', message: peerError('$error'), taken: error == 'unavailable-id');
     }
   }
 
-  Future<void> _onBroker(Map<String, dynamic> m) async {
-    final payload = (m['payload'] as Map?) ?? const {};
-    final src = '${m['src'] ?? ''}';
-    if (m['type'] == 'OFFER') {
+  /// A message from the broker: an offer from a guest (answered, replacing any guest before it),
+  /// or a candidate for the current guest's connection.
+  Future<void> _onBroker(Map<String, dynamic> message) async {
+    var payload = const {};
+    final messagePayload = message['payload'] as Map?;
+    if (messagePayload != null) {
+      payload = messagePayload;
+    }
+    var source = '';
+    if (message['src'] != null) {
+      source = '${message['src']}';
+    }
+    if (message['type'] == 'OFFER') {
       // The newcomer replaces the incumbent.
       await link?.close();
-      final pc = await PeerLink._pc();
-      final l = PeerLink._(src, '${payload['connectionId']}', pc);
-      link = l;
-      pc.onIceCandidate = (c) => _broker?.send({
-            'type': 'CANDIDATE',
-            'payload': {'candidate': c.toMap(), 'type': 'data', 'connectionId': l.connectionId},
-            'dst': src,
-          });
-      pc.onDataChannel = l._bind;
-      l.onOpen = () => onStatus('connected');
-      l.onMessage = onMessage;
-      l.onClose = () {
-        if (link == l) {
+      final peerConnection = await PeerLink._createPeerConnection();
+      final newLink = PeerLink._(source, '${payload['connectionId']}', peerConnection);
+      link = newLink;
+      peerConnection.onIceCandidate = (candidate) {
+        _broker?.send({
+          'type': 'CANDIDATE',
+          'payload': {'candidate': candidate.toMap(), 'type': 'data', 'connectionId': newLink.connectionId},
+          'dst': source,
+        });
+      };
+      peerConnection.onDataChannel = newLink._bind;
+      newLink.onOpen = () {
+        onStatus('connected');
+      };
+      newLink.onMessage = onMessage;
+      newLink.onClose = () {
+        if (link == newLink) {
           link = null;
-          if (!_closed) onStatus('waiting');
+          if (!_closed) {
+            onStatus('waiting');
+          }
         }
       };
-      await l._remote(payload['sdp'] as Map);
-      final answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+      await newLink._setRemoteDescription(payload['sdp'] as Map);
+      final answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
       _broker?.send({
         'type': 'ANSWER',
-        'payload': {'sdp': {'type': answer.type, 'sdp': answer.sdp}, 'type': 'data', 'connectionId': l.connectionId, 'browser': 'flutter'},
-        'dst': src,
+        'payload': {'sdp': {'type': answer.type, 'sdp': answer.sdp}, 'type': 'data', 'connectionId': newLink.connectionId, 'browser': 'flutter'},
+        'dst': source,
       });
-    } else if (m['type'] == 'CANDIDATE' && link?.connectionId == payload['connectionId']) {
-      await link!._candidate(payload['candidate'] as Map);
+    } else if (message['type'] == 'CANDIDATE' && link?.connectionId == payload['connectionId']) {
+      await link!._addCandidate(payload['candidate'] as Map);
     }
   }
 
-  void send(Map<String, Object?> message) => link?.send(message);
+  void send(Map<String, Object?> message) {
+    link?.send(message);
+  }
 
   Future<void> close() async {
     _closed = true;
@@ -301,54 +398,72 @@ class PeerGuest {
   final PeerStatus onStatus;
   /// Said to the host in hello, for it to show who's connected.
   final String? name;
-  final void Function(Map<String, dynamic> m) onMessage;
+  final void Function(Map<String, dynamic> message) onMessage;
   _Broker? _broker;
   PeerLink? link;
   Timer? _timer;
   bool _everOpened = false;
   bool _done = false;
 
+  /// Gets an id from the broker, then offers a data channel to the host showing [code], giving
+  /// up as unreachable if it hasn't opened within P2P.connectTimeout.
   Future<void> connect(String code) async {
     onStatus('connecting');
     try {
       final id = await _Broker.newId();
       _broker = _Broker(id, _onBroker, () {});
       await _broker!.connect();
-    } catch (e) {
-      onStatus('error', message: peerError(e is String ? e : 'network'));
+    } catch (error) {
+      if (error is String) {
+        onStatus('error', message: peerError(error));
+      } else {
+        onStatus('error', message: peerError('network'));
+      }
       return;
     }
     // Nothing errors when ICE can't find a path; it just keeps trying.
     _timer = Timer(P2P.connectTimeout, () {
-      if (_everOpened || _done) return;
+      if (_everOpened || _done) {
+        return;
+      }
       hangUp();
       onStatus('unreachable');
     });
-    final pc = await PeerLink._pc();
+    final peerConnection = await PeerLink._createPeerConnection();
     final connectionId = 'dc_${P2P._token()}';
-    final dst = P2P.prefix + code;
-    final l = PeerLink._(dst, connectionId, pc);
-    link = l;
-    pc.onIceCandidate = (c) => _broker?.send({
-          'type': 'CANDIDATE',
-          'payload': {'candidate': c.toMap(), 'type': 'data', 'connectionId': connectionId},
-          'dst': dst,
-        });
-    l._bind(await pc.createDataChannel(connectionId, RTCDataChannelInit()..ordered = true));
-    l.onOpen = () {
+    final destination = P2P.prefix + code;
+    final newLink = PeerLink._(destination, connectionId, peerConnection);
+    link = newLink;
+    peerConnection.onIceCandidate = (candidate) {
+      _broker?.send({
+        'type': 'CANDIDATE',
+        'payload': {'candidate': candidate.toMap(), 'type': 'data', 'connectionId': connectionId},
+        'dst': destination,
+      });
+    };
+    final channelOptions = RTCDataChannelInit();
+    channelOptions.ordered = true;
+    newLink._bind(await peerConnection.createDataChannel(connectionId, channelOptions));
+    newLink.onOpen = () {
       _everOpened = true;
       _timer?.cancel();
       onStatus('connected');
-      l.send({'type': 'hello', 'v': P2P.protocolVersion, 'name': ?name});
+      newLink.send({'type': 'hello', 'v': P2P.protocolVersion, 'name': ?name});
     };
-    l.onMessage = onMessage;
-    l.onClose = () {
-      if (_done || link != l) return;
+    newLink.onMessage = onMessage;
+    newLink.onClose = () {
+      if (_done || link != newLink) {
+        return;
+      }
       link = null;
-      onStatus(_everOpened ? 'dropped' : 'unreachable');
+      if (_everOpened) {
+        onStatus('dropped');
+      } else {
+        onStatus('unreachable');
+      }
     };
-    final offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+    final offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
     _broker!.send({
       'type': 'OFFER',
       'payload': {
@@ -360,34 +475,50 @@ class PeerGuest {
         'serialization': 'binary',
         'browser': 'flutter',
       },
-      'dst': dst,
+      'dst': destination,
     });
   }
 
-  Future<void> _onBroker(Map<String, dynamic> m) async {
-    final payload = (m['payload'] as Map?) ?? const {};
-    final l = link;
-    if (m['type'] == 'EXPIRE' || (m['type'] == 'ERROR' && !_everOpened)) {
+  Future<void> _onBroker(Map<String, dynamic> message) async {
+    var payload = const {};
+    final messagePayload = message['payload'] as Map?;
+    if (messagePayload != null) {
+      payload = messagePayload;
+    }
+    final currentLink = link;
+    if (message['type'] == 'EXPIRE' || (message['type'] == 'ERROR' && !_everOpened)) {
       hangUp();
-      onStatus('error', message: peerError(m['type'] == 'EXPIRE' ? 'peer-unavailable' : 'server-error'));
+      if (message['type'] == 'EXPIRE') {
+        onStatus('error', message: peerError('peer-unavailable'));
+      } else {
+        onStatus('error', message: peerError('server-error'));
+      }
       return;
     }
-    if (l == null || payload['connectionId'] != l.connectionId) return;
-    if (m['type'] == 'ANSWER') await l._remote(payload['sdp'] as Map);
-    if (m['type'] == 'CANDIDATE') await l._candidate(payload['candidate'] as Map);
+    if (currentLink == null || payload['connectionId'] != currentLink.connectionId) {
+      return;
+    }
+    if (message['type'] == 'ANSWER') {
+      await currentLink._setRemoteDescription(payload['sdp'] as Map);
+    }
+    if (message['type'] == 'CANDIDATE') {
+      await currentLink._addCandidate(payload['candidate'] as Map);
+    }
   }
 
-  void send(Map<String, Object?> message) => link?.send(message);
+  void send(Map<String, Object?> message) {
+    link?.send(message);
+  }
 
   /// Leaving on purpose: bye first, so the host retires its code.
   Future<void> leave() async {
     send({'type': 'bye'});
     _done = true;
     _timer?.cancel();
-    final l = link;
+    final leavingLink = link;
     link = null;
     await Future<void>.delayed(const Duration(milliseconds: 300));
-    await l?.close();
+    await leavingLink?.close();
     _broker?.close();
   }
 

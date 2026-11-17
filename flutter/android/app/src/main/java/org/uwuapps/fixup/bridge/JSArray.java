@@ -21,11 +21,17 @@ public class JSArray extends JSONArray {
     }
 
     /** A copy of any JSONArray as a JSArray, or null for null. */
-    public static JSArray from(JSONArray a) {
-        if (a == null) return null;
-        if (a instanceof JSArray) return (JSArray) a;
-        JSArray out = new JSArray();
-        for (int i = 0; i < a.length(); i++) out.put(a.opt(i));
-        return out;
+    public static JSArray from(JSONArray source) {
+        if (source == null) {
+            return null;
+        }
+        if (source instanceof JSArray) {
+            return (JSArray) source;
+        }
+        JSArray copy = new JSArray();
+        for (int index = 0; index < source.length(); index++) {
+            copy.put(source.opt(index));
+        }
+        return copy;
     }
 }

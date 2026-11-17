@@ -14,7 +14,7 @@ import config
 import db
 import scheduler as scheduler_module
 from handlers import autodetect, batch, dm, fix, history, inline, settings, start
-from handlers.core import CB_COPYALL
+from handlers.core import CALLBACK_COPY_ALL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,9 +39,9 @@ async def post_shutdown(application: Application):
     session = application.bot_data.get('http_session')
     if session:
         await session.close()
-    conn = application.bot_data.get('db')
-    if conn:
-        await conn.close()
+    connection = application.bot_data.get('db')
+    if connection:
+        await connection.close()
     if scheduler_module.scheduler.running:
         scheduler_module.scheduler.shutdown(wait=False)
 
@@ -49,12 +49,14 @@ async def post_shutdown(application: Application):
 CALLBACK_HANDLERS = {
     **fix.CALLBACK_HANDLERS,
     **history.CALLBACK_HANDLERS,
-    CB_COPYALL: batch.copyall_callback,
-    settings.CB_AUTODETECT: settings.autodetect_toggle_callback,
+    CALLBACK_COPY_ALL: batch.copy_all_callback,
+    settings.CALLBACK_AUTODETECT: settings.autodetect_toggle_callback,
 }
 
 
 async def route_callback(update: Update, context):
+    """Sends a button press to the handler registered for its callback_data
+    prefix, or just acknowledges it if no handler matches."""
     query = update.callback_query
     prefix = query.data.split(':', 1)[0]
     handler = CALLBACK_HANDLERS.get(prefix)
@@ -65,6 +67,8 @@ async def route_callback(update: Update, context):
 
 
 def main():
+    """Builds the Telegram application, registers every handler and starts
+    long polling."""
     if not config.BOT_TOKEN:
         raise SystemExit('BOT_TOKEN is not set. Copy .env.example to .env and fill it in.')
 

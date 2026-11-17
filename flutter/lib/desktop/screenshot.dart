@@ -24,35 +24,67 @@ bool _busy = false;
 
 /// Takes one, and says how it went: "Screenshot copied and saved", or null if it couldn't.
 Future<String?> takeScreenshot(GlobalKey content, {required String page, bool long = false}) async {
-  if (_busy) return null;
+  if (_busy) {
+    return null;
+  }
   _busy = true;
   try {
-    final ctx = content.currentContext;
-    if (ctx == null) return null;
-    final ratio = MediaQuery.devicePixelRatioOf(ctx);
-    final fx = ctx.fx;
+    final contentContext = content.currentContext;
+    if (contentContext == null) {
+      return null;
+    }
+    final ratio = MediaQuery.devicePixelRatioOf(contentContext);
+    final palette = contentContext.fx;
     ui.Image image;
     if (long && (page == 'home' || page == 'history')) {
-      final box = ctx.findRenderObject()! as RenderBox;
-      image = await _renderLong(ctx, page == 'home' ? const HomePage(long: true) : const _HistoryLong(), width: box.size.width, ratio: ratio);
+      final box = contentContext.findRenderObject()! as RenderBox;
+      Widget longPage;
+      if (page == 'home') {
+        longPage = const HomePage(long: true);
+      } else {
+        longPage = const _HistoryLong();
+      }
+      image = await _renderLong(contentContext, longPage, width: box.size.width, ratio: ratio);
     } else {
-      final boundary = ctx.findRenderObject()! as RenderRepaintBoundary;
+      final boundary = contentContext.findRenderObject()! as RenderRepaintBoundary;
       image = await boundary.toImage(pixelRatio: ratio);
     }
-    if (fx.glass != null) image = await flattenShot(image, fx.bg);
+    if (palette.glass != null) {
+      image = await flattenShot(image, palette.bg);
+    }
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (data == null) return null;
+    if (data == null) {
+      return null;
+    }
     final bytes = data.buffer.asUint8List();
-    final dir = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
-    final t = DateTime.now();
-    String two(int n) => n.toString().padLeft(2, '0');
-    final name = 'uwuFix ${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}.${two(t.minute)}.${two(t.second)}${long ? ' (long)' : ''}.png';
-    final file = File('${dir.path}${Platform.pathSeparator}$name');
+    final downloads = await getDownloadsDirectory();
+    Directory directory;
+    if (downloads != null) {
+      directory = downloads;
+    } else {
+      directory = await getApplicationDocumentsDirectory();
+    }
+    final now = DateTime.now();
+    String twoDigits(int number) {
+      return number.toString().padLeft(2, '0');
+    }
+
+    String longSuffix;
+    String notificationTitle;
+    if (long) {
+      longSuffix = ' (long)';
+      notificationTitle = 'Long screenshot saved';
+    } else {
+      longSuffix = '';
+      notificationTitle = 'Screenshot saved';
+    }
+    final name = 'uwuFix ${now.year}-${twoDigits(now.month)}-${twoDigits(now.day)} ${twoDigits(now.hour)}.${twoDigits(now.minute)}.${twoDigits(now.second)}$longSuffix.png';
+    final file = File('${directory.path}${Platform.pathSeparator}$name');
     await file.writeAsBytes(bytes);
     try {
       await Pasteboard.writeImage(bytes);
     } catch (_) {}
-    await DeskNotify.show(long ? 'Long screenshot saved' : 'Screenshot saved', '$name, in Downloads and on the clipboard. Click to show it.', payload: 'file:${file.path}');
+    await DesktopNotify.show(notificationTitle, '$name, in Downloads and on the clipboard. Click to show it.', payload: 'file:${file.path}');
     return 'Screenshot copied and saved';
   } catch (_) {
     return null;
@@ -61,7 +93,8 @@ Future<String?> takeScreenshot(GlobalKey content, {required String page, bool lo
   }
 }
 
-/// [page] laid out off screen at [width], as tall as it is (up to 16384 px), and drawn.
+/// [page] laid out off screen at [width], in a render tree of its own, as tall as it is (up to
+/// 16384 px), and drawn.
 Future<ui.Image> _renderLong(BuildContext context, Widget page, {required double width, required double ratio}) async {
   final theme = Theme.of(context);
   final media = MediaQuery.of(context);
@@ -78,9 +111,10 @@ Future<ui.Image> _renderLong(BuildContext context, Widget page, {required double
       devicePixelRatio: ratio,
     ),
   );
-  final pipeline = PipelineOwner()..rootNode = renderView;
+  final pipeline = PipelineOwner();
+  pipeline.rootNode = renderView;
   renderView.prepareInitialFrame();
-  final build = BuildOwner(focusManager: FocusManager());
+  final buildOwner = BuildOwner(focusManager: FocusManager());
   final root = RenderObjectToWidgetAdapter<RenderBox>(
     container: repaint,
     child: MediaQuery(
@@ -96,9 +130,9 @@ Future<ui.Image> _renderLong(BuildContext context, Widget page, {required double
         ),
       ),
     ),
-  ).attachToRenderTree(build);
-  build.buildScope(root);
-  build.finalizeTree();
+  ).attachToRenderTree(buildOwner);
+  buildOwner.buildScope(root);
+  buildOwner.finalizeTree();
   pipeline.flushLayout();
   pipeline.flushCompositingBits();
   pipeline.flushPaint();
@@ -111,12 +145,14 @@ class _HistoryLong extends StatelessWidget {
   const _HistoryLong();
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text('History', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          for (final e in History.load()) Padding(padding: const EdgeInsets.only(bottom: 8), child: historyRow(e)),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        Text('History', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        for (final entry in History.load()) Padding(padding: const EdgeInsets.only(bottom: 8), child: historyRow(entry)),
+      ]),
+    );
+  }
 }

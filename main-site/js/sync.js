@@ -33,14 +33,41 @@
   const SILENT_MS = 6000; // a host drops a guest it hasn't heard from in this long
   const MAX_ITEMS = 200;
 
-  const $ = (id) => document.getElementById(id);
-  const read = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
-  const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* this page view only */ } };
+  function elementById(id) {
+    return document.getElementById(id);
+  }
+
+  function readStored(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  function writeStored(key, value) {
+    try {
+      if (value == null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+      }
+    } catch {
+      /* this page view only */
+    }
+  }
 
   function history() {
     try {
-      const v = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      return Array.isArray(v) ? v : [];
+      let storedText = localStorage.getItem(HISTORY_KEY);
+      if (!storedText) {
+        storedText = '[]';
+      }
+      const value = JSON.parse(storedText);
+      if (Array.isArray(value)) {
+        return value;
+      }
+      return [];
     } catch {
       return [];
     }
@@ -55,15 +82,61 @@
 
   // "Chrome on Windows", for the other device to show.
   function deviceName() {
-    const ua = navigator.userAgent;
-    const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS X/.test(ua) ? 'macOS'
-      : /Windows/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'ChromeOS' : /Linux/.test(ua) ? 'Linux' : 'a device';
-    const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'A browser';
+    const userAgent = navigator.userAgent;
+    let os;
+    if (/Android/.test(userAgent)) {
+      os = 'Android';
+    } else if (/iPhone|iPad/.test(userAgent)) {
+      os = 'iOS';
+    } else if (/Mac OS X/.test(userAgent)) {
+      os = 'macOS';
+    } else if (/Windows/.test(userAgent)) {
+      os = 'Windows';
+    } else if (/CrOS/.test(userAgent)) {
+      os = 'ChromeOS';
+    } else if (/Linux/.test(userAgent)) {
+      os = 'Linux';
+    } else {
+      os = 'a device';
+    }
+    let browser;
+    if (/Edg\//.test(userAgent)) {
+      browser = 'Edge';
+    } else if (/Firefox\//.test(userAgent)) {
+      browser = 'Firefox';
+    } else if (/Chrome\//.test(userAgent)) {
+      browser = 'Chrome';
+    } else if (/Safari\//.test(userAgent)) {
+      browser = 'Safari';
+    } else {
+      browser = 'A browser';
+    }
     return `${browser} on ${os}`;
   }
 
-  const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
-  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  /** The value cut to maxLength if it is a string, otherwise an empty string. */
+  function clippedText(value, maxLength) {
+    if (typeof value === 'string') {
+      return value.slice(0, maxLength);
+    }
+    return '';
+  }
+
+  /** "1 link" or "3 links". */
+  function plural(count, one, many) {
+    if (count === 1) {
+      return `${count} ${one}`;
+    }
+    return `${count} ${many}`;
+  }
+
+  /** The other device's name, or the fallback text when it hasn't given one. */
+  function nameOr(name, fallback) {
+    if (name) {
+      return name;
+    }
+    return fallback;
+  }
 
   const SAME_NETWORK = 'Could not reach the other device. Both have to be on the same network: join the same wifi, or turn on a hotspot on one and join it from the other. Check the code is still the one on screen.';
   const NO_LIBRARY = 'Could not load sharing. Check your connection.';
@@ -74,7 +147,7 @@
   let mode = 'host';
   let host = null;
   let guest = null;
-  let rev = 0;
+  let revision = 0;
   let retriedTaken = false;
   let guestName = '';
   let lastHeard = 0;
@@ -84,37 +157,52 @@
   let pendingAdd = null;
   let wakeLock = null;
 
+  /** Switches between showing a code (host) and entering one (guest), starting or stopping each side. */
   function setMode(next) {
     mode = next;
-    for (const b of document.querySelectorAll('#syncTabs [data-sync-mode]')) {
-      const on = b.dataset.syncMode === next;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    for (const button of document.querySelectorAll('#syncTabs [data-sync-mode]')) {
+      const isActive = button.dataset.syncMode === next;
+      button.classList.toggle('active', isActive);
+      if (isActive) {
+        button.setAttribute('aria-pressed', 'true');
+      } else {
+        button.setAttribute('aria-pressed', 'false');
+      }
     }
-    $('syncHost').hidden = next !== 'host';
-    $('syncGuest').hidden = next !== 'guest';
+    elementById('syncHost').hidden = next !== 'host';
+    elementById('syncGuest').hidden = next !== 'guest';
     if (next === 'host') {
       leaveGuest({ quiet: true });
       startHosting();
     } else {
       stopHosting();
-      setTimeout(() => $('syncCodeInput').focus({ preventScroll: true }), 50);
+      setTimeout(function () {
+        elementById('syncCodeInput').focus({ preventScroll: true });
+      }, 50);
     }
   }
 
-  function say(el, text, kind = '') {
-    const p = $(el);
-    p.textContent = text || '';
-    p.hidden = !text;
-    p.dataset.kind = kind;
+  /** Puts text in the status line with this id, hiding it when there's no text. */
+  function say(elementId, text, kind = '') {
+    const paragraph = elementById(elementId);
+    if (text) {
+      paragraph.textContent = text;
+    } else {
+      paragraph.textContent = '';
+    }
+    paragraph.hidden = !text;
+    paragraph.dataset.kind = kind;
   }
 
-  async function keepAwake(on) {
+  /** Keeps the screen on while connected, where the browser allows it. */
+  async function keepAwake(shouldStayAwake) {
     try {
-      if (on && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+      if (shouldStayAwake && !wakeLock && 'wakeLock' in navigator && document.visibilityState === 'visible') {
         wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener('release', () => { wakeLock = null; });
-      } else if (!on && wakeLock) {
+        wakeLock.addEventListener('release', function () {
+          wakeLock = null;
+        });
+      } else if (!shouldStayAwake && wakeLock) {
         await wakeLock.release();
         wakeLock = null;
       }
@@ -124,48 +212,72 @@
   /* ---------- host ---------- */
 
   function snapshot() {
-    return { type: 'state', v: P2P.PROTOCOL_VERSION, rev, name: deviceName(), items: history().slice(0, MAX_ITEMS) };
+    return { type: 'state', v: P2P.PROTOCOL_VERSION, rev: revision, name: deviceName(), items: history().slice(0, MAX_ITEMS) };
   }
 
   function showCode(code) {
     const link = `${location.origin}/join?id=${code}`;
-    $('syncCode').textContent = code;
-    $('syncLink').textContent = link;
-    $('syncLink').href = link;
-    const box = $('syncQr');
+    elementById('syncCode').textContent = code;
+    elementById('syncLink').textContent = link;
+    elementById('syncLink').href = link;
+    const box = elementById('syncQr');
     box.innerHTML = '';
     if (window.QRCode) {
       new QRCode(box, { text: link, width: 168, height: 168, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
     }
   }
 
+  /** Shows the host's connection status, and keeps the screen on while a guest is attached. */
   function renderHost({ status, message }) {
-    const text = {
+    const statusTexts = {
       connecting: 'Getting a code ready…',
       waiting: 'On the other device, open uwuFix, then History, Share history, Enter a code, and type this code. Or scan the QR code, or open the link.',
-      connected: `Connected to ${guestName || 'the other device'}. It can see your history, and add yours to its own.`,
-    }[status];
-    say('syncHostStatus', status === 'error' ? message : text || '', status === 'error' ? 'error' : status === 'connected' ? 'ok' : '');
-    $('syncHostCard').hidden = status === 'error' && !host;
+      connected: `Connected to ${nameOr(guestName, 'the other device')}. It can see your history, and add yours to its own.`,
+    };
+    let text = statusTexts[status];
+    let kind = '';
+    if (status === 'error') {
+      text = message;
+      kind = 'error';
+    } else if (status === 'connected') {
+      kind = 'ok';
+    }
+    if (!text) {
+      text = '';
+    }
+    say('syncHostStatus', text, kind);
+    elementById('syncHostCard').hidden = status === 'error' && !host;
     keepAwake(status === 'connected');
-    if (status !== 'connected') hideApproval();
+    if (status !== 'connected') {
+      hideApproval();
+    }
   }
 
+  /** Starts hosting under the stored code (or a new one) and answers whatever the guest sends. */
   async function startHosting() {
-    if (host) return;
+    if (host) {
+      return;
+    }
     if (!navigator.onLine) {
       say('syncHostStatus', OFFLINE, 'error');
       return;
     }
-    const stored = read(HOST_KEY);
-    const code = P2P.isValidCode(stored) ? P2P.normaliseCode(stored) : P2P.generateCode();
-    write(HOST_KEY, code);
+    const stored = readStored(HOST_KEY);
+    let code;
+    if (P2P.isValidCode(stored)) {
+      code = P2P.normaliseCode(stored);
+    } else {
+      code = P2P.generateCode();
+    }
+    writeStored(HOST_KEY, code);
     showCode(code);
-    $('syncHostCard').hidden = false;
-    const h = new P2P.Host();
-    host = h;
-    h.addEventListener('status', ({ detail }) => {
-      if (host !== h) return;
+    elementById('syncHostCard').hidden = false;
+    const hostConnection = new P2P.Host();
+    host = hostConnection;
+    hostConnection.addEventListener('status', function ({ detail }) {
+      if (host !== hostConnection) {
+        return;
+      }
       if (detail.taken && !retriedTaken) {
         // Another tab, or the broker still holding the code from before a reload: a fresh code,
         // once. A second collision in a row is something else, shown as it is.
@@ -173,50 +285,64 @@
         restartWithFreshCode();
         return;
       }
-      if (detail.status === 'waiting') retriedTaken = false;
-      if (detail.status !== 'connected') guestName = '';
+      if (detail.status === 'waiting') {
+        retriedTaken = false;
+      }
+      if (detail.status !== 'connected') {
+        guestName = '';
+      }
       renderHost(detail);
     });
-    h.addEventListener('join', () => {
+    hostConnection.addEventListener('join', function () {
       lastHeard = Date.now();
-      h.send(snapshot());
+      hostConnection.send(snapshot());
     });
-    h.addEventListener('message', ({ detail: { message } }) => onHostMessage(h, message));
+    hostConnection.addEventListener('message', function ({ detail: { message } }) {
+      onHostMessage(hostConnection, message);
+    });
     try {
-      await h.start(code);
+      await hostConnection.start(code);
     } catch {
-      if (host === h) host = null;
+      if (host === hostConnection) {
+        host = null;
+      }
       say('syncHostStatus', NO_LIBRARY, 'error');
     }
   }
 
-  function onHostMessage(h, m) {
+  /** Handles one message from the guest on the host: hello, add, took or bye. */
+  function onHostMessage(hostConnection, message) {
     lastHeard = Date.now();
-    switch (m.type) {
+    switch (message.type) {
       case 'hello':
-        guestName = str(m.name, 60) || 'the other device';
-        h.send(snapshot());
+        guestName = nameOr(clippedText(message.name, 60), 'the other device');
+        hostConnection.send(snapshot());
         renderHost({ status: 'connected' });
         break;
       case 'add': {
-        if (!Array.isArray(m.items)) return;
-        const items = m.items.slice(0, MAX_ITEMS);
-        const preview = HistoryMerge.merge(history(), items);
-        if (preview.added === 0) {
-          h.send({ type: 'added', n: 0 });
-          say('syncHostNote', `${guestName || 'The other device'} sent its history: nothing new.`);
+        if (!Array.isArray(message.items)) {
           return;
         }
-        askApproval(h, items, preview.added);
+        const items = message.items.slice(0, MAX_ITEMS);
+        const preview = HistoryMerge.merge(history(), items);
+        if (preview.added === 0) {
+          hostConnection.send({ type: 'added', n: 0 });
+          say('syncHostNote', `${nameOr(guestName, 'The other device')} sent its history: nothing new.`);
+          return;
+        }
+        askApproval(hostConnection, items, preview.added);
         break;
       }
       case 'took':
-        if (typeof m.n === 'number') say('syncHostNote', `${guestName || 'The other device'} added ${`${Math.max(0, Math.min(MAX_ITEMS, Math.round(m.n)))} of your links`} to its history.`);
+        if (typeof message.n === 'number') {
+          const takenCount = Math.max(0, Math.min(MAX_ITEMS, Math.round(message.n)));
+          say('syncHostNote', `${nameOr(guestName, 'The other device')} added ${takenCount} of your links to its history.`);
+        }
         break;
       case 'bye':
         // Their code is spent: a fresh one, so a code seen once doesn't keep working.
         restartWithFreshCode();
-        say('syncHostNote', `${guestName || 'The other device'} left. Here's a new code for next time.`);
+        say('syncHostNote', `${nameOr(guestName, 'The other device')} left. Here's a new code for next time.`);
         break;
       default:
         break; // ping, and anything unknown: heard, nothing more
@@ -224,79 +350,115 @@
   }
 
   // The host says yes before anything from the other device goes into its history.
-  function askApproval(h, items, added) {
-    pendingAdd = { h, items };
-    $('syncApproveText').textContent = `Add ${plural(added, 'link', 'links')} from ${guestName || 'the other device'} to your history?`;
-    $('syncApprove').hidden = false;
-    $('syncApproveYes').focus({ preventScroll: true });
+  function askApproval(hostConnection, items, added) {
+    pendingAdd = { hostConnection, items };
+    elementById('syncApproveText').textContent = `Add ${plural(added, 'link', 'links')} from ${nameOr(guestName, 'the other device')} to your history?`;
+    elementById('syncApprove').hidden = false;
+    elementById('syncApproveYes').focus({ preventScroll: true });
   }
 
   function hideApproval() {
     pendingAdd = null;
-    $('syncApprove').hidden = true;
+    elementById('syncApprove').hidden = true;
   }
 
+  /** The host's answer to a pending add: merge the guest's links in, or tell it no. */
   function approve(yes) {
-    const p = pendingAdd;
+    const pending = pendingAdd;
     hideApproval();
-    if (!p || p.h !== host) return;
-    if (!yes) {
-      p.h.send({ type: 'refused' });
+    if (!pending || pending.hostConnection !== host) {
       return;
     }
-    const merged = HistoryMerge.merge(history(), p.items);
+    if (!yes) {
+      pending.hostConnection.send({ type: 'refused' });
+      return;
+    }
+    const merged = HistoryMerge.merge(history(), pending.items);
     saveMerged(merged.items);
-    p.h.send({ type: 'added', n: merged.added });
-    say('syncHostNote', `Added ${plural(merged.added, 'link', 'links')} from ${guestName || 'the other device'}.`, 'ok');
+    pending.hostConnection.send({ type: 'added', n: merged.added });
+    say('syncHostNote', `Added ${plural(merged.added, 'link', 'links')} from ${nameOr(guestName, 'the other device')}.`, 'ok');
   }
 
   function stopHosting() {
-    const h = host;
+    const hostConnection = host;
     host = null;
-    h?.close();
+    hostConnection?.close();
     keepAwake(false);
     hideApproval();
   }
 
   async function restartWithFreshCode() {
     stopHosting();
-    write(HOST_KEY, null);
-    if (mode === 'host' && isOpen()) await startHosting();
+    writeStored(HOST_KEY, null);
+    if (mode === 'host' && isOpen()) {
+      await startHosting();
+    }
   }
 
   /* ---------- guest ---------- */
 
+  /** Shows the guest's connection status and which of Join, Reconnect and Leave apply. */
   function renderGuest({ status, message, type }) {
-    const text = {
+    const statusTexts = {
       connecting: 'Connecting…',
       connected: 'Connected. Getting their history…',
       dropped: 'The connection dropped.',
       unreachable: SAME_NETWORK,
-    }[status];
-    const kind = status === 'error' || status === 'unreachable' ? 'error' : status === 'connected' ? 'ok' : '';
-    say('syncGuestStatus', status === 'error' ? message : text || '', kind);
-    $('syncJoin').hidden = status === 'connecting' || status === 'connected';
-    $('syncJoin').textContent = status === 'dropped' ? 'Reconnect' : 'Join';
-    $('syncLeave').hidden = !(status === 'connecting' || status === 'connected');
+    };
+    let kind = '';
+    if (status === 'error' || status === 'unreachable') {
+      kind = 'error';
+    } else if (status === 'connected') {
+      kind = 'ok';
+    }
+    let text = statusTexts[status];
+    if (status === 'error') {
+      text = message;
+    }
+    if (!text) {
+      text = '';
+    }
+    say('syncGuestStatus', text, kind);
+    const isBusy = status === 'connecting' || status === 'connected';
+    elementById('syncJoin').hidden = isBusy;
+    if (status === 'dropped') {
+      elementById('syncJoin').textContent = 'Reconnect';
+    } else {
+      elementById('syncJoin').textContent = 'Join';
+    }
+    elementById('syncLeave').hidden = !isBusy;
     if (status !== 'connected') {
-      $('syncTheirs').hidden = true;
+      elementById('syncTheirs').hidden = true;
       theirs = null;
     }
     keepAwake(status === 'connected');
-    if (type === 'peer-unavailable') write(LAST_KEY, null);
+    if (type === 'peer-unavailable') {
+      writeStored(LAST_KEY, null);
+    }
   }
 
+  /** On a guest: shows how many of the host's links are new here, and how many of ours are new there. */
   function renderTheirs() {
-    if (!theirs) return;
+    if (!theirs) {
+      return;
+    }
     const merged = HistoryMerge.merge(history(), theirs);
-    const mineMerged = HistoryMerge.merge(theirs.map(HistoryMerge.sanitize).filter(Boolean), history());
-    $('syncTheirs').hidden = false;
-    say('syncGuestStatus', `Connected to ${theirName || 'the other device'}.`, 'ok');
-    $('syncTheirsText').textContent = `Their history has ${plural(theirs.length, 'link', 'links')}, ${merged.added} new to this device. Yours has ${mineMerged.added} new to them.`;
-    $('syncTake').disabled = merged.added === 0;
-    $('syncSend').disabled = mineMerged.added === 0;
+    const theirsCleaned = [];
+    for (const item of theirs) {
+      const cleanedItem = HistoryMerge.sanitize(item);
+      if (cleanedItem) {
+        theirsCleaned.push(cleanedItem);
+      }
+    }
+    const mineMerged = HistoryMerge.merge(theirsCleaned, history());
+    elementById('syncTheirs').hidden = false;
+    say('syncGuestStatus', `Connected to ${nameOr(theirName, 'the other device')}.`, 'ok');
+    elementById('syncTheirsText').textContent = `Their history has ${plural(theirs.length, 'link', 'links')}, ${merged.added} new to this device. Yours has ${mineMerged.added} new to them.`;
+    elementById('syncTake').disabled = merged.added === 0;
+    elementById('syncSend').disabled = mineMerged.added === 0;
   }
 
+  /** Joins the host with the typed code, after checking the code and that we're online. */
   async function join(input) {
     const code = P2P.normaliseCode(input);
     if (!P2P.isValidCode(code)) {
@@ -308,44 +470,58 @@
       return;
     }
     leaveGuest({ quiet: true });
-    const g = new P2P.Guest();
-    guest = g;
-    g.code = code;
-    g.addEventListener('status', ({ detail }) => {
-      if (guest !== g) return;
+    const guestConnection = new P2P.Guest();
+    guest = guestConnection;
+    guestConnection.code = code;
+    guestConnection.addEventListener('status', function ({ detail }) {
+      if (guest !== guestConnection) {
+        return;
+      }
       if (detail.status === 'connected') {
         lastHeard = Date.now();
-        g.send({ type: 'hello', v: P2P.PROTOCOL_VERSION, name: deviceName() });
+        guestConnection.send({ type: 'hello', v: P2P.PROTOCOL_VERSION, name: deviceName() });
       }
       renderGuest(detail);
     });
-    g.addEventListener('message', ({ detail: { message } }) => onGuestMessage(g, message));
+    guestConnection.addEventListener('message', function ({ detail: { message } }) {
+      onGuestMessage(guestConnection, message);
+    });
     try {
-      await g.connect(code);
-      write(LAST_KEY, code);
+      await guestConnection.connect(code);
+      writeStored(LAST_KEY, code);
     } catch {
-      if (guest === g) guest = null;
+      if (guest === guestConnection) {
+        guest = null;
+      }
       say('syncGuestStatus', NO_LIBRARY, 'error');
     }
   }
 
-  function onGuestMessage(g, m) {
+  /** Handles one message from the host on the guest: state, added or refused. */
+  function onGuestMessage(guestConnection, message) {
     lastHeard = Date.now();
-    $('syncStale').hidden = true;
-    switch (m.type) {
+    elementById('syncStale').hidden = true;
+    switch (message.type) {
       case 'state':
-        if (!Array.isArray(m.items)) return;
-        theirs = m.items.slice(0, MAX_ITEMS);
-        theirName = str(m.name, 60);
+        if (!Array.isArray(message.items)) {
+          return;
+        }
+        theirs = message.items.slice(0, MAX_ITEMS);
+        theirName = clippedText(message.name, 60);
         renderTheirs();
         break;
-      case 'added':
-        say('syncGuestNote', typeof m.n === 'number' && m.n > 0
-          ? `${theirName || 'The other device'} added ${`${Math.round(m.n)} of your links`}.`
-          : 'They had them all already.', 'ok');
+      case 'added': {
+        let note;
+        if (typeof message.n === 'number' && message.n > 0) {
+          note = `${nameOr(theirName, 'The other device')} added ${Math.round(message.n)} of your links.`;
+        } else {
+          note = 'They had them all already.';
+        }
+        say('syncGuestNote', note, 'ok');
         break;
+      }
       case 'refused':
-        say('syncGuestNote', `${theirName || 'The other device'} said not now.`);
+        say('syncGuestNote', `${nameOr(theirName, 'The other device')} said not now.`);
         break;
       default:
         break; // beat, and anything unknown
@@ -353,7 +529,9 @@
   }
 
   function take() {
-    if (!theirs) return;
+    if (!theirs) {
+      return;
+    }
     const merged = HistoryMerge.merge(history(), theirs);
     saveMerged(merged.items);
     guest?.send({ type: 'took', n: merged.added });
@@ -362,20 +540,28 @@
   }
 
   function send() {
-    if (!guest) return;
+    if (!guest) {
+      return;
+    }
     guest.send({ type: 'add', items: history().slice(0, MAX_ITEMS) });
-    say('syncGuestNote', `Sent. ${theirName || 'The other device'} is asked before they're added.`);
+    say('syncGuestNote', `Sent. ${nameOr(theirName, 'The other device')} is asked before they're added.`);
   }
 
+  /** Ends the guest's connection; unless quiet, also forgets the code and resets the guest view. */
   function leaveGuest({ quiet = false } = {}) {
-    const g = guest;
+    const guestConnection = guest;
     guest = null;
-    if (!g) return;
-    if (g.status === 'connected') g.leave();
-    else g.close();
+    if (!guestConnection) {
+      return;
+    }
+    if (guestConnection.status === 'connected') {
+      guestConnection.leave();
+    } else {
+      guestConnection.close();
+    }
     keepAwake(false);
     if (!quiet) {
-      write(LAST_KEY, null);
+      writeStored(LAST_KEY, null);
       renderGuest({ status: 'idle' });
       say('syncGuestNote', '');
     }
@@ -383,35 +569,45 @@
 
   /* ---------- the heartbeat ---------- */
 
+  /** Runs every second: each side says it's still here, the host drops a silent guest, the guest flags a quiet host. */
   function beat() {
     if (host && host.status === 'connected') {
-      host.send({ type: 'beat', rev });
+      host.send({ type: 'beat', rev: revision });
       if (Date.now() - lastHeard > SILENT_MS) {
-        for (const link of [...host.links.values()]) host.drop(link);
+        for (const link of [...host.links.values()]) {
+          host.drop(link);
+        }
         host.refreshStatus();
       }
     }
     if (guest && guest.status === 'connected') {
       guest.send({ type: 'ping' });
-      $('syncStale').hidden = Date.now() - lastHeard < STALE_MS;
+      elementById('syncStale').hidden = Date.now() - lastHeard < STALE_MS;
     }
   }
 
   /* ---------- wiring ---------- */
 
-  const isOpen = () => !$('syncModal').classList.contains('hidden');
+  function isOpen() {
+    return !elementById('syncModal').classList.contains('hidden');
+  }
 
+  /** Opens the Share history window, on Enter a code with the code filled in when one is given. */
   function open({ code } = {}) {
-    if (!window.P2P || !window.HistoryMerge) return;
+    if (!window.P2P || !window.HistoryMerge) {
+      return;
+    }
     openModal('syncModal');
     clearInterval(beatTimer);
     beatTimer = setInterval(beat, BEAT_MS);
     if (code) {
-      $('syncCodeInput').value = P2P.normaliseCode(code);
+      elementById('syncCodeInput').value = P2P.normaliseCode(code);
       setMode('guest');
       return;
     }
-    if (!$('syncCodeInput').value) $('syncCodeInput').value = P2P.normaliseCode(read(LAST_KEY));
+    if (!elementById('syncCodeInput').value) {
+      elementById('syncCodeInput').value = P2P.normaliseCode(readStored(LAST_KEY));
+    }
     setMode(mode);
   }
 
@@ -423,60 +619,94 @@
     say('syncGuestNote', '');
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const modal = $('syncModal');
-    if (!modal) return;
-    $('openSyncBtn')?.addEventListener('click', () => {
+  document.addEventListener('DOMContentLoaded', function () {
+    const modal = elementById('syncModal');
+    if (!modal) {
+      return;
+    }
+    elementById('openSyncBtn')?.addEventListener('click', function () {
       closeModal('historyModal');
       open();
     });
-    $('syncTabs').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-sync-mode]');
-      if (b && b.dataset.syncMode !== mode) setMode(b.dataset.syncMode);
+    elementById('syncTabs').addEventListener('click', function (event) {
+      const button = event.target.closest('[data-sync-mode]');
+      if (button && button.dataset.syncMode !== mode) {
+        setMode(button.dataset.syncMode);
+      }
     });
-    $('syncNewCode').addEventListener('click', () => {
+    elementById('syncNewCode').addEventListener('click', function () {
       say('syncHostNote', '');
       restartWithFreshCode();
     });
-    $('syncCopyLink').addEventListener('click', () => copyToClipboard($('syncLink').textContent));
-    $('syncApproveYes').addEventListener('click', () => approve(true));
-    $('syncApproveNo').addEventListener('click', () => approve(false));
-    $('syncCodeInput').addEventListener('input', (e) => {
-      const v = P2P.normaliseCode(e.target.value);
-      if (v !== e.target.value) e.target.value = v;
+    elementById('syncCopyLink').addEventListener('click', function () {
+      copyToClipboard(elementById('syncLink').textContent);
     });
-    $('syncJoinForm').addEventListener('submit', (e) => {
-      e.preventDefault();
+    elementById('syncApproveYes').addEventListener('click', function () {
+      approve(true);
+    });
+    elementById('syncApproveNo').addEventListener('click', function () {
+      approve(false);
+    });
+    elementById('syncCodeInput').addEventListener('input', function (event) {
+      const value = P2P.normaliseCode(event.target.value);
+      if (value !== event.target.value) {
+        event.target.value = value;
+      }
+    });
+    elementById('syncJoinForm').addEventListener('submit', function (event) {
+      event.preventDefault();
       say('syncGuestNote', '');
-      join($('syncCodeInput').value);
+      join(elementById('syncCodeInput').value);
     });
-    $('syncLeave').addEventListener('click', () => leaveGuest());
-    $('syncTake').addEventListener('click', take);
-    $('syncSend').addEventListener('click', send);
+    elementById('syncLeave').addEventListener('click', function () {
+      leaveGuest();
+    });
+    elementById('syncTake').addEventListener('click', take);
+    elementById('syncSend').addEventListener('click', send);
 
     // Closing the window ends sharing, whichever way it's closed.
-    new MutationObserver(() => { if (!isOpen()) close(); }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    const closeWatcher = new MutationObserver(function () {
+      if (!isOpen()) {
+        close();
+      }
+    });
+    closeWatcher.observe(modal, { attributes: true, attributeFilter: ['class'] });
 
     // The host's history changed (a link fixed, or merged in): everyone connected sees it.
-    document.addEventListener('uwufix:history', () => {
-      rev++;
-      if (host && host.status === 'connected') host.send(snapshot());
-      if (guest && theirs) renderTheirs();
+    document.addEventListener('uwufix:history', function () {
+      revision++;
+      if (host && host.status === 'connected') {
+        host.send(snapshot());
+      }
+      if (guest && theirs) {
+        renderTheirs();
+      }
     });
 
     // Back from the background with a channel that died meanwhile: once more, with the same code.
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState !== 'visible' || !isOpen()) return;
-      if (guest?.status === 'dropped' && guest.code) join(guest.code);
-      if ((host?.status === 'connected' || guest?.status === 'connected')) keepAwake(true);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible' || !isOpen()) {
+        return;
+      }
+      if (guest?.status === 'dropped' && guest.code) {
+        join(guest.code);
+      }
+      if (host?.status === 'connected' || guest?.status === 'connected') {
+        keepAwake(true);
+      }
     });
 
     // A join link (/join?id=CODE): the window opens on Enter a code, the code filled in.
-    const joinCode = location.pathname.replace(/\/+$/, '') === '/join' ? new URLSearchParams(location.search).get('id') : null;
+    let joinCode = null;
+    if (location.pathname.replace(/\/+$/, '') === '/join') {
+      joinCode = new URLSearchParams(location.search).get('id');
+    }
     if (joinCode) {
       window.uwufixOpenedByLink = true;
       window.history.replaceState(null, '', '/');
-      setTimeout(() => open({ code: joinCode }), 300);
+      setTimeout(function () {
+        open({ code: joinCode });
+      }, 300);
     }
   });
 

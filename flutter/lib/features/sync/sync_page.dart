@@ -33,18 +33,64 @@ const _maxItems = 200;
 const _sameNetwork =
     'Could not reach the other device. Both have to be on the same network: join the same wifi, or turn on a hotspot on one and join it from the other. Check the code is still the one on screen.';
 
+/// The name this device goes by when it pairs.
 String deviceName() {
-  if (kIsWeb) return 'uwuFix';
-  if (Platform.isAndroid) return 'uwuFix for Android';
-  if (Platform.isWindows) return 'uwuFix for Windows';
-  if (Platform.isMacOS) return 'uwuFix for Mac';
-  if (Platform.isLinux) return 'uwuFix for Linux';
+  if (kIsWeb) {
+    return 'uwuFix';
+  }
+  if (Platform.isAndroid) {
+    return 'uwuFix for Android';
+  }
+  if (Platform.isWindows) {
+    return 'uwuFix for Windows';
+  }
+  if (Platform.isMacOS) {
+    return 'uwuFix for Mac';
+  }
+  if (Platform.isLinux) {
+    return 'uwuFix for Linux';
+  }
   return 'uwuFix';
 }
 
-String _plural(int n, String one, String many) => '$n ${n == 1 ? one : many}';
-String _str(Object? v, int n) => v is String ? (v.length > n ? v.substring(0, n) : v) : '';
+/// "1 link", "3 links".
+String _plural(int count, String singular, String plural) {
+  if (count == 1) {
+    return '$count $singular';
+  }
+  return '$count $plural';
+}
 
+/// [value] if it's text, cut to at most [maxLength] characters; otherwise empty.
+String _shortText(Object? value, int maxLength) {
+  if (value is! String) {
+    return '';
+  }
+  if (value.length > maxLength) {
+    return value.substring(0, maxLength);
+  }
+  return value;
+}
+
+/// [name], or [fallback] when it's empty.
+String _nameOr(String name, String fallback) {
+  if (name.isEmpty) {
+    return fallback;
+  }
+  return name;
+}
+
+/// This device's history, newest first, as many as are shared, ready to send.
+List<Map<String, Object?>> _myItems() {
+  final items = <Map<String, Object?>>[];
+  for (final entry in History.load().take(_maxItems)) {
+    items.add(entry.toJson());
+  }
+  return items;
+}
+
+/// Share history's connection, as the host (showing a code) or the guest (entering one): its
+/// status, what to say about it, and what the other device has sent.
 class SyncController extends ChangeNotifier with WidgetsBindingObserver {
   SyncController._();
   static final SyncController I = SyncController._();
@@ -60,7 +106,7 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
   // Host
   PeerHost? _host;
   String guestName = '';
-  int _rev = 0;
+  int _revision = 0;
   bool _retriedTaken = false;
   ({List<Object?> items, int added})? approval;
 
@@ -71,11 +117,13 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
   String theirName = '';
 
   int _lastHeard = 0;
-  Timer? _beat;
-  StreamSubscription<String>? _historySub;
+  Timer? _heartbeatTimer;
+  StreamSubscription<String>? _historySubscription;
   bool _active = false;
 
-  String get link => '$site/join?id=$code';
+  String get link {
+    return '$site/join?id=$code';
+  }
 
   /// For screenshots: a code on show, as if it were waiting for the other device, with no network.
   @visibleForTesting
@@ -99,8 +147,14 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
     if (!_active) {
       _active = true;
       WidgetsBinding.instance.addObserver(this);
-      _beat = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
-      _historySub = Store.I.changes.where((k) => k == historyKey).listen((_) => _historyChanged());
+      _heartbeatTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        _tick();
+      });
+      _historySubscription = Store.I.changes.where((key) {
+        return key == historyKey;
+      }).listen((_) {
+        _historyChanged();
+      });
     }
     if (joinCode != null) {
       setMode('guest');
@@ -112,11 +166,13 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// The page closed: sharing ends.
   void close() {
-    if (!_active) return;
+    if (!_active) {
+      return;
+    }
     _active = false;
     WidgetsBinding.instance.removeObserver(this);
-    _beat?.cancel();
-    _historySub?.cancel();
+    _heartbeatTimer?.cancel();
+    _historySubscription?.cancel();
     _stopHosting();
     _leaveGuest(quiet: true);
     note = null;
@@ -138,113 +194,145 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
   // ---------- host ----------
 
   Map<String, Object?> _snapshot() {
-    final items = History.load().take(_maxItems).map((e) => e.toJson()).toList();
-    return {'type': 'state', 'v': P2P.protocolVersion, 'rev': _rev, 'name': deviceName(), 'items': items};
+    return {'type': 'state', 'v': P2P.protocolVersion, 'rev': _revision, 'name': deviceName(), 'items': _myItems()};
   }
 
+  /// Starts showing a code (the one kept from last time, if it's still good) and waits for a guest.
   Future<void> _startHosting() async {
-    if (_host != null) return;
-    final stored = Store.I.get(_hostKey) ?? '';
-    code = P2P.isValid(stored) ? P2P.normalise(stored) : P2P.generateCode();
+    if (_host != null) {
+      return;
+    }
+    String stored = '';
+    final keptCode = Store.I.get(_hostKey);
+    if (keptCode != null) {
+      stored = keptCode;
+    }
+    if (P2P.isValid(stored)) {
+      code = P2P.normalise(stored);
+    } else {
+      code = P2P.generateCode();
+    }
     Store.I.put(_hostKey, code);
-    final h = PeerHost((s, {message, taken = false}) => _onHostStatus(s, message: message, taken: taken), (m) => _onHostMessage(m));
-    _host = h;
+    final host = PeerHost(
+      (newStatus, {message, taken = false}) {
+        _onHostStatus(newStatus, message: message, taken: taken);
+      },
+      (incoming) {
+        _onHostMessage(incoming);
+      },
+    );
+    _host = host;
     status = 'connecting';
     _say('Getting a code ready…');
-    await h.start(code);
+    await host.start(code);
   }
 
-  void _onHostStatus(String s, {String? message, bool taken = false}) {
-    if (_host == null) return;
+  /// The host's connection changed: says so, and sends the history once a guest is connected.
+  void _onHostStatus(String newStatus, {String? message, bool taken = false}) {
+    if (_host == null) {
+      return;
+    }
     if (taken && !_retriedTaken) {
       _retriedTaken = true;
       _restartWithFreshCode();
       return;
     }
-    if (s == 'waiting') _retriedTaken = false;
-    status = s;
-    if (s != 'connected') {
+    if (newStatus == 'waiting') {
+      _retriedTaken = false;
+    }
+    status = newStatus;
+    if (newStatus != 'connected') {
       guestName = '';
       approval = null;
     } else {
       _lastHeard = DateTime.now().millisecondsSinceEpoch;
       _host?.send(_snapshot());
     }
-    switch (s) {
+    switch (newStatus) {
       case 'connecting':
         _say('Getting a code ready…');
       case 'waiting':
         _say('On the other device, open uwuFix, then History, Share, Enter a code, and type this code. Or scan the QR code, or open the link.');
       case 'connected':
-        _say('Connected to ${guestName.isEmpty ? 'the other device' : guestName}. It can see your history, and add yours to its own.', 'ok');
+        _say('Connected to ${_nameOr(guestName, 'the other device')}. It can see your history, and add yours to its own.', 'ok');
       case 'error':
         _say(message, 'error');
     }
   }
 
-  void _onHostMessage(Map<String, dynamic> m) {
+  /// A message from the guest: its hello, history it offers, how many of ours it took, or bye.
+  void _onHostMessage(Map<String, dynamic> incoming) {
     _lastHeard = DateTime.now().millisecondsSinceEpoch;
-    switch (m['type']) {
+    switch (incoming['type']) {
       case 'hello':
-        guestName = _str(m['name'], 60);
-        if (guestName.isEmpty) guestName = 'the other device';
+        guestName = _shortText(incoming['name'], 60);
+        if (guestName.isEmpty) {
+          guestName = 'the other device';
+        }
         _host?.send(_snapshot());
         _onHostStatus('connected');
       case 'add':
-        final items = m['items'];
-        if (items is! List) return;
+        final items = incoming['items'];
+        if (items is! List) {
+          return;
+        }
         final list = items.take(_maxItems).toList();
         final preview = mergeHistory(History.load(), list);
         if (preview.added == 0) {
           _host?.send({'type': 'added', 'n': 0});
-          note = '${guestName.isEmpty ? 'The other device' : guestName} sent its history: nothing new.';
+          note = '${_nameOr(guestName, 'The other device')} sent its history: nothing new.';
           notifyListeners();
           return;
         }
         approval = (items: list, added: preview.added);
         notifyListeners();
       case 'took':
-        final n = m['n'];
-        if (n is num) {
-          note = '${guestName.isEmpty ? 'The other device' : guestName} added ${n.round().clamp(0, _maxItems)} of your links to its history.';
+        final count = incoming['n'];
+        if (count is num) {
+          note = '${_nameOr(guestName, 'The other device')} added ${count.round().clamp(0, _maxItems)} of your links to its history.';
           notifyListeners();
         }
       case 'bye':
         _restartWithFreshCode();
-        note = '${guestName.isEmpty ? 'The other device' : guestName} left. Here’s a new code for next time.';
+        note = '${_nameOr(guestName, 'The other device')} left. Here’s a new code for next time.';
         notifyListeners();
       default:
         break; // ping, and anything unknown
     }
   }
 
-  void approve(bool yes) {
-    final a = approval;
+  /// The host's answer to the guest's offer: [accepted] adds its links to the history.
+  void approve(bool accepted) {
+    final offer = approval;
     approval = null;
-    if (a == null || _host == null) return;
-    if (!yes) {
+    if (offer == null || _host == null) {
+      return;
+    }
+    if (!accepted) {
       _host!.send({'type': 'refused'});
       notifyListeners();
       return;
     }
-    final merged = mergeHistory(History.load(), a.items);
+    final merged = mergeHistory(History.load(), offer.items);
     History.save(merged.items);
     _host!.send({'type': 'added', 'n': merged.added});
-    note = 'Added ${_plural(merged.added, 'link', 'links')} from ${guestName.isEmpty ? 'the other device' : guestName}.';
+    note = 'Added ${_plural(merged.added, 'link', 'links')} from ${_nameOr(guestName, 'the other device')}.';
     notifyListeners();
   }
 
   void _stopHosting() {
-    final h = _host;
+    final host = _host;
     _host = null;
-    h?.close();
+    host?.close();
     approval = null;
   }
 
   Future<void> _restartWithFreshCode() async {
     _stopHosting();
     Store.I.remove(_hostKey);
-    if (mode == 'host' && _active) await _startHosting();
+    if (mode == 'host' && _active) {
+      await _startHosting();
+    }
   }
 
   void newCode() {
@@ -254,33 +342,47 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
 
   // ---------- guest ----------
 
+  /// Connects to the device showing [input] as its code.
   Future<void> join(String input) async {
-    final c = P2P.normalise(input);
-    if (!P2P.isValid(c)) {
+    final joinCode = P2P.normalise(input);
+    if (!P2P.isValid(joinCode)) {
       _say('A code is ${P2P.codeLength} letters and numbers.', 'error');
       return;
     }
     _leaveGuest(quiet: true);
-    _guestCode = c;
+    _guestCode = joinCode;
     theirs = null;
     note = null;
-    final g = PeerGuest((s, {message, taken = false}) => _onGuestStatus(s, message), _onGuestMessage, name: deviceName());
-    _guest = g;
+    final guest = PeerGuest(
+      (newStatus, {message, taken = false}) {
+        _onGuestStatus(newStatus, message);
+      },
+      _onGuestMessage,
+      name: deviceName(),
+    );
+    _guest = guest;
     status = 'connecting';
     _say('Connecting…');
-    await g.connect(c);
-    if (_guest == g && status != 'error') Store.I.put(_lastKey, c);
+    await guest.connect(joinCode);
+    if (_guest == guest && status != 'error') {
+      Store.I.put(_lastKey, joinCode);
+    }
   }
 
-  void _onGuestStatus(String s, String? message) {
-    if (_guest == null) return;
-    status = s;
-    if (s == 'connected') _lastHeard = DateTime.now().millisecondsSinceEpoch;
-    if (s != 'connected') {
+  /// The guest's connection changed: says so.
+  void _onGuestStatus(String newStatus, String? message) {
+    if (_guest == null) {
+      return;
+    }
+    status = newStatus;
+    if (newStatus == 'connected') {
+      _lastHeard = DateTime.now().millisecondsSinceEpoch;
+    }
+    if (newStatus != 'connected') {
       theirs = null;
       stale = false;
     }
-    switch (s) {
+    switch (newStatus) {
       case 'connecting':
         _say('Connecting…');
       case 'connected':
@@ -290,27 +392,36 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
       case 'unreachable':
         _say(_sameNetwork, 'error');
       case 'error':
-        if (message?.startsWith('Nobody') == true) Store.I.remove(_lastKey);
+        if (message?.startsWith('Nobody') == true) {
+          Store.I.remove(_lastKey);
+        }
         _say(message, 'error');
     }
   }
 
-  void _onGuestMessage(Map<String, dynamic> m) {
+  /// A message from the host: its history, how many of ours it added, or that it said not now.
+  void _onGuestMessage(Map<String, dynamic> incoming) {
     _lastHeard = DateTime.now().millisecondsSinceEpoch;
     stale = false;
-    switch (m['type']) {
+    switch (incoming['type']) {
       case 'state':
-        final items = m['items'];
-        if (items is! List) return;
+        final items = incoming['items'];
+        if (items is! List) {
+          return;
+        }
         theirs = items.take(_maxItems).toList();
-        theirName = _str(m['name'], 60);
-        _say('Connected to ${theirName.isEmpty ? 'the other device' : theirName}.', 'ok');
+        theirName = _shortText(incoming['name'], 60);
+        _say('Connected to ${_nameOr(theirName, 'the other device')}.', 'ok');
       case 'added':
-        final n = m['n'];
-        note = n is num && n > 0 ? '${theirName.isEmpty ? 'The other device' : theirName} added ${n.round()} of your links.' : 'They had them all already.';
+        final count = incoming['n'];
+        if (count is num && count > 0) {
+          note = '${_nameOr(theirName, 'The other device')} added ${count.round()} of your links.';
+        } else {
+          note = 'They had them all already.';
+        }
         notifyListeners();
       case 'refused':
-        note = '${theirName.isEmpty ? 'The other device' : theirName} said not now.';
+        note = '${_nameOr(theirName, 'The other device')} said not now.';
         notifyListeners();
       default:
         notifyListeners(); // beat, and anything unknown
@@ -319,27 +430,45 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// How many of theirs are new here, and of mine new there.
   ({int newHere, int newThere}) get counts {
-    final t = theirs ?? const [];
+    List<Object?> theirItems = const [];
+    final received = theirs;
+    if (received != null) {
+      theirItems = received;
+    }
     final mine = History.load();
-    final here = mergeHistory(mine, t).added;
-    final theirsClean = [for (final e in t) sanitizeEntry(e)].whereType<HistoryEntry>().toList();
-    final there = mergeHistory(theirsClean, [for (final e in mine) e.toJson()]).added;
-    return (newHere: here, newThere: there);
+    final newHere = mergeHistory(mine, theirItems).added;
+    final theirsClean = <HistoryEntry>[];
+    for (final item in theirItems) {
+      final entry = sanitizeEntry(item);
+      if (entry != null) {
+        theirsClean.add(entry);
+      }
+    }
+    final mineAsJson = <Object?>[];
+    for (final entry in mine) {
+      mineAsJson.add(entry.toJson());
+    }
+    final newThere = mergeHistory(theirsClean, mineAsJson).added;
+    return (newHere: newHere, newThere: newThere);
   }
 
+  /// Adds their history to mine.
   void take() {
-    final t = theirs;
-    if (t == null) return;
-    final merged = mergeHistory(History.load(), t);
+    final theirItems = theirs;
+    if (theirItems == null) {
+      return;
+    }
+    final merged = mergeHistory(History.load(), theirItems);
     History.save(merged.items);
     _guest?.send({'type': 'took', 'n': merged.added});
     note = 'Added ${_plural(merged.added, 'link', 'links')} to your history.';
     notifyListeners();
   }
 
+  /// Offers my history to them; they're asked before it's added.
   void send() {
-    _guest?.send({'type': 'add', 'items': History.load().take(_maxItems).map((e) => e.toJson()).toList()});
-    note = 'Sent. ${theirName.isEmpty ? 'The other device' : theirName} is asked before they’re added.';
+    _guest?.send({'type': 'add', 'items': _myItems()});
+    note = 'Sent. ${_nameOr(theirName, 'The other device')} is asked before they’re added.';
     notifyListeners();
   }
 
@@ -347,14 +476,17 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
     _leaveGuest();
   }
 
+  /// Ends the guest's connection; unless [quiet], also forgets the code and clears what's said.
   void _leaveGuest({bool quiet = false}) {
-    final g = _guest;
+    final guest = _guest;
     _guest = null;
-    if (g == null) return;
+    if (guest == null) {
+      return;
+    }
     if (status == 'connected') {
-      g.leave();
+      guest.leave();
     } else {
-      g.hangUp();
+      guest.hangUp();
     }
     theirs = null;
     if (!quiet) {
@@ -365,39 +497,55 @@ class SyncController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  String get lastCode => Store.I.get(_lastKey) ?? '';
+  String get lastCode {
+    final stored = Store.I.get(_lastKey);
+    if (stored == null) {
+      return '';
+    }
+    return stored;
+  }
 
   // ---------- heartbeat and lifecycle ----------
 
+  /// Every second: the host's beat (closing a link gone quiet), the guest's ping and its stale check.
   void _tick() {
     final now = DateTime.now().millisecondsSinceEpoch;
     if (_host != null && status == 'connected') {
-      _host!.send({'type': 'beat', 'rev': _rev});
+      _host!.send({'type': 'beat', 'rev': _revision});
       if (now - _lastHeard > 6000) {
         _host!.link?.close();
       }
     }
     if (_guest != null && status == 'connected') {
       _guest!.send({'type': 'ping'});
-      final was = stale;
+      final wasStale = stale;
       stale = now - _lastHeard >= 3000;
-      if (stale != was) notifyListeners();
+      if (stale != wasStale) {
+        notifyListeners();
+      }
     }
   }
 
   void _historyChanged() {
-    _rev++;
-    if (_host != null && status == 'connected') _host!.send(_snapshot());
-    if (theirs != null) notifyListeners();
+    _revision++;
+    if (_host != null && status == 'connected') {
+      _host!.send(_snapshot());
+    }
+    if (theirs != null) {
+      notifyListeners();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Back from the background with a channel that died meanwhile: once more, the same code.
-    if (state == AppLifecycleState.resumed && _guest != null && status == 'dropped' && _guestCode.isNotEmpty) join(_guestCode);
+    if (state == AppLifecycleState.resumed && _guest != null && status == 'dropped' && _guestCode.isNotEmpty) {
+      join(_guestCode);
+    }
   }
 }
 
+/// The Share history page: Show a code (host) or Enter a code (guest), and what's happening.
 class SyncPage extends StatefulWidget {
   const SyncPage({super.key, this.joinCode, this.embedded = false});
   final String? joinCode;
@@ -407,162 +555,260 @@ class SyncPage extends StatefulWidget {
   static bool previewOnly = false;
 
   @override
-  State<SyncPage> createState() => _SyncPageState();
+  State<SyncPage> createState() {
+    return _SyncPageState();
+  }
 }
 
 class _SyncPageState extends State<SyncPage> {
   final _codeField = TextEditingController();
-  final c = SyncController.I;
+  final _controller = SyncController.I;
 
   @override
   void initState() {
     super.initState();
-    _codeField.text = widget.joinCode != null ? P2P.normalise(widget.joinCode!) : c.lastCode;
-    if (!SyncPage.previewOnly) WidgetsBinding.instance.addPostFrameCallback((_) => c.open(joinCode: widget.joinCode));
+    final joinCode = widget.joinCode;
+    if (joinCode != null) {
+      _codeField.text = P2P.normalise(joinCode);
+    } else {
+      _codeField.text = _controller.lastCode;
+    }
+    if (!SyncPage.previewOnly) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _controller.open(joinCode: widget.joinCode);
+      });
+    }
   }
 
   @override
   void dispose() {
-    if (!SyncPage.previewOnly) c.close();
+    if (!SyncPage.previewOnly) {
+      _controller.close();
+    }
     _codeField.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
     final body = ListenableBuilder(
-      listenable: c,
+      listenable: _controller,
       builder: (context, _) {
-        // The host's approval, asked once per offer.
-        if (c.approval != null) {
-          final a = c.approval!;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _ask(a));
-        }
-        return ListView(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.paddingOf(context).bottom + 24),
-          children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  TourTarget(
-                    id: 'sync.tabs',
-                    child: SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'host', label: Text('Show a code'), icon: Icon(Icons.qr_code_2)),
-                        ButtonSegment(value: 'guest', label: Text('Enter a code'), icon: Icon(Icons.keyboard_outlined)),
-                      ],
-                      selected: {c.mode},
-                      onSelectionChanged: (s) => c.setMode(s.first),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (c.mode == 'host') ..._host(context, fx) else ..._guest(context, fx),
-                  if (c.message != null && c.message!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Semantics(
-                      liveRegion: true,
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        if (c.status == 'connecting') ...[
-                          const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                          const SizedBox(width: 10),
-                        ],
-                        Expanded(
-                          child: Text(c.message!,
-                              style: TextStyle(color: c.messageKind == 'error' ? fx.error : c.messageKind == 'ok' ? fx.ok : fx.muted, fontSize: 14.5, height: 1.4)),
-                        ),
-                      ]),
-                    ),
+        return _buildContent(context);
+      },
+    );
+    if (widget.embedded) {
+      return body;
+    }
+    return Scaffold(appBar: AppBar(title: const Text('Share history')), body: body);
+  }
+
+  /// The page's content, drawn again each time the connection changes.
+  Widget _buildContent(BuildContext context) {
+    final palette = context.fx;
+    final controller = _controller;
+    // The host's approval, asked once per offer.
+    final offer = controller.approval;
+    if (offer != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ask(offer);
+      });
+    }
+    List<Widget> sideWidgets;
+    if (controller.mode == 'host') {
+      sideWidgets = _host(context, palette);
+    } else {
+      sideWidgets = _guest(context, palette);
+    }
+    Color messageColor;
+    if (controller.messageKind == 'error') {
+      messageColor = palette.error;
+    } else if (controller.messageKind == 'ok') {
+      messageColor = palette.ok;
+    } else {
+      messageColor = palette.muted;
+    }
+    final message = controller.message;
+    final note = controller.note;
+    return ListView(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.paddingOf(context).bottom + 24),
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              TourTarget(
+                id: 'sync.tabs',
+                child: SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'host', label: Text('Show a code'), icon: Icon(Icons.qr_code_2)),
+                    ButtonSegment(value: 'guest', label: Text('Enter a code'), icon: Icon(Icons.keyboard_outlined)),
                   ],
-                  if (c.stale) ...[
-                    const SizedBox(height: 8),
-                    Text('The connection looks stale. If nothing changes, check both are still on the same wifi.', style: TextStyle(color: fx.error)),
-                  ],
-                  if (c.note != null) ...[
-                    const SizedBox(height: 10),
-                    Semantics(liveRegion: true, child: Text(c.note!, style: TextStyle(color: fx.ok, fontSize: 14.5))),
-                  ],
-                  const SizedBox(height: 20),
-                  TourTarget(
-                    id: 'sync.note',
-                    child: Text(
-                      'Both devices have to be on the same network: the same wifi, or one on the other’s hotspot. Your history goes straight from one to the other, through no server; pairing tells each device the other’s internet address.',
-                      style: TextStyle(color: fx.muted, fontSize: 13.5, height: 1.4),
-                    ),
-                  ),
-                ]),
+                  selected: {controller.mode},
+                  onSelectionChanged: (selection) {
+                    controller.setMode(selection.first);
+                  },
+                ),
               ),
+              const SizedBox(height: 16),
+              ...sideWidgets,
+              if (message != null && message.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Semantics(
+                  liveRegion: true,
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (controller.status == 'connecting') ...[
+                      const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Text(message, style: TextStyle(color: messageColor, fontSize: 14.5, height: 1.4)),
+                    ),
+                  ]),
+                ),
+              ],
+              if (controller.stale) ...[
+                const SizedBox(height: 8),
+                Text('The connection looks stale. If nothing changes, check both are still on the same wifi.', style: TextStyle(color: palette.error)),
+              ],
+              if (note != null) ...[
+                const SizedBox(height: 10),
+                Semantics(liveRegion: true, child: Text(note, style: TextStyle(color: palette.ok, fontSize: 14.5))),
+              ],
+              const SizedBox(height: 20),
+              TourTarget(
+                id: 'sync.note',
+                child: Text(
+                  'Both devices have to be on the same network: the same wifi, or one on the other’s hotspot. Your history goes straight from one to the other, through no server; pairing tells each device the other’s internet address.',
+                  style: TextStyle(color: palette.muted, fontSize: 13.5, height: 1.4),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _asking = false;
+
+  /// Asks the host whether to add the guest's offered links, once per offer.
+  Future<void> _ask(({List<Object?> items, int added}) offer) async {
+    if (_asking || !mounted) {
+      return;
+    }
+    _asking = true;
+    final who = _nameOr(_controller.guestName, 'the other device');
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Add their links?'),
+          content: Text('Add ${_plural(offer.added, 'link', 'links')} from $who to your history?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Add them'),
             ),
           ],
         );
       },
     );
-    if (widget.embedded) return body;
-    return Scaffold(appBar: AppBar(title: const Text('Share history')), body: body);
-  }
-
-  bool _asking = false;
-  Future<void> _ask(({List<Object?> items, int added}) a) async {
-    if (_asking || !mounted) return;
-    _asking = true;
-    final who = c.guestName.isEmpty ? 'the other device' : c.guestName;
-    final yes = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (d) => AlertDialog(
-        title: const Text('Add their links?'),
-        content: Text('Add ${_plural(a.added, 'link', 'links')} from $who to your history?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Not now')),
-          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Add them')),
-        ],
-      ),
-    );
     _asking = false;
-    c.approve(yes == true);
+    _controller.approve(accepted == true);
   }
 
-  List<Widget> _host(BuildContext context, Fx fx) => [
-        if (c.code.isNotEmpty)
-          TourTarget(
-            id: 'sync.code',
-            child: GlassCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(children: [
-                SelectableText(c.code, style: TextStyle(fontSize: 36, letterSpacing: 6, color: fx.ink, fontWeight: fx.uwu ? null : FontWeight.w700)),
-                const SizedBox(height: 10),
-                // Centred, with its white quiet zone, so a phone pointed at the middle finds it.
-                Center(
-                  child: Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.all(12),
-                    child: QrImageView(data: c.link, size: 168, backgroundColor: Colors.white),
-                  ),
+  /// The Show a code side: the code, its QR code and link, and New code.
+  List<Widget> _host(BuildContext context, Fx palette) {
+    final controller = _controller;
+    FontWeight? codeWeight;
+    if (!palette.uwu) {
+      codeWeight = FontWeight.w700;
+    }
+    return [
+      if (controller.code.isNotEmpty)
+        TourTarget(
+          id: 'sync.code',
+          child: GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: [
+              SelectableText(controller.code, style: TextStyle(fontSize: 36, letterSpacing: 6, color: palette.ink, fontWeight: codeWeight)),
+              const SizedBox(height: 10),
+              // Centred, with its white quiet zone, so a phone pointed at the middle finds it.
+              Center(
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                  child: QrImageView(data: controller.link, size: 168, backgroundColor: Colors.white),
                 ),
-                const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Flexible(child: Text(c.link, overflow: TextOverflow.ellipsis, style: TextStyle(color: fx.brandInk, fontSize: 13))),
-                  IconButton(tooltip: 'Copy the link', onPressed: () => copyText(c.link, said: 'Link copied'), icon: const Icon(Icons.copy, size: 18)),
-                ]),
+              ),
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Flexible(child: Text(controller.link, overflow: TextOverflow.ellipsis, style: TextStyle(color: palette.brandInk, fontSize: 13))),
+                IconButton(
+                  tooltip: 'Copy the link',
+                  onPressed: () {
+                    copyText(controller.link, said: 'Link copied');
+                  },
+                  icon: const Icon(Icons.copy, size: 18),
+                ),
               ]),
-            ),
+            ]),
           ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(onPressed: c.newCode, icon: const Icon(Icons.refresh), label: const Text('New code')),
         ),
-      ];
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(onPressed: controller.newCode, icon: const Icon(Icons.refresh), label: const Text('New code')),
+      ),
+    ];
+  }
 
-  List<Widget> _guest(BuildContext context, Fx fx) {
-    final connected = c.status == 'connected';
-    final busy = c.status == 'connecting' || connected;
+  /// The Enter a code side: the code field with Join or Leave, and once connected, what each
+  /// side has that the other hasn't, with Add theirs to mine and Send mine to them.
+  List<Widget> _guest(BuildContext context, Fx palette) {
+    final controller = _controller;
+    final connected = controller.status == 'connected';
+    final busy = controller.status == 'connecting' || connected;
+
+    ValueChanged<String>? onSubmitted;
+    if (!busy) {
+      onSubmitted = (value) {
+        controller.join(value);
+      };
+    }
+    Widget joinOrLeave;
+    if (!busy) {
+      String joinLabel;
+      if (controller.status == 'dropped') {
+        joinLabel = 'Reconnect';
+      } else {
+        joinLabel = 'Join';
+      }
+      joinOrLeave = FilledButton(
+        onPressed: () {
+          controller.join(_codeField.text);
+        },
+        child: Text(joinLabel),
+      );
+    } else {
+      joinOrLeave = OutlinedButton(onPressed: controller.leave, child: const Text('Leave'));
+    }
+
     return [
       TourTarget(
         id: 'sync.join',
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('The code on the other device', style: TextStyle(color: fx.muted)),
+          Text('The code on the other device', style: TextStyle(color: palette.muted)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
@@ -573,47 +819,61 @@ class _SyncPageState extends State<SyncPage> {
                 enableSuggestions: false,
                 style: const TextStyle(fontSize: 20, letterSpacing: 4),
                 decoration: const InputDecoration(hintText: 'BCD234', isDense: true),
-                onChanged: (v) {
-                  final n = P2P.normalise(v);
-                  if (n != v) {
-                    _codeField.value = TextEditingValue(text: n, selection: TextSelection.collapsed(offset: n.length));
+                onChanged: (value) {
+                  final normalised = P2P.normalise(value);
+                  if (normalised != value) {
+                    _codeField.value = TextEditingValue(text: normalised, selection: TextSelection.collapsed(offset: normalised.length));
                   }
                 },
-                onSubmitted: busy ? null : (v) => c.join(v),
+                onSubmitted: onSubmitted,
               ),
             ),
             const SizedBox(width: 8),
-            if (!busy)
-              FilledButton(onPressed: () => c.join(_codeField.text), child: Text(c.status == 'dropped' ? 'Reconnect' : 'Join'))
-            else
-              OutlinedButton(onPressed: c.leave, child: const Text('Leave')),
+            joinOrLeave,
           ]),
         ]),
       ),
-      if (connected && c.theirs != null) ...[
+      if (connected && controller.theirs != null) ...[
         const SizedBox(height: 14),
         Builder(builder: (context) {
-          final n = c.counts;
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: fx.brandFill, borderRadius: BorderRadius.circular(16)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(
-                'Their history has ${_plural(c.theirs!.length, 'link', 'links')}, ${n.newHere} new to this device. Yours has ${n.newThere} new to them.',
-                style: TextStyle(color: fx.onBrand, fontSize: 15),
-              ),
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                FilledButton.icon(onPressed: n.newHere == 0 ? null : c.take, icon: const Icon(Icons.download), label: const Text('Add theirs to mine')),
-                OutlinedButton.icon(onPressed: n.newThere == 0 ? null : c.send, icon: const Icon(Icons.upload), label: const Text('Send mine to them')),
-              ]),
-            ]),
-          );
+          return _buildCounts(palette);
         }),
       ],
     ];
   }
+
+  /// Once connected as the guest: how many links each side has new to the other, and the buttons
+  /// to swap them.
+  Widget _buildCounts(Fx palette) {
+    final controller = _controller;
+    final counts = controller.counts;
+    VoidCallback? onTake;
+    if (counts.newHere != 0) {
+      onTake = controller.take;
+    }
+    VoidCallback? onSend;
+    if (counts.newThere != 0) {
+      onSend = controller.send;
+    }
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: palette.brandFill, borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(
+          'Their history has ${_plural(controller.theirs!.length, 'link', 'links')}, ${counts.newHere} new to this device. Yours has ${counts.newThere} new to them.',
+          style: TextStyle(color: palette.onBrand, fontSize: 15),
+        ),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          FilledButton.icon(onPressed: onTake, icon: const Icon(Icons.download), label: const Text('Add theirs to mine')),
+          OutlinedButton.icon(onPressed: onSend, icon: const Icon(Icons.upload), label: const Text('Send mine to them')),
+        ]),
+      ]),
+    );
+  }
 }
 
 /// Opening Share history on the Enter a code side, with a code from a link (/join?id=CODE).
-void openJoin(String code) => AppNav.showPage('sync', {'join': code});
+void openJoin(String code) {
+  AppNav.showPage('sync', {'join': code});
+}

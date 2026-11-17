@@ -29,66 +29,108 @@ import 'settings.dart';
 
 const _defaultSize = Size(320, 170);
 
-List<Map<String, dynamic>> _kept() => [for (final w in (DeskSettings.get('widgets') as List?) ?? const []) if (w is Map) Map<String, dynamic>.from(w)];
-
-void _keep(Map<String, dynamic> widget) {
-  final all = _kept().where((w) => w['id'] != widget['id']).toList()..add(widget);
-  DeskSettings.set('widgets', all);
+/// Every widget kept in the settings file: its id, pin and place.
+List<Map<String, dynamic>> _keptWidgets() {
+  final kept = <Map<String, dynamic>>[];
+  final stored = DesktopSettings.get('widgets') as List?;
+  if (stored == null) {
+    return kept;
+  }
+  for (final storedWidget in stored) {
+    if (storedWidget is Map) {
+      kept.add(Map<String, dynamic>.from(storedWidget));
+    }
+  }
+  return kept;
 }
 
-void _forget(String id) => DeskSettings.set('widgets', _kept().where((w) => w['id'] != id).toList());
+/// Every kept widget but the one with [id].
+List<Map<String, dynamic>> _keptWidgetsExcept(Object? id) {
+  final others = <Map<String, dynamic>>[];
+  for (final keptWidget in _keptWidgets()) {
+    if (keptWidget['id'] != id) {
+      others.add(keptWidget);
+    }
+  }
+  return others;
+}
+
+void _keep(Map<String, dynamic> widget) {
+  final all = _keptWidgetsExcept(widget['id']);
+  all.add(widget);
+  DesktopSettings.set('widgets', all);
+}
+
+void _forget(String id) {
+  DesktopSettings.set('widgets', _keptWidgetsExcept(id));
+}
 
 bool _handling = false;
 
 /// The main window's side: what widgets ask of it.
 void _listen() {
-  if (_handling) return;
+  if (_handling) {
+    return;
+  }
   _handling = true;
-  DesktopMultiWindow.setMethodHandler((call, from) async {
-    final a = call.arguments is Map ? Map<String, dynamic>.from(call.arguments as Map) : <String, dynamic>{};
+  DesktopMultiWindow.setMethodHandler((call, fromWindowId) async {
+    Map<String, dynamic> arguments;
+    if (call.arguments is Map) {
+      arguments = Map<String, dynamic>.from(call.arguments as Map);
+    } else {
+      arguments = <String, dynamic>{};
+    }
     switch (call.method) {
       case 'record':
-        final e = History.add('${a['original']}', '${a['cleaned']}', '${a['platform']}');
-        fetchMetadata(e.cleaned).then((m) {
-          if (m?.title != null) History.update(e.id, title: m!.title);
+        final entry = History.add('${arguments['original']}', '${arguments['cleaned']}', '${arguments['platform']}');
+        fetchMetadata(entry.cleaned).then((metadata) {
+          if (metadata?.title != null) {
+            History.update(entry.id, title: metadata!.title);
+          }
         });
       case 'open':
         await Desktop.show();
-        Links.open('${a['url']}');
+        Links.open('${arguments['url']}');
       case 'removed':
-        _forget('${a['id']}');
+        _forget('${arguments['id']}');
     }
     return null;
   });
 }
 
+/// Opens a widget's window: one that was [kept], where it was, or a new one, kept from now on.
 Future<void> openWidgetWindow([Map<String, dynamic>? kept]) async {
   _listen();
-  final w = kept ?? {'id': 'w${DateTime.now().millisecondsSinceEpoch}', 'onTop': true};
-  if (kept == null) _keep(w);
-  final c = await DesktopMultiWindow.createWindow(jsonEncode({'kind': 'widget', ...w}));
-  final b = w['bounds'];
-  if (b is Map) {
-    await c.setFrame(Rect.fromLTWH((b['x'] as num).toDouble(), (b['y'] as num).toDouble(), (b['width'] as num).toDouble(), (b['height'] as num).toDouble()));
+  Map<String, dynamic> widget;
+  if (kept != null) {
+    widget = kept;
   } else {
-    await c.setFrame(Offset.zero & _defaultSize);
-    await c.center();
+    widget = {'id': 'w${DateTime.now().millisecondsSinceEpoch}', 'onTop': true};
+    _keep(widget);
   }
-  await c.setTitle('Fix a link');
-  await c.show();
+  final controller = await DesktopMultiWindow.createWindow(jsonEncode({'kind': 'widget', ...widget}));
+  final bounds = widget['bounds'];
+  if (bounds is Map) {
+    await controller.setFrame(Rect.fromLTWH((bounds['x'] as num).toDouble(), (bounds['y'] as num).toDouble(), (bounds['width'] as num).toDouble(), (bounds['height'] as num).toDouble()));
+  } else {
+    await controller.setFrame(Offset.zero & _defaultSize);
+    await controller.center();
+  }
+  await controller.setTitle('Fix a link');
+  await controller.show();
 }
 
 /// At start: every widget that was open when the app last ran.
 Future<void> reopenWidgetWindows() async {
-  for (final w in _kept()) {
+  for (final keptWidget in _keptWidgets()) {
     try {
-      await openWidgetWindow(w);
+      await openWidgetWindow(keptWidget);
     } catch (_) {}
   }
 }
 
 /// A widget's own window: its engine starts here.
-Future<void> runWidgetWindow(int windowId, Map<String, dynamic> args) async {
+Future<void> runWidgetWindow(int windowId, Map<String, dynamic> arguments) async {
   await Store.open();
   await windowManager.ensureInitialized();
   // window_manager makes its taskbar handle (Windows) only here, and setSkipTaskbar uses it
@@ -97,27 +139,33 @@ Future<void> runWidgetWindow(int windowId, Map<String, dynamic> args) async {
   await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
   await windowManager.setSkipTaskbar(true);
   await windowManager.setMinimumSize(const Size(200, 110));
-  await windowManager.setAlwaysOnTop(args['onTop'] != false);
-  runApp(_WidgetApp(windowId: windowId, args: args));
+  await windowManager.setAlwaysOnTop(arguments['onTop'] != false);
+  runApp(_WidgetApp(windowId: windowId, arguments: arguments));
 }
 
+/// The widget's whole app, in its own window: a title strip with pin and remove, a box to paste a
+/// link into, and the clean link under it.
 class _WidgetApp extends StatefulWidget {
-  const _WidgetApp({required this.windowId, required this.args});
+  const _WidgetApp({required this.windowId, required this.arguments});
   final int windowId;
-  final Map<String, dynamic> args;
+  final Map<String, dynamic> arguments;
 
   @override
-  State<_WidgetApp> createState() => _WidgetAppState();
+  State<_WidgetApp> createState() {
+    return _WidgetAppState();
+  }
 }
 
 class _WidgetAppState extends State<_WidgetApp> with WindowListener {
   final _field = TextEditingController();
-  late bool _onTop = widget.args['onTop'] != false;
+  late bool _onTop = widget.arguments['onTop'] != false;
   String? _cleaned;
   String? _error;
-  Timer? _save;
+  Timer? _saveTimer;
 
-  String get _id => '${widget.args['id']}';
+  String get _id {
+    return '${widget.arguments['id']}';
+  }
 
   @override
   void initState() {
@@ -131,45 +179,94 @@ class _WidgetAppState extends State<_WidgetApp> with WindowListener {
     super.dispose();
   }
 
-  void _kept() {
-    _save?.cancel();
-    _save = Timer(const Duration(milliseconds: 600), () async {
-      final b = await windowManager.getBounds();
-      _keep({'id': _id, 'onTop': _onTop, 'bounds': {'x': b.left, 'y': b.top, 'width': b.width, 'height': b.height}});
+  /// Keeps this widget's pin and place, a moment after it last moved.
+  void _keepPlace() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 600), () async {
+      final bounds = await windowManager.getBounds();
+      _keep({'id': _id, 'onTop': _onTop, 'bounds': {'x': bounds.left, 'y': bounds.top, 'width': bounds.width, 'height': bounds.height}});
     });
   }
 
   @override
-  void onWindowMoved() => _kept();
-  @override
-  void onWindowResized() => _kept();
+  void onWindowMoved() {
+    _keepPlace();
+  }
 
+  @override
+  void onWindowResized() {
+    _keepPlace();
+  }
+
+  /// Cleans the link in the box (or [text], put in it first), records it in the main window's
+  /// history and copies it; or says why it couldn't.
   Future<void> _fix([String? text]) async {
-    if (text != null) _field.text = text;
+    if (text != null) {
+      _field.text = text;
+    }
     try {
-      final r = cleanUrl(extractUrlFromText(_field.text) ?? _field.text);
+      String linkText;
+      final foundUrl = extractUrlFromText(_field.text);
+      if (foundUrl != null) {
+        linkText = foundUrl;
+      } else {
+        linkText = _field.text;
+      }
+      final result = cleanUrl(linkText);
       setState(() {
-        _cleaned = r.cleaned;
+        _cleaned = result.cleaned;
         _error = null;
       });
-      await DesktopMultiWindow.invokeMethod(0, 'record', {'original': _field.text.trim(), 'cleaned': r.cleaned, 'platform': r.platform});
-      await Clipboard.setData(ClipboardData(text: r.cleaned));
-    } on LinkFixError catch (e) {
+      await DesktopMultiWindow.invokeMethod(0, 'record', {'original': _field.text.trim(), 'cleaned': result.cleaned, 'platform': result.platform});
+      await Clipboard.setData(ClipboardData(text: result.cleaned));
+    } on LinkFixError catch (error) {
       setState(() {
         _cleaned = null;
-        _error = e.message;
+        _error = error.message;
       });
     }
   }
 
   Future<void> _pasteFix() async {
-    final d = await Clipboard.getData(Clipboard.kTextPlain);
-    final t = d?.text?.trim() ?? '';
-    if (t.isEmpty) {
-      setState(() => _error = 'Nothing’s copied.');
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    String copied;
+    final copiedText = data?.text;
+    if (copiedText != null) {
+      copied = copiedText.trim();
+    } else {
+      copied = '';
+    }
+    if (copied.isEmpty) {
+      setState(() {
+        _error = 'Nothing’s copied.';
+      });
       return;
     }
-    await _fix(t);
+    await _fix(copied);
+  }
+
+  /// Under the box: the clean link, the error, or what the widget does.
+  Widget _status(bool dark, Color accent, Color ink) {
+    if (_cleaned != null) {
+      Color linkColor;
+      if (dark) {
+        linkColor = accent;
+      } else {
+        linkColor = const Color(0xFF1F6B3D);
+      }
+      return Expanded(
+        child: InkWell(
+          onTap: () {
+            DesktopMultiWindow.invokeMethod(0, 'open', {'url': _cleaned});
+          },
+          child: Text('Copied: $_cleaned', maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: linkColor, fontSize: 12.5)),
+        ),
+      );
+    }
+    if (_error != null) {
+      return Text(_error!, style: const TextStyle(color: Color(0xFFFA9696), fontSize: 12.5));
+    }
+    return Text('The clean link is copied, ready to paste.', style: TextStyle(color: ink.withValues(alpha: 0.6), fontSize: 12));
   }
 
   @override
@@ -178,14 +275,35 @@ class _WidgetAppState extends State<_WidgetApp> with WindowListener {
     final mode = Store.I.get(AppLook.modeKey);
     final dark = mode != 'light';
     const accent = Color(0xFFBFF5CF);
-    final bg = dark ? const Color(0xFF1B221E) : const Color(0xFFF7FAF8);
-    final ink = dark ? const Color(0xFFEEF2EF) : const Color(0xFF121815);
+    Color background;
+    Color ink;
+    Brightness brightness;
+    if (dark) {
+      background = const Color(0xFF1B221E);
+      ink = const Color(0xFFEEF2EF);
+      brightness = Brightness.dark;
+    } else {
+      background = const Color(0xFFF7FAF8);
+      ink = const Color(0xFF121815);
+      brightness = Brightness.light;
+    }
+    String pinTooltip;
+    IconData pinIcon;
+    if (_onTop) {
+      pinTooltip = 'Unpin from the top';
+      pinIcon = Icons.push_pin;
+    } else {
+      pinTooltip = 'Pin on top of other windows';
+      pinIcon = Icons.push_pin_outlined;
+    }
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      builder: (context, child) => PointerOverButtons(child: child!),
-      theme: ThemeData(brightness: dark ? Brightness.dark : Brightness.light, colorSchemeSeed: const Color(0xFF1F6B3D), useMaterial3: true, visualDensity: VisualDensity.compact),
+      builder: (context, child) {
+        return PointerOverButtons(child: child!);
+      },
+      theme: ThemeData(brightness: brightness, colorSchemeSeed: const Color(0xFF1F6B3D), useMaterial3: true, visualDensity: VisualDensity.compact),
       home: Scaffold(
-        backgroundColor: bg,
+        backgroundColor: background,
         body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SizedBox(
             height: 30,
@@ -198,15 +316,17 @@ class _WidgetAppState extends State<_WidgetApp> with WindowListener {
                 Text('Fix a link', style: TextStyle(color: ink, fontSize: 12.5)),
                 const Spacer(),
                 IconButton(
-                  tooltip: _onTop ? 'Unpin from the top' : 'Pin on top of other windows',
+                  tooltip: pinTooltip,
                   iconSize: 15,
                   color: ink,
                   onPressed: () async {
-                    setState(() => _onTop = !_onTop);
+                    setState(() {
+                      _onTop = !_onTop;
+                    });
                     await windowManager.setAlwaysOnTop(_onTop);
-                    _kept();
+                    _keepPlace();
                   },
-                  icon: Icon(_onTop ? Icons.push_pin : Icons.push_pin_outlined),
+                  icon: Icon(pinIcon),
                 ),
                 IconButton(
                   tooltip: 'Remove this widget',
@@ -230,7 +350,9 @@ class _WidgetAppState extends State<_WidgetApp> with WindowListener {
                     child: TextField(
                       controller: _field,
                       style: TextStyle(color: ink, fontSize: 13),
-                      onSubmitted: (_) => _fix(),
+                      onSubmitted: (_) {
+                        _fix();
+                      },
                       decoration: const InputDecoration(isDense: true, hintText: 'Paste a link', border: OutlineInputBorder()),
                     ),
                   ),
@@ -243,17 +365,7 @@ class _WidgetAppState extends State<_WidgetApp> with WindowListener {
                   ),
                 ]),
                 const SizedBox(height: 8),
-                if (_cleaned != null)
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => DesktopMultiWindow.invokeMethod(0, 'open', {'url': _cleaned}),
-                      child: Text('Copied: $_cleaned', maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: dark ? accent : const Color(0xFF1F6B3D), fontSize: 12.5)),
-                    ),
-                  )
-                else if (_error != null)
-                  Text(_error!, style: const TextStyle(color: Color(0xFFFA9696), fontSize: 12.5))
-                else
-                  Text('The clean link is copied, ready to paste.', style: TextStyle(color: ink.withValues(alpha: 0.6), fontSize: 12)),
+                _status(dark, accent, ink),
               ]),
             ),
           ),

@@ -83,10 +83,10 @@ are suggestions; keep whatever the host app already calls these things.
 
 | Token | Purpose | Reference value |
 |---|---|---|
-| `--glass-btn` | Button size (square) and tab height | `44px`; `40px` at ≤ 480 px wide |
+| `--glass-button` | Button size (square) and tab height | `44px`; `40px` at ≤ 480 px wide |
 | `--edge` | Inset from the right edge, safe-area aware | `max(16px, calc(env(safe-area-inset-right) + 16px))`; `10px` variant at ≤ 480 px |
-| `--tray-top` | Distance from the top, clear of the notch and any top banner | `max(calc(var(--banner-h, 0px) + 14px), calc(env(safe-area-inset-top) + 14px))` |
-| `--banner-h` | Height of a sticky top banner, if the app has one (set from JS, §6.3) | `0px` |
+| `--tray-top` | Distance from the top, clear of the notch and any top banner | `max(calc(var(--banner-height, 0px) + 14px), calc(env(safe-area-inset-top) + 14px))` |
+| `--banner-height` | Height of a sticky top banner, if the app has one (set from JS, §6.3) | `0px` |
 | `--tray-time` | Duration of every tray animation, and of the page making room | `0.34s` |
 | `--tray-ease` | Their easing | `cubic-bezier(0.2, 0.8, 0.2, 1)` |
 | `--surface` | Glass background | light `rgba(255,255,255,.55)` / dark `rgba(255,255,255,.06)` |
@@ -167,7 +167,7 @@ Rules:
 /* The tray: tab + column. Collapsed, the whole thing shifts right until only
    the tab is left, flush with the edge. */
 .tray {
-  --tray-shift: calc(var(--glass-btn) + 8px + var(--edge));
+  --tray-shift: calc(var(--glass-button) + 8px + var(--edge));
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -180,7 +180,7 @@ Rules:
   align-items: center;
   justify-content: center;
   width: 24px;
-  height: var(--glass-btn);
+  height: var(--glass-button);
   padding: 0;
   border-radius: 12px;
   background: var(--surface);
@@ -219,8 +219,8 @@ Rules:
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--glass-btn);
-  height: var(--glass-btn);
+  width: var(--glass-button);
+  height: var(--glass-button);
   padding: 0;
   border-radius: 14px;
   background: var(--surface);
@@ -248,18 +248,18 @@ Rules:
     background 0.15s ease,
     color 0.15s ease;
   /* Only opening is staggered: the delay comes from the state being entered. */
-  transition-delay: calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), 0s, 0s, 0s;
+  transition-delay: calc(var(--index, 0) * 18ms), calc(var(--index, 0) * 18ms), calc(var(--index, 0) * 18ms), 0s, 0s, 0s;
 }
-.tray-buttons > :nth-child(2) { --i: 1; }
-.tray-buttons > :nth-child(3) { --i: 2; }
-.tray-buttons > :nth-child(4) { --i: 3; }
-.tray-buttons > :nth-child(5) { --i: 4; }
-.tray-buttons > :nth-child(6) { --i: 5; }
-.tray-buttons > :nth-child(7) { --i: 6; }
-.tray-buttons > :nth-child(8) { --i: 7; }
-.tray-buttons > :nth-child(9) { --i: 8; }
-.tray-buttons > :nth-child(10) { --i: 9; }
-.tray-buttons > :nth-child(11) { --i: 10; }
+.tray-buttons > :nth-child(2) { --index: 1; }
+.tray-buttons > :nth-child(3) { --index: 2; }
+.tray-buttons > :nth-child(4) { --index: 3; }
+.tray-buttons > :nth-child(5) { --index: 4; }
+.tray-buttons > :nth-child(6) { --index: 5; }
+.tray-buttons > :nth-child(7) { --index: 6; }
+.tray-buttons > :nth-child(8) { --index: 7; }
+.tray-buttons > :nth-child(9) { --index: 8; }
+.tray-buttons > :nth-child(10) { --index: 9; }
+.tray-buttons > :nth-child(11) { --index: 10; }
 /* Add more nth-child lines if the tray holds more than eleven items. */
 .tray.collapsed .tray-buttons > * {
   opacity: 0;
@@ -284,7 +284,7 @@ Rules:
 
 @media (max-width: 480px) {
   :root {
-    --glass-btn: 40px;
+    --glass-button: 40px;
     --edge: max(10px, calc(env(safe-area-inset-right) + 10px));
   }
 }
@@ -328,7 +328,7 @@ main, .brand {
               padding-left var(--tray-time) var(--tray-ease);
 }
 @media (max-width: 920px) {
-  body.tray-open main { padding-right: calc(var(--glass-btn) + var(--edge) + 12px); }
+  body.tray-open main { padding-right: calc(var(--glass-button) + var(--edge) + 12px); }
   /* Collapsed: the brand line alone clears the tab (24px wide) by 10px, less the
      column's own side padding (16px here). */
   body:not(.tray-open) .brand { padding-right: calc(24px + 10px - 16px); }
@@ -430,21 +430,21 @@ Each view panel is `role="tabpanel"` with `aria-labelledby="tab-<name>"`.
 ### 6.3 Sitting under a sticky top banner (optional)
 
 If the app shows a sticky banner at the top (an update prompt, an offline
-notice, a cookie bar), publish its height as `--banner-h` so the tray starts
+notice, a cookie bar), publish its height as `--banner-height` so the tray starts
 below it. `--tray-top` already takes it into account, and the `top` transition
 makes the tray glide when the banner comes or goes.
 
 ```js
 const sizer = new ResizeObserver(([entry]) => {
-  document.documentElement.style.setProperty("--banner-h", `${entry.target.offsetHeight}px`);
+  document.documentElement.style.setProperty("--banner-height", `${entry.target.offsetHeight}px`);
 });
 // When the banner is shown:   sizer.observe(bannerEl);
 // When it is removed:         sizer.disconnect();
-//                             document.documentElement.style.setProperty("--banner-h", "0px");
+//                             document.documentElement.style.setProperty("--banner-height", "0px");
 ```
 
 Give the banner a higher `z-index` than `.hud-right`. Any full-screen surface
-should start at `top: var(--banner-h, 0px)` too.
+should start at `top: var(--banner-height, 0px)` too.
 
 ### 6.4 No flash on load (recommended)
 
@@ -544,7 +544,7 @@ an effect (or use the §6.4 head script) to avoid a hydration mismatch.
 8. **Content padding.** Find the breakpoint where the column meets the tray and
    add the `body.tray-open` padding (§5.1).
 9. **Banner and safe areas.** If the app has a sticky top bar, wire
-   `--banner-h` (§6.3). Make sure the page has
+   `--banner-height` (§6.3). Make sure the page has
    `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`
    so the `env(safe-area-inset-*)` values are non-zero on notched phones.
 10. **Storage key.** Namespace it per app (`<app>.trayOpen`).

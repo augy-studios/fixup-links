@@ -17,8 +17,11 @@ def build_history_embed(user: discord.abc.User, rows, page: int) -> discord.Embe
         embed.description = 'Nothing here yet. Fix a link with /fix to get started.'
         return embed
     for row in rows:
+        platform = row['platform']
+        if not platform:
+            platform = 'General'
         embed.add_field(
-            name=row['platform'] or 'General',
+            name=platform,
             value=f"{row['original_url'][:200]}\n\N{RIGHTWARDS ARROW} {row['cleaned_url'][:200]}",
             inline=False,
         )
@@ -27,11 +30,19 @@ def build_history_embed(user: discord.abc.User, rows, page: int) -> discord.Embe
 
 class HistoryNavButton(discord.ui.DynamicItem[discord.ui.Button],
                         template=r'histnav:(?P<uid>[0-9]+):(?P<page>[0-9]+):(?P<dir>prev|next)'):
+    """Previous / Next button on a /history reply. Only the user whose history
+    it is may press it; the target page is carried in the custom_id."""
+
     def __init__(self, user_id: int, page: int, direction: str, disabled: bool = False):
-        target_page = page - 1 if direction == 'prev' else page + 1
+        if direction == 'prev':
+            target_page = page - 1
+            label = 'Previous'
+        else:
+            target_page = page + 1
+            label = 'Next'
         super().__init__(
             discord.ui.Button(
-                label='Previous' if direction == 'prev' else 'Next',
+                label=label,
                 style=discord.ButtonStyle.secondary,
                 custom_id=f'histnav:{user_id}:{target_page}:{direction}',
                 disabled=disabled,

@@ -1,19 +1,23 @@
-export default async function handler(req, res) {
-    const { url } = req.query;
+/**
+ * Follows a link's redirects and reads its page's title, for the history list:
+ * answers { finalUrl, title }. Private and loopback addresses are refused.
+ */
+export default async function handler(request, response) {
+    const { url } = request.query;
 
     if (!url) {
-        return res.status(400).json({ error: 'url param required' });
+        return response.status(400).json({ error: 'url param required' });
     }
 
     let parsed;
     try {
         parsed = new URL(url);
     } catch {
-        return res.status(400).json({ error: 'Invalid URL' });
+        return response.status(400).json({ error: 'Invalid URL' });
     }
 
     if (!['http:', 'https:'].includes(parsed.protocol)) {
-        return res.status(400).json({ error: 'Only http/https URLs supported' });
+        return response.status(400).json({ error: 'Only http/https URLs supported' });
     }
 
     // Basic SSRF protection - block private/loopback ranges
@@ -26,7 +30,7 @@ export default async function handler(req, res) {
         /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
         hostname === '::1'
     ) {
-        return res.status(400).json({ error: 'Private URLs not allowed' });
+        return response.status(400).json({ error: 'Private URLs not allowed' });
     }
 
     // YouTube aggressively blocks server-side scraping (redirects to a Google
@@ -35,7 +39,7 @@ export default async function handler(req, res) {
     const isYouTube = hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be';
 
     try {
-        const response = await fetch(url, {
+        const pageResponse = await fetch(url, {
             redirect: 'follow',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -45,7 +49,7 @@ export default async function handler(req, res) {
             signal: AbortSignal.timeout(10000),
         });
 
-        let finalUrl = response.url;
+        let finalUrl = pageResponse.url;
         let title = null;
 
         if (isYouTube) {
@@ -55,28 +59,42 @@ export default async function handler(req, res) {
                 if (new URL(finalUrl).hostname.replace(/^www\./, '') !== 'youtube.com' && !finalUrl.includes('youtu.be')) {
                     finalUrl = url;
                 }
-            } catch { finalUrl = url; }
+            } catch {
+                finalUrl = url;
+            }
 
             try {
-                const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(finalUrl)}&format=json`, {
+                const oembedResponse = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(finalUrl)}&format=json`, {
                     signal: AbortSignal.timeout(8000),
                 });
-                if (oembedRes.ok) {
-                    const oembedJson = await oembedRes.json();
-                    title = oembedJson.title || null;
+                if (oembedResponse.ok) {
+                    const oembedJson = await oembedResponse.json();
+                    if (oembedJson.title) {
+                        title = oembedJson.title;
+                    }
                 }
-            } catch {}
+            } catch {
+                // No title, then.
+            }
         } else {
-            const contentType = response.headers.get('content-type') || '';
+            let contentType = pageResponse.headers.get('content-type');
+            if (!contentType) {
+                contentType = '';
+            }
             if (contentType.includes('text/html')) {
-                const text = await response.text();
+                const text = await pageResponse.text();
                 const match = text.slice(0, 15000).match(/<title[^>]*>([^<]*)<\/title>/i);
-                if (match) title = match[1].trim() || null;
+                if (match) {
+                    const trimmedTitle = match[1].trim();
+                    if (trimmedTitle) {
+                        title = trimmedTitle;
+                    }
+                }
             }
         }
 
-        return res.json({ finalUrl, title });
+        return response.json({ finalUrl, title });
     } catch {
-        return res.status(500).json({ error: 'Failed to resolve URL' });
+        return response.status(500).json({ error: 'Failed to resolve URL' });
     }
 }

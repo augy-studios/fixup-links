@@ -15,12 +15,21 @@ class Api {
 
   static String userAgent = 'uwuFixApp/1.1';
 
+  /// A GET of one of the site's JSON endpoints: its answer as a map, or null when the server
+  /// didn't answer 200 or didn't answer with a JSON object.
   static Future<Map<String, dynamic>?> getJson(String path, {Duration timeout = const Duration(seconds: 12)}) async {
-    if (fake != null) return fake!(path);
-    final r = await http.get(Uri.parse('$site$path'), headers: {'accept': 'application/json', 'user-agent': userAgent}).timeout(timeout);
-    if (r.statusCode != 200) return null;
-    final v = jsonDecode(r.body);
-    return v is Map ? Map<String, dynamic>.from(v) : null;
+    if (fake != null) {
+      return fake!(path);
+    }
+    final response = await http.get(Uri.parse('$site$path'), headers: {'accept': 'application/json', 'user-agent': userAgent}).timeout(timeout);
+    if (response.statusCode != 200) {
+      return null;
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+    return null;
   }
 
   /// For tests: answers posts instead of the network (throw an ApiError to refuse one).
@@ -29,17 +38,28 @@ class Api {
   /// A JSON post (Report a bug's /api/bug-report): its answer, or an ApiError with the server's
   /// status and its "error", if it said one.
   static Future<Map<String, dynamic>?> post(String path, Map<String, dynamic> body, {Duration timeout = const Duration(seconds: 45)}) async {
-    if (fakePost != null) return fakePost!(path, body);
-    final r = await http
+    if (fakePost != null) {
+      return fakePost!(path, body);
+    }
+    final response = await http
         .post(Uri.parse('$site$path'), headers: {'accept': 'application/json', 'content-type': 'application/json', 'user-agent': userAgent}, body: jsonEncode(body))
         .timeout(timeout);
-    Object? v;
+    Object? decoded;
     try {
-      v = jsonDecode(r.body);
+      decoded = jsonDecode(response.body);
     } catch (_) {}
-    final m = v is Map ? Map<String, dynamic>.from(v) : null;
-    if (r.statusCode < 200 || r.statusCode >= 300) throw ApiError(r.statusCode, m?['error'] is String ? m!['error'] as String : '');
-    return m;
+    Map<String, dynamic>? answer;
+    if (decoded is Map) {
+      answer = Map<String, dynamic>.from(decoded);
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      var errorMessage = '';
+      if (answer?['error'] is String) {
+        errorMessage = answer!['error'] as String;
+      }
+      throw ApiError(response.statusCode, errorMessage);
+    }
+    return answer;
   }
 }
 
@@ -49,7 +69,9 @@ class ApiError implements Exception {
   final String message;
 
   @override
-  String toString() => 'ApiError($status, $message)';
+  String toString() {
+    return 'ApiError($status, $message)';
+  }
 }
 
 /// A link's page title and where it really goes, or null (offline, or nothing to say): script.js's
@@ -57,10 +79,20 @@ class ApiError implements Exception {
 Future<({String? title, String? finalUrl})?> fetchMetadata(String url) async {
   try {
     final json = await Api.getJson('/api/resolve?url=${Uri.encodeComponent(url)}');
-    if (json == null) return null;
-    final title = json['title'] is String && (json['title'] as String).isNotEmpty ? json['title'] as String : null;
-    final finalUrl = json['finalUrl'] is String && (json['finalUrl'] as String).isNotEmpty ? json['finalUrl'] as String : null;
-    if (title == null && finalUrl == null) return null;
+    if (json == null) {
+      return null;
+    }
+    String? title;
+    if (json['title'] is String && (json['title'] as String).isNotEmpty) {
+      title = json['title'] as String;
+    }
+    String? finalUrl;
+    if (json['finalUrl'] is String && (json['finalUrl'] as String).isNotEmpty) {
+      finalUrl = json['finalUrl'] as String;
+    }
+    if (title == null && finalUrl == null) {
+      return null;
+    }
     return (title: title, finalUrl: finalUrl);
   } catch (_) {
     return null;

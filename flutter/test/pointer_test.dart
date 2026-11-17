@@ -7,9 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uwufix/widgets/pointer.dart';
 
 void main() {
-  testWidgets('the hand over what can be clicked, and only there', (t) async {
-    await t.pumpWidget(MaterialApp(
-      builder: (context, child) => PointerOverButtons(child: child!),
+  testWidgets('the hand over what can be clicked, and only there', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) {
+        return PointerOverButtons(child: child!);
+      },
       home: Scaffold(
         body: Row(children: [
           NavigationRail(
@@ -35,24 +37,24 @@ void main() {
         ]),
       ),
     ));
-    final mouse = await t.createGesture(kind: PointerDeviceKind.mouse);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     addTearDown(mouse.removePointer);
-    Future<MouseCursor?> over(Finder f) async {
-      await mouse.moveTo(t.getCenter(f));
-      await t.pump();
-      await t.pump();
+    Future<MouseCursor?> cursorOver(Finder finder) async {
+      await mouse.moveTo(tester.getCenter(finder));
+      await tester.pump();
+      await tester.pump();
       return RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1);
     }
 
-    expect(await over(find.text('History')), SystemMouseCursors.click);
-    expect(await over(find.byIcon(Icons.history)), SystemMouseCursors.click);
-    expect(await over(find.text('On')), SystemMouseCursors.click);
-    expect(await over(find.byIcon(Icons.copy)), SystemMouseCursors.click);
-    expect(await over(find.text('Ink')), SystemMouseCursors.click);
-    expect(await over(find.byType(Switch)), SystemMouseCursors.click);
-    expect(await over(find.text('Off')), SystemMouseCursors.basic);
-    expect(await over(find.text('Plain')), SystemMouseCursors.basic);
-    expect(await over(find.byType(TextField)), SystemMouseCursors.text);
+    expect(await cursorOver(find.text('History')), SystemMouseCursors.click);
+    expect(await cursorOver(find.byIcon(Icons.history)), SystemMouseCursors.click);
+    expect(await cursorOver(find.text('On')), SystemMouseCursors.click);
+    expect(await cursorOver(find.byIcon(Icons.copy)), SystemMouseCursors.click);
+    expect(await cursorOver(find.text('Ink')), SystemMouseCursors.click);
+    expect(await cursorOver(find.byType(Switch)), SystemMouseCursors.click);
+    expect(await cursorOver(find.text('Off')), SystemMouseCursors.basic);
+    expect(await cursorOver(find.text('Plain')), SystemMouseCursors.basic);
+    expect(await cursorOver(find.byType(TextField)), SystemMouseCursors.text);
   });
 }

@@ -19,9 +19,14 @@ import 'features/update/update_bar.dart';
 import 'native/native_bridge.dart';
 import 'theme/theme.dart';
 
-Future<void> main(List<String> args) async {
+/// The app's start on Android: opens the store and the native bridge, brings the WebView app's
+/// data across once, shows the app, then listens for links, pushes and updates. The desktop has
+/// its own start (desktop/desktop.dart).
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (onDesktop) return desktopMain(args);
+  if (onDesktop) {
+    return desktopMain(arguments);
+  }
 
   await Store.open();
   await Native.start();
@@ -29,19 +34,31 @@ Future<void> main(List<String> args) async {
   final migrated = await Migrate.run();
   await AppLook.I.readDevice();
   runApp(const UwuFixApp());
-  if (isQuick) return;
+  if (isQuick) {
+    return;
+  }
 
   // What the app was opened with (a site link, a uwu://fix/ link, a notification), then and later.
   var openedByLink = false;
-  Native.on('Fixup', 'open', (d) {
+  Native.on('Fixup', 'open', (data) {
     openedByLink = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => Links.open('${d['url'] ?? ''}'));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      var openedUrl = '';
+      if (data['url'] != null) {
+        openedUrl = '${data['url']}';
+      }
+      Links.open(openedUrl);
+    });
   });
   listenForPushes();
   AppUpdate.I.start();
   // A link that opened the app came for that, not a tour.
-  Timer(const Duration(milliseconds: 900), () => Tours.init(openedByLink: openedByLink));
+  Timer(const Duration(milliseconds: 900), () {
+    Tours.init(openedByLink: openedByLink);
+  });
   if (migrated > 0) {
-    Timer(const Duration(milliseconds: 600), () => AppNav.say('Your history and settings are here from before.', duration: const Duration(seconds: 5)));
+    Timer(const Duration(milliseconds: 600), () {
+      AppNav.say('Your history and settings are here from before.', duration: const Duration(seconds: 5));
+    });
   }
 }

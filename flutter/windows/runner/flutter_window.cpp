@@ -25,11 +25,13 @@ constexpr int kBackdropMica = 2;           // DWMSBT_MAINWINDOW
 // Windows' build number, as it is (GetVersionEx says what the manifest asks for).
 DWORD WindowsBuild() {
   using RtlGetVersion = LONG(WINAPI*)(PRTL_OSVERSIONINFOW);
-  auto get = reinterpret_cast<RtlGetVersion>(
+  auto get_version = reinterpret_cast<RtlGetVersion>(
       GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion"));
   RTL_OSVERSIONINFOW info{};
   info.dwOSVersionInfoSize = sizeof(info);
-  if (get == nullptr || get(&info) != 0) return 0;
+  if (get_version == nullptr || get_version(&info) != 0) {
+    return 0;
+  }
   return info.dwBuildNumber;
 }
 
@@ -80,12 +82,16 @@ bool FlutterWindow::OnCreate() {
     }
     bool on = false;
     bool dark = false;
-    if (const auto* args = std::get_if<flutter::EncodableMap>(call.arguments())) {
-      auto flag = [args](const char* key) {
-        auto it = args->find(flutter::EncodableValue(key));
-        if (it == args->end()) return false;
-        const auto* b = std::get_if<bool>(&it->second);
-        return b != nullptr && *b;
+    const auto* arguments = std::get_if<flutter::EncodableMap>(call.arguments());
+    if (arguments != nullptr) {
+      // Whether the arguments hold `true` under the key; false when the key is missing or not a bool.
+      auto flag = [arguments](const char* key) {
+        auto entry = arguments->find(flutter::EncodableValue(key));
+        if (entry == arguments->end()) {
+          return false;
+        }
+        const auto* value = std::get_if<bool>(&entry->second);
+        return value != nullptr && *value;
       };
       on = flag("on");
       dark = flag("dark");
@@ -109,28 +115,45 @@ bool FlutterWindow::OnCreate() {
 // the Dart side asks again after each.
 bool FlutterWindow::SetBackdrop(bool on, bool dark) {
   HWND window = GetHandle();
-  if (window == nullptr) return false;
-  BOOL dark_mode = dark ? TRUE : FALSE;
+  if (window == nullptr) {
+    return false;
+  }
+  BOOL dark_mode = FALSE;
+  if (dark) {
+    dark_mode = TRUE;
+  }
   DwmSetWindowAttribute(window, kImmersiveDarkMode, &dark_mode, sizeof(dark_mode));
   const DWORD build = WindowsBuild();
   const bool mica = on && build >= 22000;
-  MARGINS margins = mica ? MARGINS{-1, -1, -1, -1} : MARGINS{0, 0, 0, 0};
+  MARGINS margins = MARGINS{0, 0, 0, 0};
+  if (mica) {
+    margins = MARGINS{-1, -1, -1, -1};
+  }
   DwmExtendFrameIntoClientArea(window, &margins);
   // With the frame over the whole window DWM would draw its own minimise, maximise and close
   // behind the app's clear title bar, which has buttons of its own: without the system menu it
   // draws none.
   const LONG_PTR style = GetWindowLongPtr(window, GWL_STYLE);
-  const LONG_PTR want = mica ? (style & ~static_cast<LONG_PTR>(WS_SYSMENU)) : (style | WS_SYSMENU);
-  if (want != style) {
-    SetWindowLongPtr(window, GWL_STYLE, want);
+  LONG_PTR wanted_style = style | WS_SYSMENU;
+  if (mica) {
+    wanted_style = style & ~static_cast<LONG_PTR>(WS_SYSMENU);
+  }
+  if (wanted_style != style) {
+    SetWindowLongPtr(window, GWL_STYLE, wanted_style);
     SetWindowPos(window, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
   }
   if (build >= 22621) {
-    int type = mica ? kBackdropMica : kBackdropAuto;
+    int type = kBackdropAuto;
+    if (mica) {
+      type = kBackdropMica;
+    }
     DwmSetWindowAttribute(window, kSystemBackdropType, &type, sizeof(type));
   } else if (build >= 22000) {
-    BOOL effect = mica ? TRUE : FALSE;
+    BOOL effect = FALSE;
+    if (mica) {
+      effect = TRUE;
+    }
     DwmSetWindowAttribute(window, kMicaEffect, &effect, sizeof(effect));
   }
   return mica;
@@ -161,6 +184,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       std::string line;
       while (std::getline(lines, line, '\n')) {
         if (line.rfind("--task=", 0) == 0) {
+          // The task's name, after the 7 characters of "--task=".
           task = line.substr(7);
         } else if (!line.empty()) {
           links.push_back(flutter::EncodableValue(line));

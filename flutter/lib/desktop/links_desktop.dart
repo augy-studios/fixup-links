@@ -24,8 +24,8 @@ const _hosts = {'fix', 'fixup'};
 
 /// A uwu:// link for another app, not this one.
 bool isOthersLink(String link) {
-  final m = RegExp(r'^uwu://([^/?#]*)', caseSensitive: false).firstMatch(link);
-  return m != null && !_hosts.contains(m.group(1)!.toLowerCase());
+  final match = RegExp(r'^uwu://([^/?#]*)', caseSensitive: false).firstMatch(link);
+  return match != null && !_hosts.contains(match.group(1)!.toLowerCase());
 }
 
 /// A link to open: this app's, or another's passed on. Whether it was this app's.
@@ -37,25 +37,37 @@ bool handleLink(String link) {
   return Links.open(link);
 }
 
-String get _exe => Platform.environment['APPIMAGE'] ?? Platform.resolvedExecutable;
+/// The program to register: the AppImage file when running from one, else the executable.
+String get _executable {
+  final appImage = Platform.environment['APPIMAGE'];
+  if (appImage != null) {
+    return appImage;
+  }
+  return Platform.resolvedExecutable;
+}
 
 void registerLinkScheme() {
   try {
-    if (Platform.isWindows) _registerWindows();
-    if (Platform.isLinux) _registerLinux();
+    if (Platform.isWindows) {
+      _registerWindows();
+    }
+    if (Platform.isLinux) {
+      _registerLinux();
+    }
   } catch (_) {
     // Links just don't open the app; nothing else depends on it.
   }
 }
 
+/// Points HKCU\Software\Classes\uwu at this app, noting the app that held it before.
 void _registerWindows() {
-  final ours = '"$_exe" "%1"';
+  final ours = '"$_executable" "%1"';
   final key = Registry.openPath(RegistryHive.currentUser, path: r'Software\Classes', desiredAccessRights: AccessRights.allAccess);
   final uwu = key.createKey('uwu');
   final command = uwu.createKey(r'shell\open\command');
   final before = command.getStringValue('');
-  if (before != null && before.isNotEmpty && before != ours && !before.contains(_exe)) {
-    DeskSettings.set('linkHandoff', {'command': before});
+  if (before != null && before.isNotEmpty && before != ours && !before.contains(_executable)) {
+    DesktopSettings.set('linkHandoff', {'command': before});
   }
   uwu.createValue(const RegistryValue.string('', 'URL:uwu'));
   uwu.createValue(const RegistryValue.string('URL Protocol', ''));
@@ -66,41 +78,82 @@ void _registerWindows() {
 }
 
 void _registerLinux() {
-  final r = Process.runSync('xdg-mime', ['query', 'default', 'x-scheme-handler/uwu']);
-  final now = '${r.stdout}'.trim();
-  if (now.isNotEmpty && now != 'uwufix.desktop') DeskSettings.set('linkHandoff', {'desktop': now});
+  final result = Process.runSync('xdg-mime', ['query', 'default', 'x-scheme-handler/uwu']);
+  final current = '${result.stdout}'.trim();
+  if (current.isNotEmpty && current != 'uwufix.desktop') {
+    DesktopSettings.set('linkHandoff', {'desktop': current});
+  }
   Process.runSync('xdg-mime', ['default', 'uwufix.desktop', 'x-scheme-handler/uwu']);
 }
 
+/// Hands [link] to the app that held the scheme before this one, as its own command line would.
 void _passOn(String link) {
-  final h = DeskSettings.get('linkHandoff');
-  if (h is! Map) return;
+  final handoff = DesktopSettings.get('linkHandoff');
+  if (handoff is! Map) {
+    return;
+  }
   try {
-    if (Platform.isWindows && h['command'] is String) {
-      final parts = _split(h['command'] as String);
-      if (parts.isEmpty) return;
-      final args = [for (final a in parts.skip(1)) a == '%1' || a == '%L' ? link : a];
-      if (!args.contains(link)) args.add(link);
-      Process.start(parts.first, args, mode: ProcessStartMode.detached);
-    } else if (Platform.isLinux && h['desktop'] is String) {
-      final exec = _execOf(h['desktop'] as String);
-      if (exec == null) return;
-      final parts = _split(exec);
-      final args = [for (final a in parts.skip(1)) if (!RegExp(r'^%[fFuUdDnNickvm]$').hasMatch(a) || a == '%u' || a == '%U') (a == '%u' || a == '%U') ? link : a];
-      if (!args.contains(link)) args.add(link);
-      Process.start(parts.first, args, mode: ProcessStartMode.detached);
+    if (Platform.isWindows && handoff['command'] is String) {
+      final parts = _split(handoff['command'] as String);
+      if (parts.isEmpty) {
+        return;
+      }
+      // The registry's %1 (or %L) is where the link goes.
+      final arguments = <String>[];
+      for (final argument in parts.skip(1)) {
+        if (argument == '%1' || argument == '%L') {
+          arguments.add(link);
+        } else {
+          arguments.add(argument);
+        }
+      }
+      if (!arguments.contains(link)) {
+        arguments.add(link);
+      }
+      Process.start(parts.first, arguments, mode: ProcessStartMode.detached);
+    } else if (Platform.isLinux && handoff['desktop'] is String) {
+      final commandLine = _commandLineOf(handoff['desktop'] as String);
+      if (commandLine == null) {
+        return;
+      }
+      final parts = _split(commandLine);
+      // A desktop file's %u or %U is where the link goes; its other field codes are dropped.
+      final arguments = <String>[];
+      for (final argument in parts.skip(1)) {
+        final isUrlCode = argument == '%u' || argument == '%U';
+        final isFieldCode = RegExp(r'^%[fFuUdDnNickvm]$').hasMatch(argument);
+        if (isUrlCode) {
+          arguments.add(link);
+        } else if (!isFieldCode) {
+          arguments.add(argument);
+        }
+      }
+      if (!arguments.contains(link)) {
+        arguments.add(link);
+      }
+      Process.start(parts.first, arguments, mode: ProcessStartMode.detached);
     }
   } catch (_) {}
 }
 
-String? _execOf(String desktop) {
-  final home = Platform.environment['HOME'] ?? '';
-  final dirs = ['$home/.local/share/applications', '/usr/local/share/applications', '/usr/share/applications'];
-  for (final d in dirs) {
-    final f = File('$d/$desktop');
-    if (!f.existsSync()) continue;
-    for (final line in f.readAsLinesSync()) {
-      if (line.startsWith('Exec=')) return line.substring(5);
+/// The command line (its Exec line) of the desktop file named [desktop], from wherever it's installed, or null.
+String? _commandLineOf(String desktop) {
+  String home;
+  if (Platform.environment['HOME'] != null) {
+    home = Platform.environment['HOME']!;
+  } else {
+    home = '';
+  }
+  final directories = ['$home/.local/share/applications', '/usr/local/share/applications', '/usr/share/applications'];
+  for (final directory in directories) {
+    final file = File('$directory/$desktop');
+    if (!file.existsSync()) {
+      continue;
+    }
+    for (final line in file.readAsLinesSync()) {
+      if (line.startsWith('Exec=')) {
+        return line.substring(5);
+      }
     }
   }
   return null;
@@ -108,19 +161,23 @@ String? _execOf(String desktop) {
 
 /// A command line split as Windows and desktop files quote it.
 List<String> _split(String command) {
-  final out = <String>[];
-  final b = StringBuffer();
+  final parts = <String>[];
+  final buffer = StringBuffer();
   var quoted = false;
-  for (final ch in command.split('')) {
-    if (ch == '"') {
+  for (final character in command.split('')) {
+    if (character == '"') {
       quoted = !quoted;
-    } else if (ch == ' ' && !quoted) {
-      if (b.isNotEmpty) out.add(b.toString());
-      b.clear();
+    } else if (character == ' ' && !quoted) {
+      if (buffer.isNotEmpty) {
+        parts.add(buffer.toString());
+      }
+      buffer.clear();
     } else {
-      b.write(ch);
+      buffer.write(character);
     }
   }
-  if (b.isNotEmpty) out.add(b.toString());
-  return out;
+  if (buffer.isNotEmpty) {
+    parts.add(buffer.toString());
+  }
+  return parts;
 }

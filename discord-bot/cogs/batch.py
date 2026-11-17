@@ -13,6 +13,8 @@ from cogs.fix import do_fix
 
 
 class CopyAllButton(discord.ui.DynamicItem[discord.ui.Button], template=r'copyall:(?P<id>[0-9]+)'):
+    """Sends every cleaned URL from one /batch call in a private code block."""
+
     def __init__(self, batch_id: int):
         super().__init__(
             discord.ui.Button(
@@ -49,9 +51,14 @@ class BatchCog(commands.Cog):
     @app_commands.allowed_installs(guilds=True, users=True)
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def batch(self, interaction: discord.Interaction, links: str):
+        """Cleans each link in the input, records it, and replies with one
+        embed listing every result plus a Copy All button."""
         await interaction.response.defer(thinking=True)
 
-        urls = [u for u in re.split(r'\s+', links.strip()) if u]
+        urls = []
+        for word in re.split(r'\s+', links.strip()):
+            if word:
+                urls.append(word)
         # The reply carries 1 "Copy All" button and Discord caps a message at
         # 25 components total, so never process more than 25 - 1 = 24 links
         # regardless of what MAX_BATCH_LINKS is configured to.
@@ -86,8 +93,10 @@ class BatchCog(commands.Cog):
         if cleaned_urls:
             batch_id = await db.add_batch_result(self.bot.db, user_id=interaction.user.id, cleaned_urls=cleaned_urls)
             view.add_item(CopyAllButton(batch_id))
+        else:
+            view = None
 
-        await interaction.followup.send(embed=embed, view=view if cleaned_urls else None)
+        await interaction.followup.send(embed=embed, view=view)
 
 
 async def setup(bot: commands.Bot):

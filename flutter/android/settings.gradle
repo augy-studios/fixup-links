@@ -3,7 +3,9 @@
 pluginManagement {
     def flutterSdkPath = {
         def properties = new Properties()
-        file("local.properties").withInputStream { properties.load(it) }
+        file("local.properties").withInputStream { stream ->
+            properties.load(stream)
+        }
         def path = properties.getProperty("flutter.sdk")
         assert path != null, "flutter.sdk not set in local.properties: run `flutter pub get` in flutter/ first"
         return path

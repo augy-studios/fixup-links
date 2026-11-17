@@ -15,16 +15,22 @@
 
 import { allReleases } from './_release.js';
 
-export default async function handler(req, res) {
+export default async function handler(request, response) {
   let releases;
   try {
     releases = await allReleases();
-  } catch (err) {
-    console.error('app-release:', err.message);
-    return res.status(502).json({ error: "Couldn't reach GitHub" });
+  } catch (error) {
+    console.error('app-release:', error.message);
+    return response.status(502).json({ error: "Couldn't reach GitHub" });
   }
 
-  const history = releases.map(({ version, date, summary, notes, page }) => ({ version, date, summary, notes, page }));
-  res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
-  return res.status(200).json(releases[0] ? { ...releases[0], history } : { version: null, history });
+  const history = [];
+  for (const { version, date, summary, notes, page } of releases) {
+    history.push({ version, date, summary, notes, page });
+  }
+  response.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+  if (releases[0]) {
+    return response.status(200).json({ ...releases[0], history });
+  }
+  return response.status(200).json({ version: null, history });
 }

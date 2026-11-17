@@ -49,24 +49,37 @@ import 'updater.dart';
 import 'welcome.dart';
 import 'widgets_window.dart';
 
+/// The desktop app's own state and window actions: show, hide, quit, and where the window was.
 class Desktop {
   Desktop._();
 
   static const name = 'uwuFix';
   static const appId = 'org.uwuapps.fixup';
   static String version = '';
-  static String get userAgent => 'uwuFixDesktop/$version (+$site)';
+  static String get userAgent {
+    return 'uwuFixDesktop/$version (+$site)';
+  }
 
-  static bool get mac => Platform.isMacOS;
-  static bool get windows => Platform.isWindows;
-  static bool get linux => Platform.isLinux;
+  static bool get mac {
+    return Platform.isMacOS;
+  }
+
+  static bool get windows {
+    return Platform.isWindows;
+  }
+
+  static bool get linux {
+    return Platform.isLinux;
+  }
 
   /// Running from `flutter run` or straight from the build folder, not an installed copy: nothing
   /// is registered with the system then (start at sign-in, the uwu:// scheme), and nothing updates.
   static bool get fromSource {
-    if (!kReleaseMode) return true;
-    final sep = Platform.pathSeparator;
-    return Platform.resolvedExecutable.contains('${sep}build$sep') && !Platform.environment.containsKey('APPIMAGE');
+    if (!kReleaseMode) {
+      return true;
+    }
+    final separator = Platform.pathSeparator;
+    return Platform.resolvedExecutable.contains('${separator}build$separator') && !Platform.environment.containsKey('APPIMAGE');
   }
 
   /// Quitting for real: closing the window then lets it go.
@@ -76,24 +89,30 @@ class Desktop {
 
   static const channel = MethodChannel('org.uwuapps.fixup/desktop');
 
-  static const minSize = Size(360, 520);
+  static const minimumSize = Size(360, 520);
   static const defaultSize = Size(1120, 760);
 
   static Future<void> show() async {
     await windowManager.show();
-    if (await windowManager.isMinimized()) await windowManager.restore();
+    if (await windowManager.isMinimized()) {
+      await windowManager.restore();
+    }
     await windowManager.focus();
   }
 
+  /// Hides the window to the tray, saying so by notification the first time.
   static Future<void> hide() async {
     await keepBounds();
     await windowManager.hide();
-    if (DeskSettings.get('trayHintShown') != true) {
-      DeskSettings.set('trayHintShown', true);
-      DeskNotify.show(
-        'uwuFix is still running',
-        mac ? 'It stays in the menu bar. Quit it from the menu bar icon, or with ⌘Q.' : 'It stays in the tray, ready for the next link. Quit it from the tray icon.',
-      );
+    if (DesktopSettings.get('trayHintShown') != true) {
+      DesktopSettings.set('trayHintShown', true);
+      String body;
+      if (mac) {
+        body = 'It stays in the menu bar. Quit it from the menu bar icon, or with ⌘Q.';
+      } else {
+        body = 'It stays in the tray, ready for the next link. Quit it from the tray icon.';
+      }
+      DesktopNotify.show('uwuFix is still running', body);
     }
   }
 
@@ -122,31 +141,55 @@ class Desktop {
   /// The main window's un-maximised size and place, and whether it was maximised.
   static Future<void> keepBounds() async {
     try {
-      final max = await windowManager.isMaximized();
-      final full = await windowManager.isFullScreen();
-      final m = <String, Object?>{'maximized': max};
-      if (!max && !full) {
-        final b = await windowManager.getBounds();
-        m['bounds'] = {'x': b.left, 'y': b.top, 'width': b.width, 'height': b.height};
+      final maximized = await windowManager.isMaximized();
+      final fullScreen = await windowManager.isFullScreen();
+      final kept = <String, Object?>{'maximized': maximized};
+      if (!maximized && !fullScreen) {
+        final bounds = await windowManager.getBounds();
+        kept['bounds'] = {'x': bounds.left, 'y': bounds.top, 'width': bounds.width, 'height': bounds.height};
       }
-      DeskSettings.merge(m);
+      DesktopSettings.merge(kept);
     } catch (_) {}
   }
 
   /// A link the app was opened with, or that a second copy passed on.
   static void openLink(String link) {
-    if (!handleLink(link)) return;
+    if (!handleLink(link)) {
+      return;
+    }
     show();
   }
 }
 
+/// Whether [text] is a link the app opens: a uwu: or web address.
+bool _isLink(String text) {
+  return text.startsWith('uwu:') || text.startsWith('http');
+}
+
 /// Where the app starts on the desktop: a widget's window, or the app itself.
-Future<void> desktopMain(List<String> args) async {
+Future<void> desktopMain(List<String> arguments) async {
   // desktop_multi_window starts each extra window as `main(['multi_window', id, json])`.
-  if (args.isNotEmpty && args.first == 'multi_window') {
-    final id = int.tryParse(args.length > 1 ? args[1] : '') ?? 0;
-    final extra = args.length > 2 && args[2].isNotEmpty ? Map<String, dynamic>.from(jsonDecode(args[2]) as Map) : <String, dynamic>{};
-    await runWidgetWindow(id, extra);
+  if (arguments.isNotEmpty && arguments.first == 'multi_window') {
+    String idText;
+    if (arguments.length > 1) {
+      idText = arguments[1];
+    } else {
+      idText = '';
+    }
+    int windowId;
+    final parsedId = int.tryParse(idText);
+    if (parsedId != null) {
+      windowId = parsedId;
+    } else {
+      windowId = 0;
+    }
+    Map<String, dynamic> extra;
+    if (arguments.length > 2 && arguments[2].isNotEmpty) {
+      extra = Map<String, dynamic>.from(jsonDecode(arguments[2]) as Map);
+    } else {
+      extra = <String, dynamic>{};
+    }
+    await runWidgetWindow(windowId, extra);
     return;
   }
 
@@ -158,24 +201,41 @@ Future<void> desktopMain(List<String> args) async {
   await Native.start();
   await AppLook.I.readDevice();
   await windowManager.ensureInitialized();
-  GlassWindow.I.start();
-  await DeskNotify.init(shortcut: !Desktop.fromSource);
-  if (!Desktop.fromSource) registerLinkScheme();
+  GlassWindow.instance.start();
+  await DesktopNotify.init(shortcut: !Desktop.fromSource);
+  if (!Desktop.fromSource) {
+    registerLinkScheme();
+  }
   await _startAtSignIn();
 
-  final updater = Desktop.updater = DesktopUpdater(info.version);
+  final updater = DesktopUpdater(info.version);
+  Desktop.updater = updater;
   AppUpdate.desktop = updater;
 
   // Links from a second copy, the Dock, the Jump List and macOS's URL events (the runners).
   Desktop.channel.setMethodCallHandler((call) async {
     switch (call.method) {
       case 'open':
-        final a = call.arguments;
-        final links = a is List ? a.map((e) => '$e') : ['$a'];
-        for (final l in links) {
-          if (l.startsWith('uwu:') || l.startsWith('http')) Desktop.openLink(l);
+        final callArguments = call.arguments;
+        final links = <String>[];
+        if (callArguments is List) {
+          for (final argument in callArguments) {
+            links.add('$argument');
+          }
+        } else {
+          links.add('$callArguments');
         }
-        if (links.every((l) => !l.startsWith('uwu:') && !l.startsWith('http'))) await Desktop.show();
+        var anyLink = false;
+        for (final link in links) {
+          if (_isLink(link)) {
+            anyLink = true;
+            Desktop.openLink(link);
+          }
+        }
+        // Nothing to open: just the window, brought forward.
+        if (!anyLink) {
+          await Desktop.show();
+        }
       case 'activate':
         await Desktop.show();
       case 'task':
@@ -184,13 +244,17 @@ Future<void> desktopMain(List<String> args) async {
     }
     return null;
   });
-  DeskNotify.onClick = (payload) async {
+  DesktopNotify.onClick = (payload) async {
     await Desktop.show();
     switch (payload) {
       case 'update':
-        if (updater.ready) await updater.install();
+        if (updater.ready) {
+          await updater.install();
+        }
       case 'release':
-        await Native.call('Fixup', 'open', {'url': releasesLatest}).catchError((_) => null);
+        await Native.call('Fixup', 'open', {'url': releasesLatest}).catchError((_) {
+          return null;
+        });
       default:
         if (payload != null && payload.startsWith('file:')) {
           await revealFile(payload.substring(5));
@@ -200,25 +264,42 @@ Future<void> desktopMain(List<String> args) async {
     }
   };
 
-  final launchLinks = args.where((a) => a.startsWith('uwu:') || a.startsWith('http')).toList();
+  final launchLinks = <String>[];
+  String? task;
+  for (final argument in arguments) {
+    if (_isLink(argument)) {
+      launchLinks.add(argument);
+    }
+  }
   // A link for one of UwU Apps' other apps, which only started this copy to pass it on.
   if (launchLinks.isNotEmpty && launchLinks.every(isOthersLink)) {
-    for (final l in launchLinks) {
-      handleLink(l);
+    for (final link in launchLinks) {
+      handleLink(link);
     }
     exit(0);
   }
   // A Jump List task (Windows) or Dock item (macOS) that started the app.
-  final task = args.where((a) => a.startsWith('--task=')).map((a) => a.substring(7)).firstOrNull;
+  for (final argument in arguments) {
+    if (argument.startsWith('--task=')) {
+      task = argument.substring(7);
+      break;
+    }
+  }
   runApp(DesktopRoot(launchLinks: launchLinks, launchTask: task));
 }
 
 Future<void> _startAtSignIn() async {
   try {
     final appImage = Platform.environment['APPIMAGE'];
-    launchAtStartup.setup(appName: Desktop.name, appPath: appImage ?? Platform.resolvedExecutable, packageName: Desktop.appId);
+    String appPath;
+    if (appImage != null) {
+      appPath = appImage;
+    } else {
+      appPath = Platform.resolvedExecutable;
+    }
+    launchAtStartup.setup(appName: Desktop.name, appPath: appPath, packageName: Desktop.appId);
     // On from the first run of an installed copy; the person's choice sticks once made.
-    if (!Desktop.fromSource && DeskSettings.get('loginChosen') != true && !await launchAtStartup.isEnabled()) {
+    if (!Desktop.fromSource && DesktopSettings.get('loginChosen') != true && !await launchAtStartup.isEnabled()) {
       await launchAtStartup.enable();
     }
   } catch (_) {}
@@ -232,10 +313,14 @@ Future<bool> startsAtSignIn() async {
   }
 }
 
-Future<void> setStartAtSignIn(bool on) async {
-  DeskSettings.set('loginChosen', true);
+Future<void> setStartAtSignIn(bool enabled) async {
+  DesktopSettings.set('loginChosen', true);
   try {
-    on ? await launchAtStartup.enable() : await launchAtStartup.disable();
+    if (enabled) {
+      await launchAtStartup.enable();
+    } else {
+      await launchAtStartup.disable();
+    }
   } catch (_) {}
 }
 
@@ -277,7 +362,9 @@ class DesktopRoot extends StatefulWidget {
   static DesktopRootState? state;
 
   @override
-  State<DesktopRoot> createState() => DesktopRootState();
+  State<DesktopRoot> createState() {
+    return DesktopRootState();
+  }
 }
 
 class DesktopRootState extends State<DesktopRoot> with WindowListener {
@@ -304,7 +391,7 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
     await windowManager.setPreventClose(true);
     await windowManager.setTitle(Desktop.name);
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
-    await GlassWindow.I.apply(again: true);
+    await GlassWindow.instance.apply(again: true);
     await windowManager.setResizable(false);
     await windowManager.setMinimumSize(const Size(300, 360));
     await windowManager.setSize(const Size(300, 360));
@@ -316,7 +403,7 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
 
   /// The update window said what it found: Make it yours the first time, then the main window.
   Future<void> splashDone() async {
-    if (DeskSettings.get('setupDone') != true) {
+    if (DesktopSettings.get('setupDone') != true) {
       await showWelcome();
       return;
     }
@@ -325,110 +412,161 @@ class DesktopRootState extends State<DesktopRoot> with WindowListener {
 
   Future<void> showWelcome() async {
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: Desktop.mac);
-    await GlassWindow.I.apply(again: true);
+    await GlassWindow.instance.apply(again: true);
     await windowManager.setResizable(true);
     await windowManager.setMinimumSize(const Size(620, 560));
-    if (await windowManager.isMaximized()) await windowManager.unmaximize();
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    }
     await windowManager.setSize(const Size(940, 660));
     await windowManager.center();
-    setState(() => _phase = 'welcome');
+    setState(() {
+      _phase = 'welcome';
+    });
     await windowManager.show();
   }
 
   /// Make it yours closed, either way: seen, and on to the app.
   Future<void> welcomeDone() async {
-    DeskSettings.set('setupDone', true);
+    DesktopSettings.set('setupDone', true);
     await _mainWindow();
   }
 
+  /// The main window: where it was last (if that's still on a screen), maximised unless it
+  /// wasn't, then the tray, update checks, and whatever the app was launched with.
   Future<void> _mainWindow() async {
     if (_phase == 'main') {
       await Desktop.show();
       return;
     }
     await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: Desktop.mac);
-    await GlassWindow.I.apply(again: true);
+    await GlassWindow.instance.apply(again: true);
     await windowManager.setResizable(true);
-    await windowManager.setMinimumSize(Desktop.minSize);
-    final s = DeskSettings.read();
-    final b = s['bounds'];
-    if (b is Map && await _onScreen(b)) {
-      await windowManager.setBounds(Rect.fromLTWH((b['x'] as num).toDouble(), (b['y'] as num).toDouble(), (b['width'] as num).toDouble(), (b['height'] as num).toDouble()));
+    await windowManager.setMinimumSize(Desktop.minimumSize);
+    final settings = DesktopSettings.read();
+    final bounds = settings['bounds'];
+    if (bounds is Map && await _onScreen(bounds)) {
+      await windowManager.setBounds(Rect.fromLTWH((bounds['x'] as num).toDouble(), (bounds['y'] as num).toDouble(), (bounds['width'] as num).toDouble(), (bounds['height'] as num).toDouble()));
     } else {
       await windowManager.setSize(Desktop.defaultSize);
       await windowManager.center();
     }
-    setState(() => _phase = 'main');
+    setState(() {
+      _phase = 'main';
+    });
     // Maximised unless it was last closed un-maximised.
-    if (s['maximized'] != false) await windowManager.maximize();
+    if (settings['maximized'] != false) {
+      await windowManager.maximize();
+    }
     await windowManager.show();
     await windowManager.focus();
     await Tray.init();
     Desktop.updater?.schedule();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      for (final l in widget.launchLinks) {
-        handleLink(l);
+      for (final link in widget.launchLinks) {
+        handleLink(link);
       }
-      if (DeskNotify.launchPayload != null) DeskNotify.onClick(DeskNotify.launchPayload);
-      if (widget.launchTask != null) runTask(widget.launchTask!);
+      if (DesktopNotify.launchPayload != null) {
+        DesktopNotify.onClick(DesktopNotify.launchPayload);
+      }
+      if (widget.launchTask != null) {
+        runTask(widget.launchTask!);
+      }
       reopenWidgetWindows();
-      Timer(const Duration(milliseconds: 900), () => Tours.init(openedByLink: widget.launchLinks.isNotEmpty || widget.launchTask != null));
+      Timer(const Duration(milliseconds: 900), () {
+        Tours.init(openedByLink: widget.launchLinks.isNotEmpty || widget.launchTask != null);
+      });
     });
   }
 
   // A kept place is used only if it's still on a screen (a monitor unplugged since).
-  Future<bool> _onScreen(Map b) async {
-    final x = (b['x'] as num?)?.toDouble(), y = (b['y'] as num?)?.toDouble();
-    final w = (b['width'] as num?)?.toDouble(), h = (b['height'] as num?)?.toDouble();
-    if (x == null || y == null || w == null || h == null || w < 200 || h < 200) return false;
-    return x > -w + 80 && y > -20 && x < 10000 && y < 10000;
+  Future<bool> _onScreen(Map bounds) async {
+    final left = (bounds['x'] as num?)?.toDouble();
+    final top = (bounds['y'] as num?)?.toDouble();
+    final width = (bounds['width'] as num?)?.toDouble();
+    final height = (bounds['height'] as num?)?.toDouble();
+    if (left == null || top == null || width == null || height == null || width < 200 || height < 200) {
+      return false;
+    }
+    return left > -width + 80 && top > -20 && left < 10000 && top < 10000;
   }
 
   // ---------- the window's events ----------
 
   @override
   void onWindowClose() async {
-    if (Desktop.quitting) return;
+    if (Desktop.quitting) {
+      return;
+    }
     if (_phase == 'welcome') {
       // Closing Make it yours changes nothing, but still counts as having seen it.
       await welcomeDone();
       return;
     }
-    if (_phase == 'splash') return;
+    if (_phase == 'splash') {
+      return;
+    }
     await Desktop.hide();
   }
 
-  void _kept() {
-    if (_phase != 'main') return;
+  /// Keeps the window's place, half a second after it last changed.
+  void _keepBoundsSoon() {
+    if (_phase != 'main') {
+      return;
+    }
     _boundsTimer?.cancel();
     _boundsTimer = Timer(const Duration(milliseconds: 500), Desktop.keepBounds);
   }
 
   // Leaving full screen puts Windows' frame back as it was, without the backdrop's.
   @override
-  void onWindowLeaveFullScreen() => GlassWindow.I.apply(again: true);
+  void onWindowLeaveFullScreen() {
+    GlassWindow.instance.apply(again: true);
+  }
 
   @override
-  void onWindowMoved() => _kept();
-  @override
-  void onWindowResized() => _kept();
-  @override
-  void onWindowMaximize() => _kept();
-  @override
-  void onWindowUnmaximize() => _kept();
+  void onWindowMoved() {
+    _keepBoundsSoon();
+  }
 
   @override
-  Widget build(BuildContext context) => switch (_phase) {
-        'splash' => UwuFixApp(home: SplashScreen(updater: Desktop.updater!, onDone: splashDone)),
-        'welcome' => UwuFixApp(home: WelcomeScreen(onDone: welcomeDone)),
-        _ => const UwuFixApp(desktopShell: DesktopShell()),
-      };
+  void onWindowResized() {
+    _keepBoundsSoon();
+  }
+
+  @override
+  void onWindowMaximize() {
+    _keepBoundsSoon();
+  }
+
+  @override
+  void onWindowUnmaximize() {
+    _keepBoundsSoon();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_phase) {
+      case 'splash':
+        return UwuFixApp(home: SplashScreen(updater: Desktop.updater!, onDone: splashDone));
+      case 'welcome':
+        return UwuFixApp(home: WelcomeScreen(onDone: welcomeDone));
+      default:
+        return const UwuFixApp(desktopShell: DesktopShell());
+    }
+  }
 }
 
 /// What's copied, cleaned: the tray's and the Jump List's Fix copied link.
 Future<void> fixCopied() async {
   final data = await Clipboard.getData(Clipboard.kTextPlain);
-  final text = data?.text?.trim() ?? '';
+  String text;
+  final copiedText = data?.text;
+  if (copiedText != null) {
+    text = copiedText.trim();
+  } else {
+    text = '';
+  }
   AppNav.showPage('home');
   if (text.isEmpty) {
     AppNav.say('Nothing’s copied. Paste or type a link to fix it.');

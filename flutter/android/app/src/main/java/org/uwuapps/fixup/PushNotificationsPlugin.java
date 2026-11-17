@@ -42,11 +42,11 @@ import java.lang.ref.WeakReference;
 )
 public class PushNotificationsPlugin extends Plugin {
 
-    private static WeakReference<PushNotificationsPlugin> sPlugin = new WeakReference<>(null);
+    private static WeakReference<PushNotificationsPlugin> currentPlugin = new WeakReference<>(null);
 
     @Override
     public void load() {
-        sPlugin = new WeakReference<>(this);
+        currentPlugin = new WeakReference<>(this);
     }
 
     // checkPermissions and requestPermissions are every plugin's (bridge/Plugin.java), with the
@@ -55,71 +55,90 @@ public class PushNotificationsPlugin extends Plugin {
     @PluginMethod
     public void register(PluginCall call) {
         if (!FixupPlugin.firebaseReady(getContext())) {
-            JSObject e = new JSObject();
-            e.put("error", "This copy of the app can't get notifications from the server yet.");
-            notifyListeners("registrationError", e);
+            JSObject errorEvent = new JSObject();
+            errorEvent.put("error", "This copy of the app can't get notifications from the server yet.");
+            notifyListeners("registrationError", errorEvent);
             call.resolve();
             return;
         }
         FirebaseMessaging messaging = FirebaseMessaging.getInstance();
         messaging.setAutoInitEnabled(true);
-        messaging.getToken().addOnCompleteListener(task -> {
+        messaging.getToken().addOnCompleteListener((task) -> {
             if (task.isSuccessful() && task.getResult() != null) {
                 token(task.getResult());
             } else {
-                JSObject e = new JSObject();
-                Exception ex = task.getException();
-                e.put("error", ex == null || ex.getMessage() == null ? "Couldn't reach Firebase" : ex.getMessage());
-                notifyListeners("registrationError", e);
+                JSObject errorEvent = new JSObject();
+                Exception exception = task.getException();
+                if (exception == null || exception.getMessage() == null) {
+                    errorEvent.put("error", "Couldn't reach Firebase");
+                } else {
+                    errorEvent.put("error", exception.getMessage());
+                }
+                notifyListeners("registrationError", errorEvent);
             }
         });
         call.resolve();
     }
 
     static void token(String value) {
-        PushNotificationsPlugin plugin = sPlugin.get();
-        if (plugin == null) return;
-        JSObject out = new JSObject();
-        out.put("value", value);
-        plugin.notifyListeners("registration", out);
+        PushNotificationsPlugin plugin = currentPlugin.get();
+        if (plugin == null) {
+            return;
+        }
+        JSObject registration = new JSObject();
+        registration.put("value", value);
+        plugin.notifyListeners("registration", registration);
     }
 
     // From MessagingService, with the app's process up: a push to hand the Dart side.
     static void received(RemoteMessage message) {
-        PushNotificationsPlugin plugin = sPlugin.get();
-        if (plugin == null) return;
-        JSObject out = new JSObject();
-        out.put("id", message.getMessageId());
-        RemoteMessage.Notification n = message.getNotification();
-        if (n != null) {
-            out.put("title", n.getTitle());
-            out.put("body", n.getBody());
+        PushNotificationsPlugin plugin = currentPlugin.get();
+        if (plugin == null) {
+            return;
+        }
+        JSObject push = new JSObject();
+        push.put("id", message.getMessageId());
+        RemoteMessage.Notification notification = message.getNotification();
+        if (notification != null) {
+            push.put("title", notification.getTitle());
+            push.put("body", notification.getBody());
         }
         JSObject data = new JSObject();
-        for (java.util.Map.Entry<String, String> e : message.getData().entrySet()) data.put(e.getKey(), e.getValue());
-        out.put("data", data);
-        plugin.notifyListeners("pushNotificationReceived", out);
+        for (java.util.Map.Entry<String, String> entry : message.getData().entrySet()) {
+            data.put(entry.getKey(), entry.getValue());
+        }
+        push.put("data", data);
+        plugin.notifyListeners("pushNotificationReceived", push);
     }
 
     // A notification FCM showed, tapped: the app opens with the push's data as the intent's
     // extras (MainActivity hands every intent here).
     @Override
     protected void handleOnNewIntent(Intent intent) {
-        Bundle extras = intent == null ? null : intent.getExtras();
-        if (extras == null || !extras.containsKey("google.message_id")) return;
-        if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return;
+        if (intent == null) {
+            return;
+        }
+        Bundle extras = intent.getExtras();
+        if (extras == null || !extras.containsKey("google.message_id")) {
+            return;
+        }
+        if ((intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) {
+            return;
+        }
         JSObject data = new JSObject();
         for (String key : extras.keySet()) {
-            Object v = extras.get(key);
-            if (v instanceof String || v instanceof Number || v instanceof Boolean) data.put(key, v);
+            Object value = extras.get(key);
+            if (value instanceof String || value instanceof Number || value instanceof Boolean) {
+                data.put(key, value);
+            }
         }
         JSObject notification = new JSObject();
         notification.put("id", extras.getString("google.message_id"));
         notification.put("data", data);
-        JSObject out = new JSObject();
-        out.put("actionId", "tap");
-        out.put("notification", notification);
-        notifyListeners("pushNotificationActionPerformed", out, true);
+        JSObject action = new JSObject();
+        action.put("actionId", "tap");
+        action.put("notification", notification);
+        notifyListeners("pushNotificationActionPerformed", action, true);
         intent.removeExtra("google.message_id");
     }
 }

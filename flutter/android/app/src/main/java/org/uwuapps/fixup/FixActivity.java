@@ -47,7 +47,11 @@ public class FixActivity extends FlutterHost {
         if (Intent.ACTION_PROCESS_TEXT.equals(intent.getAction())) {
             from = FROM_SELECTION;
             CharSequence selected = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
-            text = selected == null ? "" : selected.toString();
+            if (selected == null) {
+                text = "";
+            } else {
+                text = selected.toString();
+            }
             // Only an app waiting for an answer can take the new text back.
             canReplace = !intent.getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false)
                     && getCallingActivity() != null;
@@ -55,7 +59,11 @@ public class FixActivity extends FlutterHost {
             from = FROM_SHARE;
             canReplace = false;
             String shared = intent.getStringExtra(Intent.EXTRA_TEXT);
-            text = shared == null ? "" : shared;
+            if (shared == null) {
+                text = "";
+            } else {
+                text = shared;
+            }
             DirectShare.used(this);
         } else if (ACTION_FIX_COPIED.equals(intent.getAction())) {
             from = FROM_COPIED;
@@ -64,7 +72,9 @@ public class FixActivity extends FlutterHost {
             // Android 10 and later only let the app in front read the clipboard, and it isn't in
             // front until its window has focus.
             waitingForClipboard = true;
-            if (hasWindowFocus()) fixCopied();
+            if (hasWindowFocus()) {
+                fixCopied();
+            }
             return;
         }
         FixupPlugin.quick(this);
@@ -73,7 +83,9 @@ public class FixActivity extends FlutterHost {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && waitingForClipboard) fixCopied();
+        if (hasFocus && waitingForClipboard) {
+            fixCopied();
+        }
     }
 
     private void fixCopied() {

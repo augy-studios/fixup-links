@@ -100,28 +100,38 @@ jobs:
           path: flutter/build/payload
       - name: Version
         run: |
-          $v = [regex]::Match((Get-Content pubspec.yaml -Raw), '(?m)^version:\s*([0-9.]+)').Groups[1].Value
-          "VERSION=$v" | Out-File -Append $env:GITHUB_ENV
+          $version = [regex]::Match((Get-Content pubspec.yaml -Raw), '(?m)^version:\s*([0-9.]+)').Groups[1].Value
+          "VERSION=$version" | Out-File -Append $env:GITHUB_ENV
       # The windows-latest image no longer comes with NSIS.
       - name: Install NSIS
         run: |
-          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { choco install nsis -y --no-progress }
-          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { throw 'NSIS did not install' }
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) {
+            choco install nsis -y --no-progress
+          }
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) {
+            throw 'NSIS did not install'
+          }
       - name: NSIS (.exe)
         run: |
           New-Item -ItemType Directory -Force ..\dist | Out-Null
-          $x64 = (Resolve-Path build\payload\windows-x64).Path
-          $args = @("/DVERSION=$env:VERSION", "/DX64=$x64", "/DOUT=$((Resolve-Path ..\dist).Path)\uwufix-$env:VERSION-setup.exe")
-          if (Test-Path build\payload\windows-arm64\uwuFix.exe) { $args += "/DARM64=$((Resolve-Path build\payload\windows-arm64).Path)" }
-          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" @args installers\windows\uwufix.nsi
-          if ($LASTEXITCODE -ne 0) { throw 'makensis failed' }
+          $x64Folder = (Resolve-Path build\payload\windows-x64).Path
+          $makensisArguments = @("/DVERSION=$env:VERSION", "/DX64=$x64Folder", "/DOUT=$((Resolve-Path ..\dist).Path)\uwufix-$env:VERSION-setup.exe")
+          if (Test-Path build\payload\windows-arm64\uwuFix.exe) {
+            $makensisArguments += "/DARM64=$((Resolve-Path build\payload\windows-arm64).Path)"
+          }
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" @makensisArguments installers\windows\uwufix.nsi
+          if ($LASTEXITCODE -ne 0) {
+            throw 'makensis failed'
+          }
       - name: WiX (.msi)
         run: |
           dotnet tool install --global wix --version 5.0.2
-          $app = (Resolve-Path build\payload\windows-x64).Path
-          $icon = (Resolve-Path windows\runner\resources\app_icon.ico).Path
-          wix build -arch x64 -d "Version=$env:VERSION" -d "AppDir=$app" -d "IconPath=$icon" -o "..\dist\uwufix-$env:VERSION.msi" installers\windows\uwufix.wxs
-          if ($LASTEXITCODE -ne 0) { throw 'wix build failed' }
+          $appFolder = (Resolve-Path build\payload\windows-x64).Path
+          $iconPath = (Resolve-Path windows\runner\resources\app_icon.ico).Path
+          wix build -arch x64 -d "Version=$env:VERSION" -d "AppDir=$appFolder" -d "IconPath=$iconPath" -o "..\dist\uwufix-$env:VERSION.msi" installers\windows\uwufix.wxs
+          if ($LASTEXITCODE -ne 0) {
+            throw 'wix build failed'
+          }
           Remove-Item ..\dist\*.wixpdb -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v4
         with:
@@ -196,7 +206,10 @@ jobs:
       # Tags from before linux/CMakeLists.txt let deprecations through (android-v1.1.0) get the same
       # flag here, as tray_manager calls a deprecated libayatana-appindicator function.
       - name: Let deprecation warnings through
-        run: grep -q 'Wno-error=deprecated-declarations' linux/CMakeLists.txt || sed -i 's/-Wall -Werror)/-Wall -Werror -Wno-error=deprecated-declarations)/' linux/CMakeLists.txt
+        run: |
+          if ! grep -q 'Wno-error=deprecated-declarations' linux/CMakeLists.txt; then
+            sed -i 's/-Wall -Werror)/-Wall -Werror -Wno-error=deprecated-declarations)/' linux/CMakeLists.txt
+          fi
       - run: flutter build linux --release
       - name: Package
         run: |
@@ -233,7 +246,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --draft --title "uwuFix ${TAG#android-v}" --notes "Desktop apps for ${TAG}."
+            # The version alone, without the tag's "android-v" in front.
+            RELEASE_VERSION="${TAG#android-v}"
+            gh release create "$TAG" --draft --title "uwuFix $RELEASE_VERSION" --notes "Desktop apps for ${TAG}."
           fi
           gh release upload "$TAG" dist/* --clobber
       - name: Keep on the run

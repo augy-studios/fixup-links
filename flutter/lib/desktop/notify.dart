@@ -8,8 +8,9 @@
 // macOS's notification centre (it asks once), and Linux's freedesktop service.
 import 'package:local_notifier/local_notifier.dart';
 
-class DeskNotify {
-  DeskNotify._();
+/// Shows the desktop's system notifications and hands their clicks to [onClick].
+class DesktopNotify {
+  DesktopNotify._();
 
   static bool _ready = false;
 
@@ -23,7 +24,13 @@ class DeskNotify {
   /// [shortcut]: let Windows' notifications make or fix the Start menu shortcut (an installed copy).
   static Future<void> init({bool shortcut = true}) async {
     try {
-      await localNotifier.setup(appName: 'uwuFix', shortcutPolicy: shortcut ? ShortcutPolicy.requireCreate : ShortcutPolicy.ignore);
+      ShortcutPolicy shortcutPolicy;
+      if (shortcut) {
+        shortcutPolicy = ShortcutPolicy.requireCreate;
+      } else {
+        shortcutPolicy = ShortcutPolicy.ignore;
+      }
+      await localNotifier.setup(appName: 'uwuFix', shortcutPolicy: shortcutPolicy);
       _ready = true;
     } catch (_) {
       _ready = false;
@@ -31,11 +38,15 @@ class DeskNotify {
   }
 
   static Future<void> show(String title, String body, {String? payload}) async {
-    if (!_ready) return;
+    if (!_ready) {
+      return;
+    }
     try {
-      final n = LocalNotification(title: title, body: body);
-      n.onClick = () => onClick(payload);
-      await n.show();
+      final notification = LocalNotification(title: title, body: body);
+      notification.onClick = () {
+        onClick(payload);
+      };
+      await notification.show();
     } catch (_) {
       // No notification service (a bare Linux session): nothing shown.
     }

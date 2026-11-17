@@ -17,7 +17,7 @@ _INTRO = (
     'so previews actually render (X/Twitter, Instagram, TikTok, Facebook, Reddit, '
     'Bluesky, and more).'
 )
-_DM_HINT = (
+_DIRECT_MESSAGE_HINT = (
     'In a private chat with the bot, you can also just send a link with no '
     'command at all and it gets fixed automatically.'
 )
@@ -39,30 +39,38 @@ _GROUPS_HINT = (
 
 
 def build_info_view() -> dict:
+    """The /start help message: what the bot does, its commands, inline mode
+    and group autodetect, as a rich dict of {'markdown', 'fallback'}."""
     inline_example = f'@{config.BOT_USERNAME} <link>'
-    md = [
+    markdown_command_lines = []
+    plain_command_lines = []
+    for command, description in _COMMANDS:
+        markdown_command_lines.append(f'- {command} — {description}')
+        plain_command_lines.append(f'{command} - {description}')
+
+    markdown_lines = [
         '# Link cleaning and embed fixing',
-        _INTRO, '', _DM_HINT, '',
+        _INTRO, '', _DIRECT_MESSAGE_HINT, '',
         '## Commands',
-        *[f'- {cmd} — {what}' for cmd, what in _COMMANDS],
+        *markdown_command_lines,
         '',
         '## Inline mode',
         f'Type {code_span(inline_example)} {_INLINE_HINT}', '',
         '## In groups',
         _GROUPS_HINT,
     ]
-    plain = [
+    plain_lines = [
         'Link cleaning and embed fixing',
-        _INTRO, '', _DM_HINT, '',
+        _INTRO, '', _DIRECT_MESSAGE_HINT, '',
         'Commands',
-        *[f'{cmd} - {what}' for cmd, what in _COMMANDS],
+        *plain_command_lines,
         '',
         'Inline mode',
         f'Type {inline_example} {_INLINE_HINT}', '',
         'In groups',
         _GROUPS_HINT,
     ]
-    return {'markdown': '\n'.join(md), 'fallback': '\n'.join(plain)}
+    return {'markdown': '\n'.join(markdown_lines), 'fallback': '\n'.join(plain_lines)}
 
 
 def _footer_keyboard() -> InlineKeyboardMarkup:

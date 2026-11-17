@@ -12,16 +12,35 @@
 #   installers/linux/package.sh <version> <out folder>      (from flutter/)
 set -eu
 VERSION="$1"
-OUT="$(realpath -m "$2")"
+OUT_FOLDER="$(realpath -m "$2")"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(pwd)"
+# Each package format's own name for this computer's processor, and where Flutter built for it.
 case "$(uname -m)" in
-  x86_64) DEB=amd64; RPM=x86_64; AI=x86_64; BUNDLE=build/linux/x64/release/bundle ;;
-  aarch64|arm64) DEB=arm64; RPM=aarch64; AI=aarch64; BUNDLE=build/linux/arm64/release/bundle ;;
-  *) echo "unknown processor $(uname -m)"; exit 1 ;;
+  x86_64)
+    DEB_ARCHITECTURE=amd64
+    RPM_ARCHITECTURE=x86_64
+    APPIMAGE_ARCHITECTURE=x86_64
+    BUNDLE=build/linux/x64/release/bundle
+    ;;
+  aarch64|arm64)
+    DEB_ARCHITECTURE=arm64
+    RPM_ARCHITECTURE=aarch64
+    APPIMAGE_ARCHITECTURE=aarch64
+    BUNDLE=build/linux/arm64/release/bundle
+    ;;
+  *)
+    echo "unknown processor $(uname -m)"
+    exit 1
+    ;;
 esac
-AINAME=$([ "$AI" = aarch64 ] && echo arm64 || echo x86_64)
-mkdir -p "$OUT"
+# The AppImage's file name says arm64 rather than aarch64.
+if [ "$APPIMAGE_ARCHITECTURE" = aarch64 ]; then
+  APPIMAGE_FILE_ARCHITECTURE=arm64
+else
+  APPIMAGE_FILE_ARCHITECTURE=x86_64
+fi
+mkdir -p "$OUT_FOLDER"
 WORK="$(mktemp -d)"
 
 # ---- the files, as installed ----
@@ -33,37 +52,37 @@ cp "$HERE/uwufix.desktop" "$STAGE/usr/share/applications/uwufix.desktop"
 cp "$ROOT/assets/desktop/icon.png" "$STAGE/usr/share/icons/hicolor/512x512/apps/uwufix.png"
 
 # ---- .deb ----
-DEBROOT="$WORK/deb"
-cp -a "$STAGE" "$DEBROOT"
-mkdir -p "$DEBROOT/DEBIAN"
-SIZE=$(du -sk "$DEBROOT/opt" | cut -f1)
-cat > "$DEBROOT/DEBIAN/control" <<EOF
+DEB_ROOT="$WORK/deb"
+cp -a "$STAGE" "$DEB_ROOT"
+mkdir -p "$DEB_ROOT/DEBIAN"
+INSTALLED_SIZE=$(du -sk "$DEB_ROOT/opt" | cut -f1)
+cat > "$DEB_ROOT/DEBIAN/control" <<EOF
 Package: uwufix
 Version: $VERSION
 Section: utils
 Priority: optional
-Architecture: $DEB
+Architecture: $DEB_ARCHITECTURE
 Maintainer: Augy <noreply@uwuapps.org>
-Installed-Size: $SIZE
+Installed-Size: $INSTALLED_SIZE
 Depends: libgtk-3-0 | libgtk-3-0t64, libayatana-appindicator3-1 | libappindicator3-1
 Homepage: https://fixup.uwuapps.org
 Description: Clean links, strip trackers and fix embeds
  uwuFix cleans tracking parameters out of links and swaps in embed-friendly
  domains, so links preview properly in Discord, Telegram and more.
 EOF
-cat > "$DEBROOT/DEBIAN/postinst" <<'EOF'
+cat > "$DEB_ROOT/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 update-desktop-database -q /usr/share/applications 2>/dev/null || true
 gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
 EOF
-chmod 755 "$DEBROOT/DEBIAN/postinst"
-dpkg-deb --root-owner-group --build "$DEBROOT" "$OUT/uwufix-$VERSION-$DEB.deb"
+chmod 755 "$DEB_ROOT/DEBIAN/postinst"
+dpkg-deb --root-owner-group --build "$DEB_ROOT" "$OUT_FOLDER/uwufix-$VERSION-$DEB_ARCHITECTURE.deb"
 
 # ---- .rpm ----
 if command -v rpmbuild >/dev/null 2>&1; then
-  RPMTOP="$WORK/rpm"
-  mkdir -p "$RPMTOP/BUILD" "$RPMTOP/RPMS" "$RPMTOP/SPECS"
-  cat > "$RPMTOP/SPECS/uwufix.spec" <<EOF
+  RPM_TOP_FOLDER="$WORK/rpm"
+  mkdir -p "$RPM_TOP_FOLDER/BUILD" "$RPM_TOP_FOLDER/RPMS" "$RPM_TOP_FOLDER/SPECS"
+  cat > "$RPM_TOP_FOLDER/SPECS/uwufix.spec" <<EOF
 Name: uwufix
 Version: $VERSION
 Release: 1
@@ -86,27 +105,28 @@ cp -a $STAGE/. %{buildroot}/
 %post
 update-desktop-database -q /usr/share/applications 2>/dev/null || true
 EOF
-  rpmbuild --define "_topdir $RPMTOP" --target "$RPM" -bb "$RPMTOP/SPECS/uwufix.spec"
-  cp "$RPMTOP"/RPMS/*/uwufix-*.rpm "$OUT/uwufix-$VERSION-$RPM.rpm"
+  rpmbuild --define "_topdir $RPM_TOP_FOLDER" --target "$RPM_ARCHITECTURE" -bb "$RPM_TOP_FOLDER/SPECS/uwufix.spec"
+  cp "$RPM_TOP_FOLDER"/RPMS/*/uwufix-*.rpm "$OUT_FOLDER/uwufix-$VERSION-$RPM_ARCHITECTURE.rpm"
 fi
 
 # ---- AppImage ----
-APPDIR="$WORK/uwuFix.AppDir"
-mkdir -p "$APPDIR/usr"
-cp -r "$ROOT/$BUNDLE/." "$APPDIR/usr/"
-cp "$HERE/uwufix.desktop" "$APPDIR/uwufix.desktop"
-sed -i 's#^Exec=.*#Exec=uwufix %u#' "$APPDIR/uwufix.desktop"
-cp "$ROOT/assets/desktop/icon.png" "$APPDIR/uwufix.png"
-cat > "$APPDIR/AppRun" <<'EOF'
+APP_FOLDER="$WORK/uwuFix.AppDir"
+mkdir -p "$APP_FOLDER/usr"
+cp -r "$ROOT/$BUNDLE/." "$APP_FOLDER/usr/"
+cp "$HERE/uwufix.desktop" "$APP_FOLDER/uwufix.desktop"
+sed -i 's#^Exec=.*#Exec=uwufix %u#' "$APP_FOLDER/uwufix.desktop"
+cp "$ROOT/assets/desktop/icon.png" "$APP_FOLDER/uwufix.png"
+cat > "$APP_FOLDER/AppRun" <<'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
 exec "$HERE/usr/uwufix" "$@"
 EOF
-chmod +x "$APPDIR/AppRun"
-TOOL="$WORK/appimagetool"
-curl -fsSL -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$AI.AppImage"
-chmod +x "$TOOL"
-ARCH="$AI" "$TOOL" --appimage-extract-and-run "$APPDIR" "$OUT/uwufix-$VERSION-$AINAME.AppImage"
+chmod +x "$APP_FOLDER/AppRun"
+APPIMAGE_TOOL="$WORK/appimagetool"
+curl -fsSL -o "$APPIMAGE_TOOL" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$APPIMAGE_ARCHITECTURE.AppImage"
+chmod +x "$APPIMAGE_TOOL"
+# appimagetool reads the processor from ARCH.
+ARCH="$APPIMAGE_ARCHITECTURE" "$APPIMAGE_TOOL" --appimage-extract-and-run "$APP_FOLDER" "$OUT_FOLDER/uwufix-$VERSION-$APPIMAGE_FILE_ARCHITECTURE.AppImage"
 
 rm -rf "$WORK"
-ls -la "$OUT"
+ls -la "$OUT_FOLDER"

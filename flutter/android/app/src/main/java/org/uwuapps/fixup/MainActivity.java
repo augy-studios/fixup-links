@@ -48,25 +48,34 @@ public class MainActivity extends FlutterHost {
 
     @Override
     protected void route(Intent intent) {
-        mBridge.onNewIntent(intent);
+        pluginBridge.onNewIntent(intent);
         // "Version 1.2.0 of uwuFix is out", tapped (main-site/api/push/release.js): FCM opens the
         // app with the push's data as extras. Straight to the updates page, which looks that
         // version up and asks before downloading it. The extras go, so the page doesn't open
         // again when Android recreates this screen.
         if ("release".equals(intent.getStringExtra("type"))) {
-            if (FixupPlugin.canUpdate()) UpdateActivity.check(this, intent.getStringExtra("version"));
+            if (FixupPlugin.canUpdate()) {
+                UpdateActivity.check(this, intent.getStringExtra("version"));
+            }
             intent.removeExtra("type");
             intent.removeExtra("version");
             return;
         }
         String url = pageFor(intent);
-        if (url != null) FixupPlugin.open(url);
+        if (url != null) {
+            FixupPlugin.open(url);
+        }
     }
 
     // The site's address an intent asks for, or null for the home page as it is.
     static String pageFor(Intent intent) {
-        Uri data = intent == null ? null : intent.getData();
-        if (data == null) return null;
+        if (intent == null) {
+            return null;
+        }
+        Uri data = intent.getData();
+        if (data == null) {
+            return null;
+        }
         // The site's own links.
         if ("https".equals(data.getScheme()) && HOST.equalsIgnoreCase(data.getHost())) {
             return data.toString();
@@ -78,9 +87,14 @@ public class MainActivity extends FlutterHost {
         if ("uwu".equalsIgnoreCase(data.getScheme())
                 && ("fix".equalsIgnoreCase(data.getHost()) || "fixup".equalsIgnoreCase(data.getHost()))) {
             String link = linkIn(data);
-            if (link != null) return SITE + "/?url=" + Uri.encode(link);
+            if (link != null) {
+                return SITE + "/?url=" + Uri.encode(link);
+            }
             String query = data.getEncodedQuery();
-            return SITE + "/" + (query == null ? "" : "?" + query);
+            if (query == null) {
+                return SITE + "/";
+            }
+            return SITE + "/" + "?" + query;
         }
         return null;
     }
@@ -88,15 +102,26 @@ public class MainActivity extends FlutterHost {
     // The link in uwu://fix/https://x.com/a?b=c, everything after the host as it was written
     // (Uri would split its query and fragment off as uwu://fix/'s own), or null if there's none.
     private static String linkIn(Uri data) {
-        String raw = data.toString();
-        int host = raw.indexOf("//");
-        if (host < 0) return null;
-        int end = host + 2;
-        while (end < raw.length() && "/?#".indexOf(raw.charAt(end)) < 0) end++;
-        if (end >= raw.length() || raw.charAt(end) != '/') return null;
-        String link = raw.substring(end + 1);
-        if (link.isEmpty() || link.startsWith("?") || link.startsWith("#")) return null;
+        String fullText = data.toString();
+        int hostStart = fullText.indexOf("//");
+        if (hostStart < 0) {
+            return null;
+        }
+        int hostEnd = hostStart + 2;
+        while (hostEnd < fullText.length() && "/?#".indexOf(fullText.charAt(hostEnd)) < 0) {
+            hostEnd++;
+        }
+        if (hostEnd >= fullText.length() || fullText.charAt(hostEnd) != '/') {
+            return null;
+        }
+        String link = fullText.substring(hostEnd + 1);
+        if (link.isEmpty() || link.startsWith("?") || link.startsWith("#")) {
+            return null;
+        }
+        if (link.contains("://")) {
+            return link;
+        }
         // Percent-encoded whole, as some apps write it: uwu://fix/https%3A%2F%2Fx.com%2F...
-        return link.contains("://") ? link : Uri.decode(link);
+        return Uri.decode(link);
     }
 }

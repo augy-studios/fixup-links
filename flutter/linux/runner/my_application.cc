@@ -32,11 +32,14 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// Gives each Fix a link widget's window (desktop_multi_window) the plugins it uses.
 static void register_sub_window_plugins(FlPluginRegistry* registry) {
-  g_autoptr(FlPluginRegistrar) wm = fl_plugin_registry_get_registrar_for_plugin(registry, "WindowManagerPlugin");
-  window_manager_plugin_register_with_registrar(wm);
-  g_autoptr(FlPluginRegistrar) url = fl_plugin_registry_get_registrar_for_plugin(registry, "UrlLauncherPlugin");
-  url_launcher_plugin_register_with_registrar(url);
+  g_autoptr(FlPluginRegistrar) window_manager_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(registry, "WindowManagerPlugin");
+  window_manager_plugin_register_with_registrar(window_manager_registrar);
+  g_autoptr(FlPluginRegistrar) url_launcher_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(registry, "UrlLauncherPlugin");
+  url_launcher_plugin_register_with_registrar(url_launcher_registrar);
 }
 
 // The Dart side's asks of the window: Frosted Glass's backdrop on or off.
@@ -44,10 +47,14 @@ static void on_method_call(FlMethodChannel* channel, FlMethodCall* call, gpointe
   MyApplication* self = MY_APPLICATION(user_data);
   g_autoptr(FlMethodResponse) response = nullptr;
   if (g_strcmp0(fl_method_call_get_name(call), "setBackdrop") == 0) {
-    FlValue* args = fl_method_call_get_args(call);
-    FlValue* on = args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP ? fl_value_lookup_string(args, "on") : nullptr;
-    const gboolean want = on != nullptr && fl_value_get_type(on) == FL_VALUE_TYPE_BOOL && fl_value_get_bool(on);
-    g_autoptr(FlValue) result = fl_value_new_bool(glass_set_backdrop(self->window, self->view, want));
+    FlValue* arguments = fl_method_call_get_args(call);
+    FlValue* on_value = nullptr;
+    if (arguments != nullptr && fl_value_get_type(arguments) == FL_VALUE_TYPE_MAP) {
+      on_value = fl_value_lookup_string(arguments, "on");
+    }
+    const gboolean wants_backdrop =
+        on_value != nullptr && fl_value_get_type(on_value) == FL_VALUE_TYPE_BOOL && fl_value_get_bool(on_value);
+    g_autoptr(FlValue) result = fl_value_new_bool(glass_set_backdrop(self->window, self->view, wants_backdrop));
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
@@ -55,6 +62,8 @@ static void on_method_call(FlMethodChannel* channel, FlMethodCall* call, gpointe
   fl_method_call_respond(call, response, nullptr);
 }
 
+// Makes the app's one window: its Flutter view, the plugins, and the app's own channel. The window
+// is realized but not shown; the Dart side shows it once it has drawn and sized it.
 static void create_window(MyApplication* self) {
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(self)));
   gtk_window_set_title(window, "uwuFix");
@@ -89,20 +98,23 @@ static void create_window(MyApplication* self) {
 }
 
 // A second copy's arguments, to the Dart side: a task, links, or just "come forward".
-static void forward(MyApplication* self, gchar** args) {
-  if (self->channel == nullptr) return;
+static void forward(MyApplication* self, gchar** arguments) {
+  if (self->channel == nullptr) {
+    return;
+  }
   g_autoptr(FlValue) links = fl_value_new_list();
   const gchar* task = nullptr;
-  for (gchar** a = args; a != nullptr && *a != nullptr; a++) {
-    if (g_str_has_prefix(*a, "--task=")) {
-      task = *a + 7;
-    } else if (g_str_has_prefix(*a, "uwu:") || g_str_has_prefix(*a, "http")) {
-      fl_value_append_take(links, fl_value_new_string(*a));
+  for (gchar** argument = arguments; argument != nullptr && *argument != nullptr; argument++) {
+    if (g_str_has_prefix(*argument, "--task=")) {
+      // The task's name, after the 7 characters of "--task=".
+      task = *argument + 7;
+    } else if (g_str_has_prefix(*argument, "uwu:") || g_str_has_prefix(*argument, "http")) {
+      fl_value_append_take(links, fl_value_new_string(*argument));
     }
   }
   if (task != nullptr) {
-    g_autoptr(FlValue) v = fl_value_new_string(task);
-    fl_method_channel_invoke_method(self->channel, "task", v, nullptr, nullptr, nullptr);
+    g_autoptr(FlValue) task_value = fl_value_new_string(task);
+    fl_method_channel_invoke_method(self->channel, "task", task_value, nullptr, nullptr, nullptr);
   } else if (fl_value_get_length(links) > 0) {
     fl_method_channel_invoke_method(self->channel, "open", links, nullptr, nullptr, nullptr);
   } else {
@@ -114,22 +126,25 @@ static void forward(MyApplication* self, gchar** args) {
 // every later copy's.
 static int my_application_command_line(GApplication* application, GApplicationCommandLine* command_line) {
   MyApplication* self = MY_APPLICATION(application);
-  gint argc = 0;
-  gchar** argv = g_application_command_line_get_arguments(command_line, &argc);
+  gint argument_count = 0;
+  gchar** arguments = g_application_command_line_get_arguments(command_line, &argument_count);
   if (self->window == nullptr) {
     // Strip out the first argument as it is the binary name.
-    self->dart_entrypoint_arguments = g_strdupv(argv + 1);
+    self->dart_entrypoint_arguments = g_strdupv(arguments + 1);
     create_window(self);
   } else {
-    forward(self, argv + 1);
+    forward(self, arguments + 1);
   }
-  g_strfreev(argv);
+  g_strfreev(arguments);
   return 0;
 }
 
+// Implements GApplication::activate: makes the window if there isn't one yet.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
-  if (self->window == nullptr) create_window(self);
+  if (self->window == nullptr) {
+    create_window(self);
+  }
 }
 
 // Implements GApplication::startup.

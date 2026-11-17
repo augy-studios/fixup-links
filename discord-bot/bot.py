@@ -21,7 +21,9 @@ logging.basicConfig(
 log = logging.getLogger('bot')
 
 TOKEN = os.environ.get('DISCORD_TOKEN')
-GUILD_ID = os.environ.get('GUILD_ID') or None
+GUILD_ID = os.environ.get('GUILD_ID')
+if not GUILD_ID:
+    GUILD_ID = None
 DB_PATH = os.environ.get('DB_PATH', './data/uwufix_bot.sqlite3')
 WEB_APP_URL = os.environ.get('WEB_APP_URL', 'https://fixup.uwuapps.org')
 DONATE_URL = os.environ.get('DONATE_URL', 'https://donate.stripe.com/28o2akeAr3hv0DK6oo')
@@ -40,6 +42,9 @@ intents = discord.Intents.default()
 
 
 class LinkFixBot(commands.Bot):
+    """The Discord client: owns the shared SQLite connection and HTTP session,
+    loads the command cogs and syncs the slash commands on startup."""
+
     def __init__(self):
         # No prefix commands are used (slash commands only); the prefix is
         # required by the library but never actually triggers anything.
@@ -54,8 +59,8 @@ class LinkFixBot(commands.Bot):
         self.db = await init_db(DB_PATH)
         self.http_session = aiohttp.ClientSession()
 
-        for ext in INITIAL_EXTENSIONS:
-            await self.load_extension(ext)
+        for extension in INITIAL_EXTENSIONS:
+            await self.load_extension(extension)
 
         if GUILD_ID:
             # Guild-scoped copies show up instantly, which is handy while

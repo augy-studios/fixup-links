@@ -22,7 +22,9 @@ class WelcomeScreen extends StatefulWidget {
   final Future<void> Function() onDone;
 
   @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
+  State<WelcomeScreen> createState() {
+    return _WelcomeScreenState();
+  }
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
@@ -37,8 +39,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   void initState() {
     super.initState();
-    startsAtSignIn().then((v) {
-      if (mounted) setState(() => _login = v || Desktop.fromSource);
+    startsAtSignIn().then((startsNow) {
+      if (mounted) {
+        setState(() {
+          _login = startsNow || Desktop.fromSource;
+        });
+      }
     });
   }
 
@@ -60,180 +66,280 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     await widget.onDone();
   }
 
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: look,
-        builder: (context, _) {
-          final fx = context.fx;
-          final followSystem = look.modePreference == 'system';
-          Widget row(IconData icon, String label, Widget control, {bool enabled = true}) => Opacity(
-                opacity: enabled ? 1 : 0.45,
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(color: fx.surfaceStrong, borderRadius: BorderRadius.circular(16), border: Border.all(color: fx.border)),
-                  child: Row(children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(color: fx.brandFill, borderRadius: BorderRadius.circular(10)),
-                      child: Icon(icon, size: 20, color: fx.onBrand),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(label, style: TextStyle(color: fx.ink, fontSize: 15))),
-                    IgnorePointer(ignoring: !enabled, child: control),
-                  ]),
-                ),
-              );
-          final panel = Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [look.swatch.color, Color.lerp(look.swatch.color, Colors.white, 0.45)!]),
-            ),
-            child: Stack(children: [
-              Positioned(top: -60, right: -60, child: _circle(180)),
-              Positioned(bottom: -40, left: -40, child: _circle(140)),
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.asset('assets/desktop/icon.png', width: 72, height: 72)),
-                  const SizedBox(height: 18),
-                  const Text('Welcome to uwuFix', style: TextStyle(fontSize: 26, color: Color(0xFF121815), fontFamily: 'Jua')),
-                  const SizedBox(height: 6),
-                  const Text('Clean URLs. Fix embeds.', style: TextStyle(fontSize: 16, color: Color(0xCC121815))),
-                  const SizedBox(height: 28),
-                  for (final (icon, text) in const [
-                    (Icons.cleaning_services_outlined, 'Trackers stripped from any link'),
-                    (Icons.preview_outlined, 'Links that preview in Discord and Telegram'),
-                    (Icons.devices_outlined, 'Your history on all your devices'),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: Row(children: [
-                        Icon(icon, size: 22, color: const Color(0xFF121815)),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(text, style: const TextStyle(color: Color(0xFF121815), fontSize: 14.5))),
-                      ]),
-                    ),
-                ]),
-              ),
-            ]),
-          );
-          final choices = ListView(padding: const EdgeInsets.fromLTRB(32, 40, 32, 16), children: [
-            Text('Make uwuFix yours', style: TextStyle(fontSize: 26, color: fx.ink, fontWeight: fx.uwu ? null : FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text('Choose how the app should look and feel.', style: TextStyle(color: fx.muted)),
-            const SizedBox(height: 20),
-            row(Icons.login, 'Start when I sign in', Switch(value: _login, onChanged: (v) => setState(() => _login = v))),
-            row(Icons.brightness_auto_outlined, 'Follow system theme',
-                Switch(value: followSystem, onChanged: (v) => look.modePreference = v ? 'system' : (Theme.of(context).brightness == Brightness.dark ? 'dark' : 'light'))),
-            row(
-              Icons.contrast,
-              'Theme',
-              DropdownButton<String>(
-                value: followSystem ? 'light' : look.modePreference,
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(value: 'light', child: Text('Light')),
-                  DropdownMenuItem(value: 'dark', child: Text('Dark')),
-                  DropdownMenuItem(value: 'time', child: Text('Time-based')),
-                ],
-                onChanged: (v) => look.modePreference = v!,
-              ),
-              enabled: !followSystem,
-            ),
-            row(
-              Icons.palette_outlined,
-              'Look',
-              DropdownButton<bool>(
-                value: look.deviceLook,
-                underline: const SizedBox.shrink(),
-                items: [
-                  const DropdownMenuItem(value: false, child: Text('UwU Apps')),
-                  DropdownMenuItem(value: true, child: Text(look.deviceLookName)),
-                ],
-                onChanged: (v) => look.deviceLook = v!,
-              ),
-            ),
-            row(
-              Icons.circle,
-              'Brand colour',
-              Semantics(
-                label: 'Brand colour',
-                child: Wrap(spacing: 6, children: [
-                  for (final s in swatches)
-                    Tooltip(
-                      message: s.label,
-                      child: Semantics(
-                        selected: !look.useSystemAccent && look.swatchId == s.id,
-                        label: s.label,
-                        button: true,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () {
-                            look.useSystemAccent = false;
-                            look.swatchId = s.id;
-                          },
-                          child: Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: s.color,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: !look.useSystemAccent && look.swatchId == s.id ? fx.brandInk : fx.border, width: !look.useSystemAccent && look.swatchId == s.id ? 3 : 1),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (look.systemAccent != null)
-                    Tooltip(
-                      message: 'System accent',
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => look.useSystemAccent = true,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: look.systemAccent,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: look.useSystemAccent ? fx.ink : fx.border, width: look.useSystemAccent ? 3 : 1),
-                          ),
-                          child: const Icon(Icons.computer, size: 14, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                ]),
-              ),
-            ),
-          ]);
-          return Scaffold(
-            body: LayoutBuilder(builder: (context, c) {
-              final wide = c.maxWidth >= 760;
-              return Column(children: [
-                Expanded(
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    if (wide) SizedBox(width: c.maxWidth / 3, child: panel),
-                    Expanded(child: choices),
-                  ]),
-                ),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(32, 12, 24, 16),
-                  child: Row(children: [
-                    Expanded(child: Text('You can change these any time, from Make it yours in the tray’s menu.', style: TextStyle(color: fx.muted, fontSize: 13))),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      onPressed: _start,
-                      icon: const Icon(Icons.arrow_forward),
-                      label: const Text('Get started'),
-                    ),
-                  ]),
-                ),
-              ]);
-            }),
-          );
-        },
-      );
+  /// One choice's card: its icon in the brand colour, its name, and its control, greyed out and
+  /// inert when not [enabled].
+  Widget _row(Fx palette, IconData icon, String label, Widget control, {bool enabled = true}) {
+    double opacity;
+    if (enabled) {
+      opacity = 1;
+    } else {
+      opacity = 0.45;
+    }
+    return Opacity(
+      opacity: opacity,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(color: palette.surfaceStrong, borderRadius: BorderRadius.circular(16), border: Border.all(color: palette.border)),
+        child: Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: palette.brandFill, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 20, color: palette.onBrand),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: TextStyle(color: palette.ink, fontSize: 15))),
+          IgnorePointer(ignoring: !enabled, child: control),
+        ]),
+      ),
+    );
+  }
 
-  Widget _circle(double size) => Container(width: size, height: size, decoration: const BoxDecoration(color: Color(0x33FFFFFF), shape: BoxShape.circle));
+  /// The welcome panel in the brand colour, with the app's icon and what it does.
+  Widget _panel() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [look.swatch.color, Color.lerp(look.swatch.color, Colors.white, 0.45)!]),
+      ),
+      child: Stack(children: [
+        Positioned(top: -60, right: -60, child: _circle(180)),
+        Positioned(bottom: -40, left: -40, child: _circle(140)),
+        Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.asset('assets/desktop/icon.png', width: 72, height: 72)),
+            const SizedBox(height: 18),
+            const Text('Welcome to uwuFix', style: TextStyle(fontSize: 26, color: Color(0xFF121815), fontFamily: 'Jua')),
+            const SizedBox(height: 6),
+            const Text('Clean URLs. Fix embeds.', style: TextStyle(fontSize: 16, color: Color(0xCC121815))),
+            const SizedBox(height: 28),
+            for (final (icon, text) in const [
+              (Icons.cleaning_services_outlined, 'Trackers stripped from any link'),
+              (Icons.preview_outlined, 'Links that preview in Discord and Telegram'),
+              (Icons.devices_outlined, 'Your history on all your devices'),
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Row(children: [
+                  Icon(icon, size: 22, color: const Color(0xFF121815)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(text, style: const TextStyle(color: Color(0xFF121815), fontSize: 14.5))),
+                ]),
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// One of the site's brand colours, as a round button; ringed while it's the one picked.
+  Widget _swatchButton(Fx palette, Swatch swatch) {
+    final picked = !look.useSystemAccent && look.swatchId == swatch.id;
+    Color ringColor;
+    double ringWidth;
+    if (picked) {
+      ringColor = palette.brandInk;
+      ringWidth = 3;
+    } else {
+      ringColor = palette.border;
+      ringWidth = 1;
+    }
+    return Tooltip(
+      message: swatch.label,
+      child: Semantics(
+        selected: picked,
+        label: swatch.label,
+        button: true,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            look.useSystemAccent = false;
+            look.swatchId = swatch.id;
+          },
+          child: Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: swatch.color,
+              shape: BoxShape.circle,
+              border: Border.all(color: ringColor, width: ringWidth),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The system's accent colour, as a round button with a computer on it; ringed while picked.
+  Widget _systemAccentButton(Fx palette) {
+    Color ringColor;
+    double ringWidth;
+    if (look.useSystemAccent) {
+      ringColor = palette.ink;
+      ringWidth = 3;
+    } else {
+      ringColor = palette.border;
+      ringWidth = 1;
+    }
+    return Tooltip(
+      message: 'System accent',
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () {
+          look.useSystemAccent = true;
+        },
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: look.systemAccent,
+            shape: BoxShape.circle,
+            border: Border.all(color: ringColor, width: ringWidth),
+          ),
+          child: const Icon(Icons.computer, size: 14, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  /// The choices, each a card: sign-in, theme, look and brand colour.
+  Widget _choices(BuildContext context, Fx palette) {
+    final followSystem = look.modePreference == 'system';
+    FontWeight? titleWeight;
+    if (!palette.uwu) {
+      titleWeight = FontWeight.w700;
+    }
+    String shownMode;
+    if (followSystem) {
+      shownMode = 'light';
+    } else {
+      shownMode = look.modePreference;
+    }
+    return ListView(padding: const EdgeInsets.fromLTRB(32, 40, 32, 16), children: [
+      Text('Make uwuFix yours', style: TextStyle(fontSize: 26, color: palette.ink, fontWeight: titleWeight)),
+      const SizedBox(height: 4),
+      Text('Choose how the app should look and feel.', style: TextStyle(color: palette.muted)),
+      const SizedBox(height: 20),
+      _row(
+        palette,
+        Icons.login,
+        'Start when I sign in',
+        Switch(
+          value: _login,
+          onChanged: (startAtSignIn) {
+            setState(() {
+              _login = startAtSignIn;
+            });
+          },
+        ),
+      ),
+      _row(
+        palette,
+        Icons.brightness_auto_outlined,
+        'Follow system theme',
+        Switch(
+          value: followSystem,
+          onChanged: (follow) {
+            // Turned off, it keeps whichever of light or dark is on show now.
+            if (follow) {
+              look.modePreference = 'system';
+            } else if (Theme.of(context).brightness == Brightness.dark) {
+              look.modePreference = 'dark';
+            } else {
+              look.modePreference = 'light';
+            }
+          },
+        ),
+      ),
+      _row(
+        palette,
+        Icons.contrast,
+        'Theme',
+        DropdownButton<String>(
+          value: shownMode,
+          underline: const SizedBox.shrink(),
+          items: const [
+            DropdownMenuItem(value: 'light', child: Text('Light')),
+            DropdownMenuItem(value: 'dark', child: Text('Dark')),
+            DropdownMenuItem(value: 'time', child: Text('Time-based')),
+          ],
+          onChanged: (mode) {
+            look.modePreference = mode!;
+          },
+        ),
+        enabled: !followSystem,
+      ),
+      _row(
+        palette,
+        Icons.palette_outlined,
+        'Look',
+        DropdownButton<bool>(
+          value: look.deviceLook,
+          underline: const SizedBox.shrink(),
+          items: [
+            const DropdownMenuItem(value: false, child: Text('UwU Apps')),
+            DropdownMenuItem(value: true, child: Text(look.deviceLookName)),
+          ],
+          onChanged: (deviceLook) {
+            look.deviceLook = deviceLook!;
+          },
+        ),
+      ),
+      _row(
+        palette,
+        Icons.circle,
+        'Brand colour',
+        Semantics(
+          label: 'Brand colour',
+          child: Wrap(spacing: 6, children: [
+            for (final swatch in swatches) _swatchButton(palette, swatch),
+            if (look.systemAccent != null) _systemAccentButton(palette),
+          ]),
+        ),
+      ),
+    ]);
+  }
+
+  /// The two columns (the panel only when there's room) over the footer with Get started.
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: look,
+      builder: (context, _) {
+        final palette = context.fx;
+        final panel = _panel();
+        final choices = _choices(context, palette);
+        return Scaffold(
+          body: LayoutBuilder(builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 760;
+            return Column(children: [
+              Expanded(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (wide) SizedBox(width: constraints.maxWidth / 3, child: panel),
+                  Expanded(child: choices),
+                ]),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(32, 12, 24, 16),
+                child: Row(children: [
+                  Expanded(child: Text('You can change these any time, from Make it yours in the tray’s menu.', style: TextStyle(color: palette.muted, fontSize: 13))),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: _start,
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('Get started'),
+                  ),
+                ]),
+              ),
+            ]);
+          }),
+        );
+      },
+    );
+  }
+
+  Widget _circle(double size) {
+    return Container(width: size, height: size, decoration: const BoxDecoration(color: Color(0x33FFFFFF), shape: BoxShape.circle));
+  }
 }

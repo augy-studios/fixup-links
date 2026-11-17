@@ -10,14 +10,14 @@ from telegram.ext import ContextTypes
 import config
 import db
 import linkfix
-from handlers.core import CB_COPYALL, code_cell, do_fix, escape_cell, md_table
+from handlers.core import CALLBACK_COPY_ALL, code_cell, do_fix, escape_cell, markdown_table
 from reply import send_rich_message
 
 AWAITING_BATCH_KEY = 'awaiting_batch_links'
 
 
-def _build_copyall_keyboard(batch_id: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton('Copy all', callback_data=f'{CB_COPYALL}:{batch_id}')]])
+def _build_copy_all_keyboard(batch_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton('Copy all', callback_data=f'{CALLBACK_COPY_ALL}:{batch_id}')]])
 
 
 def build_batch_view(entries: list[tuple[str, str | None, str | None]], fixed_count: int) -> dict:
@@ -27,27 +27,32 @@ def build_batch_view(entries: list[tuple[str, str | None, str | None]], fixed_co
     heading = f'Fixed {fixed_count}/{len(entries)} links'
 
     rows = []
-    plain = [heading, '']
-    for i, (original, platform, cleaned) in enumerate(entries, start=1):
+    plain_lines = [heading, '']
+    for row_number, (original, platform, cleaned) in enumerate(entries, start=1):
         if cleaned is None:
-            rows.append([i, '—', f'~~{code_cell(original)}~~ invalid URL'])
-            plain.append(f'{i}. {original} (invalid URL)')
+            rows.append([row_number, '—', f'~~{code_cell(original)}~~ invalid URL'])
+            plain_lines.append(f'{row_number}. {original} (invalid URL)')
         else:
-            rows.append([i, escape_cell(platform), code_cell(cleaned)])
-            plain.append(f'{i}. {platform}\n{original}\n→ {cleaned}')
-        plain.append('')
+            rows.append([row_number, escape_cell(platform), code_cell(cleaned)])
+            plain_lines.append(f'{row_number}. {platform}\n{original}\n→ {cleaned}')
+        plain_lines.append('')
 
-    md = [f'# {heading}', '', *md_table(['Platform', 'Fixed link'], rows)]
+    markdown_lines = [f'# {heading}', '', *markdown_table(['Platform', 'Fixed link'], rows)]
     # Plain text is capped at 4096 by Telegram; the rich payload allows far more.
-    return {'markdown': '\n'.join(md), 'fallback': '\n'.join(plain).rstrip()[:4000]}
+    return {'markdown': '\n'.join(markdown_lines), 'fallback': '\n'.join(plain_lines).rstrip()[:4000]}
 
 
 async def _run_batch(update: Update, context: ContextTypes.DEFAULT_TYPE, links_text: str):
-    db_conn = context.bot_data['db']
+    """Cleans every link in links_text, records each one, and replies with a
+    table of the results plus a "Copy all" button."""
+    db_connection = context.bot_data['db']
     chat = update.effective_chat
     user = update.effective_user
 
-    urls = [u for u in re.split(r'\s+', links_text.strip()) if u]
+    urls = []
+    for word in re.split(r'\s+', links_text.strip()):
+        if word:
+            urls.append(word)
     urls = urls[:config.MAX_BATCH_LINKS]
 
     if not urls:
@@ -63,9 +68,9 @@ async def _run_batch(update: Update, context: ContextTypes.DEFAULT_TYPE, links_t
             entries.append((original, None, None))
             continue
 
-        await db.add_fix_result(db_conn, chat_id=chat.id, requester_id=user.id,
+        await db.add_fix_result(db_connection, chat_id=chat.id, requester_id=user.id,
                                  original_url=original, cleaned_url=cleaned, platform=result.platform)
-        await db.add_history(db_conn, user_id=user.id, original_url=original,
+        await db.add_history(db_connection, user_id=user.id, original_url=original,
                               cleaned_url=cleaned, platform=result.platform)
         cleaned_urls.append(cleaned)
         entries.append((original, result.platform, cleaned))
@@ -74,8 +79,8 @@ async def _run_batch(update: Update, context: ContextTypes.DEFAULT_TYPE, links_t
 
     keyboard = None
     if cleaned_urls:
-        batch_id = await db.add_batch_result(db_conn, chat_id=chat.id, requester_id=user.id, cleaned_urls=cleaned_urls)
-        keyboard = _build_copyall_keyboard(batch_id)
+        batch_id = await db.add_batch_result(db_connection, chat_id=chat.id, requester_id=user.id, cleaned_urls=cleaned_urls)
+        keyboard = _build_copy_all_keyboard(batch_id)
 
     await send_rich_message(context.bot, chat.id, rich, keyboard, reply_to=update.effective_message.message_id)
 
@@ -88,7 +93,7 @@ async def batch_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text('Send me the links to clean, one per line or separated by spaces.')
 
 
-async def copyall_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def copy_all_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     batch_id = int(query.data.split(':', 1)[1])
     row = await db.get_batch_result(context.bot_data['db'], batch_id)

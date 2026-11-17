@@ -20,21 +20,36 @@ class Links {
   /// What the app was opened with, or what was typed into the command bar. Whether it was one.
   static bool open(String raw) {
     final url = raw.trim();
-    if (url.isEmpty) return false;
-    final uwu = _fromUwu(url);
-    if (uwu != null) return open(uwu);
-    final u = Uri.tryParse(url);
-    if (u != null && (u.scheme == 'https' || u.scheme == 'http') && u.host.toLowerCase() == host) {
-      final path = u.path.replaceAll(RegExp(r'/+$'), '');
+    if (url.isEmpty) {
+      return false;
+    }
+    final siteAddress = _fromUwu(url);
+    if (siteAddress != null) {
+      return open(siteAddress);
+    }
+    final uri = Uri.tryParse(url);
+    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http') && uri.host.toLowerCase() == host) {
+      final path = uri.path.replaceAll(RegExp(r'/+$'), '');
       if (path == '/join') {
-        final code = u.queryParameters['id'];
-        if (code != null) openJoin(code);
+        final code = uri.queryParameters['id'];
+        if (code != null) {
+          openJoin(code);
+        }
         return true;
       }
-      final q = u.queryParameters;
-      final link = q['url'] ?? q['link'] ?? extractUrlFromText(q['text']);
+      final query = uri.queryParameters;
+      String? link;
+      if (query['url'] != null) {
+        link = query['url'];
+      } else if (query['link'] != null) {
+        link = query['link'];
+      } else {
+        link = extractUrlFromText(query['text']);
+      }
       AppNav.showPage('home');
-      if (link != null) Fixer.I.fix(link);
+      if (link != null) {
+        Fixer.I.fix(link);
+      }
       return true;
     }
     // Any other link: cleaned, as pasting it would be.
@@ -48,15 +63,25 @@ class Links {
 
   /// uwu://fix/... as the site's address, as MainActivity.pageFor does it, or null.
   static String? _fromUwu(String raw) {
-    final m = RegExp(r'^uwu://(fix|fixup)(?=[/?#]|$)', caseSensitive: false).firstMatch(raw);
-    if (m == null) return null;
-    final rest = raw.substring(m.end);
+    final match = RegExp(r'^uwu://(fix|fixup)(?=[/?#]|$)', caseSensitive: false).firstMatch(raw);
+    if (match == null) {
+      return null;
+    }
+    final rest = raw.substring(match.end);
     if (rest.startsWith('/') && rest.length > 1 && !rest.startsWith('/?') && !rest.startsWith('/#')) {
       var link = rest.substring(1);
-      if (!link.contains('://')) link = Uri.decodeComponent(link);
+      if (!link.contains('://')) {
+        link = Uri.decodeComponent(link);
+      }
       return 'https://$host/?url=${Uri.encodeComponent(link)}';
     }
-    final q = rest.indexOf('?');
-    return 'https://$host/${q == -1 ? '' : rest.substring(q)}';
+    final queryStart = rest.indexOf('?');
+    String query;
+    if (queryStart == -1) {
+      query = '';
+    } else {
+      query = rest.substring(queryStart);
+    }
+    return 'https://$host/$query';
   }
 }

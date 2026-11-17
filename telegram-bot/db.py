@@ -58,35 +58,42 @@ CREATE TABLE IF NOT EXISTS chat_settings (
 
 async def init_db(path: str) -> aiosqlite.Connection:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = await aiosqlite.connect(path)
-    conn.row_factory = aiosqlite.Row
-    await conn.executescript(SCHEMA)
-    await conn.commit()
-    return conn
+    connection = await aiosqlite.connect(path)
+    connection.row_factory = aiosqlite.Row
+    await connection.executescript(SCHEMA)
+    await connection.commit()
+    return connection
 
 
 async def add_fix_result(db, *, chat_id, requester_id, original_url, cleaned_url, platform) -> int:
-    cur = await db.execute(
+    cursor = await db.execute(
         "INSERT INTO fix_results (chat_id, requester_id, original_url, cleaned_url, platform) "
         "VALUES (?, ?, ?, ?, ?)",
         (chat_id, requester_id, original_url, cleaned_url, platform),
     )
     await db.commit()
-    return cur.lastrowid
+    return cursor.lastrowid
 
 
 async def get_fix_result(db, fix_id: int):
-    cur = await db.execute("SELECT * FROM fix_results WHERE id = ?", (fix_id,))
-    return await cur.fetchone()
+    cursor = await db.execute("SELECT * FROM fix_results WHERE id = ?", (fix_id,))
+    return await cursor.fetchone()
 
 
 async def update_fix_result(db, fix_id: int, *, cleaned_url=None, platform=None, showing_original=None):
+    """Updates the given fields of a fix_results row; a field left as None
+    keeps its stored value. Does nothing if the row no longer exists."""
     row = await get_fix_result(db, fix_id)
     if not row:
         return
-    cleaned_url = row['cleaned_url'] if cleaned_url is None else cleaned_url
-    platform = row['platform'] if platform is None else platform
-    showing_original = row['showing_original'] if showing_original is None else int(showing_original)
+    if cleaned_url is None:
+        cleaned_url = row['cleaned_url']
+    if platform is None:
+        platform = row['platform']
+    if showing_original is None:
+        showing_original = row['showing_original']
+    else:
+        showing_original = int(showing_original)
     await db.execute(
         "UPDATE fix_results SET cleaned_url = ?, platform = ?, showing_original = ? WHERE id = ?",
         (cleaned_url, platform, showing_original, fix_id),
@@ -95,17 +102,17 @@ async def update_fix_result(db, fix_id: int, *, cleaned_url=None, platform=None,
 
 
 async def add_batch_result(db, *, chat_id, requester_id, cleaned_urls: list[str]) -> int:
-    cur = await db.execute(
+    cursor = await db.execute(
         "INSERT INTO batch_results (chat_id, requester_id, cleaned_urls) VALUES (?, ?, ?)",
         (chat_id, requester_id, '\n'.join(cleaned_urls)),
     )
     await db.commit()
-    return cur.lastrowid
+    return cursor.lastrowid
 
 
 async def get_batch_result(db, batch_id: int):
-    cur = await db.execute("SELECT * FROM batch_results WHERE id = ?", (batch_id,))
-    return await cur.fetchone()
+    cursor = await db.execute("SELECT * FROM batch_results WHERE id = ?", (batch_id,))
+    return await cursor.fetchone()
 
 
 async def add_history(db, *, user_id, original_url, cleaned_url, platform):
@@ -117,11 +124,11 @@ async def add_history(db, *, user_id, original_url, cleaned_url, platform):
 
 
 async def get_history_page(db, user_id: int, offset: int, limit: int):
-    cur = await db.execute(
+    cursor = await db.execute(
         "SELECT * FROM history WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
         (user_id, limit + 1, offset),
     )
-    rows = await cur.fetchall()
+    rows = await cursor.fetchall()
     has_more = len(rows) > limit
     return rows[:limit], has_more
 
@@ -130,15 +137,15 @@ async def delete_history_entry(db, entry_id: int, user_id: int) -> bool:
     """Deletes a history row, but only if it belongs to user_id. Returns
     whether a row was actually deleted, so callers can tell "already gone"
     apart from "wasn't yours"."""
-    cur = await db.execute("DELETE FROM history WHERE id = ? AND user_id = ?", (entry_id, user_id))
+    cursor = await db.execute("DELETE FROM history WHERE id = ? AND user_id = ?", (entry_id, user_id))
     await db.commit()
-    return cur.rowcount > 0
+    return cursor.rowcount > 0
 
 
 async def clear_history(db, user_id: int) -> int:
-    cur = await db.execute("DELETE FROM history WHERE user_id = ?", (user_id,))
+    cursor = await db.execute("DELETE FROM history WHERE user_id = ?", (user_id,))
     await db.commit()
-    return cur.rowcount
+    return cursor.rowcount
 
 
 async def touch_chat(db, chat_id: int, *, default_autodetect: bool):
@@ -152,8 +159,8 @@ async def touch_chat(db, chat_id: int, *, default_autodetect: bool):
 
 
 async def get_autodetect_enabled(db, chat_id: int, *, default_autodetect: bool) -> bool:
-    cur = await db.execute("SELECT autodetect_enabled FROM chat_settings WHERE chat_id = ?", (chat_id,))
-    row = await cur.fetchone()
+    cursor = await db.execute("SELECT autodetect_enabled FROM chat_settings WHERE chat_id = ?", (chat_id,))
+    row = await cursor.fetchone()
     if row is None:
         return default_autodetect
     return bool(row['autodetect_enabled'])
@@ -169,6 +176,8 @@ async def set_autodetect_enabled(db, chat_id: int, enabled: bool):
 
 
 async def count_known_chats(db) -> int:
-    cur = await db.execute("SELECT COUNT(*) AS n FROM chat_settings")
-    row = await cur.fetchone()
-    return row['n'] if row else 0
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM chat_settings")
+    row = await cursor.fetchone()
+    if row:
+        return row['n']
+    return 0

@@ -30,24 +30,34 @@ class GlassPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
-    final g = fx.glass!;
+    final palette = context.fx;
+    final glass = palette.glass!;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final r = BorderRadius.circular(radius ?? g.card);
+    double cornerRadius = glass.card;
+    final givenRadius = radius;
+    if (givenRadius != null) {
+      cornerRadius = givenRadius;
+    }
+    final borderRadius = BorderRadius.circular(cornerRadius);
+    Color fillColor = palette.surface;
+    final givenColor = color;
+    if (givenColor != null) {
+      fillColor = givenColor;
+    }
     Widget pane = Material(
-      color: color ?? fx.surface,
-      shape: RoundedRectangleBorder(borderRadius: r, side: BorderSide(color: fx.border)),
+      color: fillColor,
+      shape: RoundedRectangleBorder(borderRadius: borderRadius, side: BorderSide(color: palette.border)),
       clipBehavior: Clip.antiAlias,
       child: CustomPaint(
-        painter: _Sheen(r, g.edge, dark),
-        foregroundPainter: _Rim(r, g.edge, dark),
+        painter: _Sheen(borderRadius, glass.edge, dark),
+        foregroundPainter: _Rim(borderRadius, glass.edge, dark),
         child: child,
       ),
     );
     if (blur) {
       pane = ClipRRect(
-        borderRadius: r,
-        child: BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: g.blur, sigmaY: g.blur), child: pane),
+        borderRadius: borderRadius,
+        child: BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: glass.blur, sigmaY: glass.blur), child: pane),
       );
     }
     return pane;
@@ -64,21 +74,29 @@ class _Sheen extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final a = (dark ? 0.07 : 0.22) * edge;
+    double strength;
+    if (dark) {
+      strength = 0.07;
+    } else {
+      strength = 0.22;
+    }
+    final alpha = strength * edge;
     canvas.drawRRect(
       radius.toRRect(rect),
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.white.withValues(alpha: a), Colors.white.withValues(alpha: 0)],
+          colors: [Colors.white.withValues(alpha: alpha), Colors.white.withValues(alpha: 0)],
           stops: const [0, 0.45],
         ).createShader(rect),
     );
   }
 
   @override
-  bool shouldRepaint(_Sheen old) => old.radius != radius || old.edge != edge || old.dark != dark;
+  bool shouldRepaint(_Sheen oldDelegate) {
+    return oldDelegate.radius != radius || oldDelegate.edge != edge || oldDelegate.dark != dark;
+  }
 }
 
 /// The rim where light catches a pane: bright along its top, fading round the sides, a little
@@ -92,8 +110,17 @@ class _Rim extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = (Offset.zero & size).deflate(0.75);
-    final top = (dark ? 0.32 : 0.95) * edge;
-    final bottom = (dark ? 0.12 : 0.45) * edge;
+    double topStrength;
+    double bottomStrength;
+    if (dark) {
+      topStrength = 0.32;
+      bottomStrength = 0.12;
+    } else {
+      topStrength = 0.95;
+      bottomStrength = 0.45;
+    }
+    final top = topStrength * edge;
+    final bottom = bottomStrength * edge;
     canvas.drawRRect(
       radius.toRRect(rect),
       Paint()
@@ -114,7 +141,9 @@ class _Rim extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Rim old) => old.radius != radius || old.edge != edge || old.dark != dark;
+  bool shouldRepaint(_Rim oldDelegate) {
+    return oldDelegate.radius != radius || oldDelegate.edge != edge || oldDelegate.dark != dark;
+  }
 }
 
 /// Behind the app, in a desktop's glass: the system's backdrop with a veil over it, or the
@@ -128,13 +157,18 @@ class GlassBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
-    final g = fx.glass;
-    if (g == null) return child;
+    final palette = context.fx;
+    final glass = palette.glass;
+    if (glass == null) {
+      return child;
+    }
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final Widget behind = AppLook.I.backdrop && !opaque
-        ? ColoredBox(color: fx.bg.withValues(alpha: g.veil))
-        : CustomPaint(painter: _Washes(fx.bg, fx.brandInk, dark));
+    final Widget behind;
+    if (AppLook.I.backdrop && !opaque) {
+      behind = ColoredBox(color: palette.bg.withValues(alpha: glass.veil));
+    } else {
+      behind = CustomPaint(painter: _Washes(palette.bg, palette.brandInk, dark));
+    }
     return Stack(fit: StackFit.passthrough, children: [
       Positioned.fill(child: RepaintBoundary(child: behind)),
       child,
@@ -154,39 +188,48 @@ class _Washes extends CustomPainter {
     final rect = Offset.zero & size;
     canvas.drawRect(rect, Paint()..color = base);
     final hsl = HSLColor.fromColor(accent);
-    final a = dark ? 0.26 : 0.30;
+    double strength;
+    if (dark) {
+      strength = 0.26;
+    } else {
+      strength = 0.30;
+    }
     final side = size.longestSide;
-    void wash(Alignment at, double hueShift, double reach, double alpha) {
-      final c = hsl.withHue((hsl.hue + hueShift) % 360).toColor();
-      final centre = at.alongSize(size);
-      final r = side * reach;
+
+    // One soft round wash of the accent, its hue shifted, centred at [position].
+    void wash(Alignment position, double hueShift, double reach, double alpha) {
+      final washColor = hsl.withHue((hsl.hue + hueShift) % 360).toColor();
+      final centre = position.alongSize(size);
+      final washRadius = side * reach;
       canvas.drawCircle(
         centre,
-        r,
+        washRadius,
         Paint()
           ..shader = RadialGradient(
-            colors: [c.withValues(alpha: alpha), c.withValues(alpha: 0)],
-          ).createShader(Rect.fromCircle(center: centre, radius: r)),
+            colors: [washColor.withValues(alpha: alpha), washColor.withValues(alpha: 0)],
+          ).createShader(Rect.fromCircle(center: centre, radius: washRadius)),
       );
     }
 
-    wash(const Alignment(-0.9, -1), 0, 0.55, a);
-    wash(const Alignment(1, -0.2), 40, 0.45, a * 0.8);
-    wash(const Alignment(0.1, 1.1), -50, 0.5, a * 0.7);
+    wash(const Alignment(-0.9, -1), 0, 0.55, strength);
+    wash(const Alignment(1, -0.2), 40, 0.45, strength * 0.8);
+    wash(const Alignment(0.1, 1.1), -50, 0.5, strength * 0.7);
   }
 
   @override
-  bool shouldRepaint(_Washes old) => old.base != base || old.accent != accent || old.dark != dark;
+  bool shouldRepaint(_Washes oldDelegate) {
+    return oldDelegate.base != base || oldDelegate.accent != accent || oldDelegate.dark != dark;
+  }
 }
 
 /// A picture of the app laid on [color], for a desktop's glass: where the window is clear the
 /// system's backdrop shows, and a picture has nothing behind it.
 Future<ui.Image> flattenShot(ui.Image image, Color color) async {
-  final record = ui.PictureRecorder();
-  Canvas(record)
-    ..drawColor(color.withValues(alpha: 1), BlendMode.src)
-    ..drawImage(image, Offset.zero, Paint());
-  final out = await record.endRecording().toImage(image.width, image.height);
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawColor(color.withValues(alpha: 1), BlendMode.src);
+  canvas.drawImage(image, Offset.zero, Paint());
+  final flattened = await recorder.endRecording().toImage(image.width, image.height);
   image.dispose();
-  return out;
+  return flattened;
 }

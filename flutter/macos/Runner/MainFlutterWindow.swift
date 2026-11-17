@@ -26,12 +26,23 @@ class MainFlutterWindow: NSWindow {
         result(FlutterMethodNotImplemented)
         return
       }
-      let args = call.arguments as? [String: Any] ?? [:]
-      result(self.setBackdrop(on: args["on"] as? Bool ?? false, dark: args["dark"] as? Bool ?? false))
+      var arguments: [String: Any] = [:]
+      if let argumentMap = call.arguments as? [String: Any] {
+        arguments = argumentMap
+      }
+      var on = false
+      if let onValue = arguments["on"] as? Bool {
+        on = onValue
+      }
+      var dark = false
+      if let darkValue = arguments["dark"] as? Bool {
+        dark = darkValue
+      }
+      result(self.setBackdrop(on: on, dark: dark))
     }
-    if !AppDelegate.pending.isEmpty {
-      let links = AppDelegate.pending
-      AppDelegate.pending = []
+    if !AppDelegate.pendingLinks.isEmpty {
+      let links = AppDelegate.pendingLinks
+      AppDelegate.pendingLinks = []
       DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
         channel.invokeMethod("open", arguments: links)
       }
@@ -50,18 +61,29 @@ class MainFlutterWindow: NSWindow {
   /// The desktop through the window, blurred (NSVisualEffectView's behind-window vibrancy, which
   /// macOS Tahoe draws as its glass), light or dark as the app is rather than as the system is.
   func setBackdrop(on: Bool, dark: Bool) -> Bool {
-    guard let glass = contentViewController as? GlassController else { return false }
+    guard let glass = contentViewController as? GlassController else {
+      return false
+    }
     glass.effect.isHidden = !on
     isOpaque = !on
-    backgroundColor = on ? NSColor.clear : NSColor.windowBackgroundColor
-    appearance = on ? NSAppearance(named: dark ? .darkAqua : .aqua) : nil
+    if on {
+      backgroundColor = NSColor.clear
+      if dark {
+        appearance = NSAppearance(named: .darkAqua)
+      } else {
+        appearance = NSAppearance(named: .aqua)
+      }
+    } else {
+      backgroundColor = NSColor.windowBackgroundColor
+      appearance = nil
+    }
     invalidateShadow()
     return on
   }
 
   // Hidden until the Dart side has drawn and sized it (window_manager).
-  override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
-    super.order(place, relativeTo: otherWin)
+  override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWindow: Int) {
+    super.order(place, relativeTo: otherWindow)
     hiddenWindowAtLaunch()
   }
 }

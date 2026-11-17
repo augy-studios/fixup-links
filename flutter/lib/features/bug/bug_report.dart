@@ -19,7 +19,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:image/image.dart' as img;
+import 'package:image/image.dart' as image_library;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../api/resolve.dart';
@@ -30,32 +30,45 @@ import '../../theme/theme.dart';
 import '../../widgets/glass.dart';
 
 const _email = 'augy@augystudios.com';
-const _maxShots = 3;
+const _maxPictures = 3;
 const _pageNames = {'home': 'Home', 'history': 'History', 'sync': 'Share history', 'look': 'Look'};
 
 /// Opens it, from the Edge Tray, the desktop's rail, command bar and Help menu.
-void openBugReport() => AppNav.push(const BugReport(), name: 'bug');
+void openBugReport() {
+  AppNav.push(const BugReport(), name: 'bug');
+}
 
 /// A report's pictures, which outlive its screen while you go and find a page to take.
 class _Pictures {
   _Pictures._();
   static final List<String> shots = []; // JPEG data URLs
-  static final Set<int> full = {}; // whole pages among them: each also goes as a file, at its full size
+  static final Set<int> wholePages = {}; // whole pages among them: each also goes as a file, at its full size
 
   static void clear() {
     shots.clear();
-    full.clear();
+    wholePages.clear();
   }
 
-  static void removeAt(int i) {
-    shots.removeAt(i);
-    final moved = {for (final n in full) if (n != i) n > i ? n - 1 : n};
-    full
-      ..clear()
-      ..addAll(moved);
+  /// Removes the picture at [index], and moves the whole-page marks after it down by one.
+  static void removeAt(int index) {
+    shots.removeAt(index);
+    final moved = <int>{};
+    for (final pageIndex in wholePages) {
+      if (pageIndex == index) {
+        continue;
+      }
+      if (pageIndex > index) {
+        moved.add(pageIndex - 1);
+      } else {
+        moved.add(pageIndex);
+      }
+    }
+    wholePages.clear();
+    wholePages.addAll(moved);
   }
 }
 
+/// The Report a bug page: what went wrong, how to reach you, pictures, and the details sent with it.
 class BugReport extends StatefulWidget {
   const BugReport({super.key});
 
@@ -68,33 +81,63 @@ class BugReport extends StatefulWidget {
   static const pageRatio = 20;
   static const pageSum = 9998;
 
+  /// See [pageWidth]: the whole page's picture, shrunk and compressed till Telegram takes it.
   static String? pageJpeg(Uint8List bytes) {
-    final image = img.decodeImage(bytes);
-    if (image == null) return null;
-    final w = image.width;
-    final h = math.min(image.height, w * pageRatio);
-    var k = math.min(1.0, math.min(pageWidth / w, pageSum / (w + h)));
-    final page = h == image.height ? image : img.copyCrop(image, x: 0, y: 0, width: w, height: h);
+    final image = image_library.decodeImage(bytes);
+    if (image == null) {
+      return null;
+    }
+    final width = image.width;
+    final height = math.min(image.height, width * pageRatio);
+    var scale = math.min(1.0, math.min(pageWidth / width, pageSum / (width + height)));
+    image_library.Image page;
+    if (height == image.height) {
+      page = image;
+    } else {
+      page = image_library.copyCrop(image, x: 0, y: 0, width: width, height: height);
+    }
     for (var tries = 0; tries < 8; tries++) {
       // The height from the rounded-down width, so it stays within pageRatio.
-      final sw = math.max(1, (w * k).floor());
-      final sh = math.max(1, math.min((h * k).floor(), sw * pageRatio));
-      final out = img.encodeJpg(k >= 1 ? page : img.copyResize(page, width: sw, height: sh), quality: tries < 2 ? 80 : 68);
-      if (out.length <= 900 * 1024 || tries == 7) return 'data:image/jpeg;base64,${base64Encode(out)}';
-      if (tries >= 1) k *= 0.82;
+      final scaledWidth = math.max(1, (width * scale).floor());
+      final scaledHeight = math.max(1, math.min((height * scale).floor(), scaledWidth * pageRatio));
+      image_library.Image resized;
+      if (scale >= 1) {
+        resized = page;
+      } else {
+        resized = image_library.copyResize(page, width: scaledWidth, height: scaledHeight);
+      }
+      int quality;
+      if (tries < 2) {
+        quality = 80;
+      } else {
+        quality = 68;
+      }
+      final encoded = image_library.encodeJpg(resized, quality: quality);
+      if (encoded.length <= 900 * 1024 || tries == 7) {
+        return 'data:image/jpeg;base64,${base64Encode(encoded)}';
+      }
+      if (tries >= 1) {
+        scale *= 0.82;
+      }
     }
     return null;
   }
 
   /// A picture as a JPEG data URL, at most 1600 px a side and about 900 KB.
   static String? pictureJpeg(Uint8List bytes) {
-    var image = img.decodeImage(bytes);
-    if (image == null) return null;
+    var image = image_library.decodeImage(bytes);
+    if (image == null) {
+      return null;
+    }
     final side = math.max(image.width, image.height);
-    if (side > 1600) image = img.copyResize(image, width: (image.width * 1600 / side).round());
-    for (final q in [80, 65, 50, 35]) {
-      final out = img.encodeJpg(image, quality: q);
-      if (out.length <= 900 * 1024 || q == 35) return 'data:image/jpeg;base64,${base64Encode(out)}';
+    if (side > 1600) {
+      image = image_library.copyResize(image, width: (image.width * 1600 / side).round());
+    }
+    for (final quality in [80, 65, 50, 35]) {
+      final encoded = image_library.encodeJpg(image, quality: quality);
+      if (encoded.length <= 900 * 1024 || quality == 35) {
+        return 'data:image/jpeg;base64,${base64Encode(encoded)}';
+      }
     }
     return null;
   }
@@ -104,26 +147,97 @@ class BugReport extends StatefulWidget {
     final info = Native.info;
     final String device;
     if (onDesktop) {
-      final os = switch ('${info?['os'] ?? Platform.operatingSystem}') { 'windows' => 'Windows', 'macos' => 'macOS', 'linux' => 'Linux', final o => o };
-      device = ['$os ${info?['osVersion'] ?? ''}'.trim(), 'Flutter'].join(' · ');
+      String systemName;
+      final rawSystem = info?['os'];
+      if (rawSystem != null) {
+        systemName = '$rawSystem';
+      } else {
+        systemName = Platform.operatingSystem;
+      }
+      String system;
+      switch (systemName) {
+        case 'windows':
+          system = 'Windows';
+        case 'macos':
+          system = 'macOS';
+        case 'linux':
+          system = 'Linux';
+        default:
+          system = systemName;
+      }
+      String systemVersion = '';
+      final rawSystemVersion = info?['osVersion'];
+      if (rawSystemVersion != null) {
+        systemVersion = '$rawSystemVersion';
+      }
+      device = ['$system $systemVersion'.trim(), 'Flutter'].join(' · ');
     } else {
-      final release = info?['release'] ?? info?['android'];
-      device = [release == null ? 'Android' : 'Android $release', if (info?['model'] != null) '${info!['model']}', 'Flutter'].join(' · ');
+      Object? release;
+      final directRelease = info?['release'];
+      if (directRelease != null) {
+        release = directRelease;
+      } else {
+        release = info?['android'];
+      }
+      final parts = <String>[];
+      if (release == null) {
+        parts.add('Android');
+      } else {
+        parts.add('Android $release');
+      }
+      if (info?['model'] != null) {
+        parts.add('${info!['model']}');
+      }
+      parts.add('Flutter');
+      device = parts.join(' · ');
+    }
+    String version = '';
+    final nativeVersion = Native.version;
+    if (nativeVersion != null) {
+      version = nativeVersion;
+    }
+    String platform;
+    if (onDesktop) {
+      platform = 'desktop';
+    } else {
+      platform = 'android';
+    }
+    final pageId = AppNav.page.value;
+    String pageName = pageId;
+    final knownName = _pageNames[pageId];
+    if (knownName != null) {
+      pageName = knownName;
     }
     return {
-      'version': Native.version ?? '',
-      'platform': onDesktop ? 'desktop' : 'android',
+      'version': version,
+      'platform': platform,
       'device': device,
-      'page': _pageNames[AppNav.page.value] ?? AppNav.page.value,
+      'page': pageName,
       'lang': ui.PlatformDispatcher.instance.locale.toLanguageTag(),
     };
   }
 
-  static String detailsText(Map<String, String> d) =>
-      [onDesktop ? 'Desktop app' : 'Android app', d['version'], d['device'], d['page']].where((s) => s != null && s.isNotEmpty).join(' · ');
+  /// The details as one line, for the page and for an email: "Android app · 1.2.0 · ...".
+  static String detailsText(Map<String, String> details) {
+    String appName;
+    if (onDesktop) {
+      appName = 'Desktop app';
+    } else {
+      appName = 'Android app';
+    }
+    final parts = <String>[];
+    for (final part in [appName, details['version'], details['device'], details['page']]) {
+      if (part != null && part.isNotEmpty) {
+        parts.add(part);
+      }
+    }
+    return parts.join(' · ');
+  }
 
   @override
-  State<BugReport> createState() => _BugReportState();
+  State<BugReport> createState() {
+    return _BugReportState();
+  }
 }
 
 /// What floats over the app while you find the page to take.
@@ -131,7 +245,9 @@ class ShotBar extends StatefulWidget {
   const ShotBar({super.key});
 
   @override
-  State<ShotBar> createState() => _ShotBarState();
+  State<ShotBar> createState() {
+    return _ShotBarState();
+  }
 }
 
 class _ShotBarState extends State<ShotBar> {
@@ -147,90 +263,105 @@ class _ShotBarState extends State<ShotBar> {
   }
 
   /// The biggest list on show that has more than fits on the screen, if there is one.
-  static ScrollableState? _pageScroll(BuildContext from) {
+  static ScrollableState? _pageScroll(BuildContext startContext) {
     ScrollableState? best;
-    var most = 0.0;
-    final wide = MediaQuery.sizeOf(from).width / 3;
-    void look(Element e) {
-      if (e is StatefulElement && e.state is ScrollableState) {
-        final s = e.state as ScrollableState;
-        final box = e.findRenderObject();
-        final p = s.position;
+    var largestArea = 0.0;
+    final minimumWidth = MediaQuery.sizeOf(startContext).width / 3;
+
+    // Looks at [element] and everything on show under it, keeping the biggest list found.
+    void visit(Element element) {
+      if (element is StatefulElement && element.state is ScrollableState) {
+        final scrollable = element.state as ScrollableState;
+        final box = element.findRenderObject();
+        final position = scrollable.position;
         // Not the Edge Tray's column, or anything else down one side.
-        if (p.axis == Axis.vertical && box is RenderBox && box.hasSize && box.size.width >= wide && p.hasContentDimensions && p.maxScrollExtent > 8) {
+        if (position.axis == Axis.vertical &&
+            box is RenderBox &&
+            box.hasSize &&
+            box.size.width >= minimumWidth &&
+            position.hasContentDimensions &&
+            position.maxScrollExtent > 8) {
           final area = box.size.width * box.size.height;
-          if (area > most) {
-            most = area;
-            best = s;
+          if (area > largestArea) {
+            largestArea = area;
+            best = scrollable;
           }
         }
       }
-      e.debugVisitOnstageChildren(look);
+      element.debugVisitOnstageChildren(visit);
     }
 
-    (from as Element).debugVisitOnstageChildren(look);
+    (startContext as Element).debugVisitOnstageChildren(visit);
     return best;
   }
 
-  static const _ratio = 1.5;
+  static const _pixelRatio = 1.5;
 
   /// What can be drawn in one picture, in pixels.
-  static const _tallest = 8000.0;
+  static const _tallestPicture = 8000.0;
 
   /// The page from top to bottom: the screen with its list at the top, then each further
   /// screenful of the list, and the rest of the screen under them.
   static Future<ui.Image?> _wholePage() async {
-    final at = AppNav.shotKey.currentContext;
-    final boundary = at?.findRenderObject() as RenderRepaintBoundary?;
-    if (at == null || boundary == null) return null;
-    final scroll = _pageScroll(at);
-    if (scroll == null) return boundary.toImage(pixelRatio: _ratio);
-    final p = scroll.position;
-    final was = p.pixels;
+    final shotContext = AppNav.shotKey.currentContext;
+    final boundary = shotContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (shotContext == null || boundary == null) {
+      return null;
+    }
+    final scroll = _pageScroll(shotContext);
+    if (scroll == null) {
+      return boundary.toImage(pixelRatio: _pixelRatio);
+    }
+    final position = scroll.position;
+    final startPixels = position.pixels;
     final box = scroll.context.findRenderObject()! as RenderBox;
-    final bottom = (box.localToGlobal(Offset.zero, ancestor: boundary).dy + box.size.height) * _ratio;
+    final listBottom = (box.localToGlobal(Offset.zero, ancestor: boundary).dy + box.size.height) * _pixelRatio;
+    // Each further screenful, with how much new height it brings.
     final slices = <(ui.Image, double)>[];
-    ui.Image first;
+    ui.Image firstImage;
     try {
-      p.jumpTo(p.minScrollExtent);
+      position.jumpTo(position.minScrollExtent);
       await _settled();
-      first = await boundary.toImage(pixelRatio: _ratio);
-      var y = p.minScrollExtent;
-      var height = first.height.toDouble();
-      while (y < p.maxScrollExtent - 0.5 && height < _tallest) {
-        final next = math.min(y + p.viewportDimension, p.maxScrollExtent);
-        p.jumpTo(next);
+      firstImage = await boundary.toImage(pixelRatio: _pixelRatio);
+      var scrolled = position.minScrollExtent;
+      var height = firstImage.height.toDouble();
+      while (scrolled < position.maxScrollExtent - 0.5 && height < _tallestPicture) {
+        final nextOffset = math.min(scrolled + position.viewportDimension, position.maxScrollExtent);
+        position.jumpTo(nextOffset);
         await _settled();
-        final h = (next - y) * _ratio;
-        slices.add((await boundary.toImage(pixelRatio: _ratio), h));
-        height += h;
-        y = next;
+        final sliceHeight = (nextOffset - scrolled) * _pixelRatio;
+        slices.add((await boundary.toImage(pixelRatio: _pixelRatio), sliceHeight));
+        height += sliceHeight;
+        scrolled = nextOffset;
       }
     } finally {
-      p.jumpTo(was);
+      position.jumpTo(startPixels);
     }
-    final w = first.width.toDouble();
-    var total = first.height.toDouble();
-    for (final s in slices) {
-      total += s.$2;
+    final width = firstImage.width.toDouble();
+    var total = firstImage.height.toDouble();
+    for (final slice in slices) {
+      total += slice.$2;
     }
-    final record = ui.PictureRecorder();
-    final canvas = Canvas(record);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
     final paint = Paint();
-    canvas.drawImageRect(first, Rect.fromLTWH(0, 0, w, bottom), Rect.fromLTWH(0, 0, w, bottom), paint);
-    var y = bottom;
-    for (final (image, h) in slices) {
-      canvas.drawImageRect(image, Rect.fromLTWH(0, bottom - h, w, h), Rect.fromLTWH(0, y, w, h), paint);
-      y += h;
+    canvas.drawImageRect(firstImage, Rect.fromLTWH(0, 0, width, listBottom), Rect.fromLTWH(0, 0, width, listBottom), paint);
+    var drawnTo = listBottom;
+    for (final (image, sliceHeight) in slices) {
+      canvas.drawImageRect(
+          image, Rect.fromLTWH(0, listBottom - sliceHeight, width, sliceHeight), Rect.fromLTWH(0, drawnTo, width, sliceHeight), paint);
+      drawnTo += sliceHeight;
     }
-    final under = first.height - bottom;
-    if (under > 0) canvas.drawImageRect(first, Rect.fromLTWH(0, bottom, w, under), Rect.fromLTWH(0, y, w, under), paint);
-    final out = await record.endRecording().toImage(w.round(), total.round());
-    first.dispose();
+    final belowList = firstImage.height - listBottom;
+    if (belowList > 0) {
+      canvas.drawImageRect(firstImage, Rect.fromLTWH(0, listBottom, width, belowList), Rect.fromLTWH(0, drawnTo, width, belowList), paint);
+    }
+    final wholePage = await recorder.endRecording().toImage(width.round(), total.round());
+    firstImage.dispose();
     for (final (image, _) in slices) {
       image.dispose();
     }
-    return out;
+    return wholePage;
   }
 
   void _back() {
@@ -238,27 +369,52 @@ class _ShotBarState extends State<ShotBar> {
     openBugReport();
   }
 
+  /// Takes the whole page, adds it to the report's pictures, and goes back to the report.
   Future<void> _take() async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+    });
     try {
-      final fx = context.fx;
+      final palette = context.fx;
       var shot = await _wholePage();
-      if (shot != null && fx.glass != null) shot = await flattenShot(shot, fx.bg);
+      if (shot != null && palette.glass != null) {
+        shot = await flattenShot(shot, palette.bg);
+      }
       final png = await shot?.toByteData(format: ui.ImageByteFormat.png);
       shot?.dispose();
-      final jpeg = png == null ? null : await compute(BugReport.pageJpeg, png.buffer.asUint8List());
-      if (jpeg == null) throw StateError('no picture');
+      String? jpeg;
+      if (png != null) {
+        jpeg = await compute(BugReport.pageJpeg, png.buffer.asUint8List());
+      }
+      if (jpeg == null) {
+        throw StateError('no picture');
+      }
       _Pictures.shots.add(jpeg);
-      _Pictures.full.add(_Pictures.shots.length - 1);
+      _Pictures.wholePages.add(_Pictures.shots.length - 1);
     } catch (_) {
       AppNav.say("Couldn't take a screenshot here. Take one with your device and add it instead.");
     }
-    if (mounted) _busy = false;
+    if (mounted) {
+      _busy = false;
+    }
     _back();
   }
 
   @override
   Widget build(BuildContext context) {
+    VoidCallback? onTake;
+    VoidCallback? onCancel;
+    Widget icon;
+    String label;
+    if (_busy) {
+      icon = const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2));
+      label = 'Taking a screenshot…';
+    } else {
+      onTake = _take;
+      onCancel = _back;
+      icon = const Icon(Icons.screenshot_outlined);
+      label = 'Screenshot this page';
+    }
     // Over the navigator, outside it: its own Material for the buttons' ink.
     return Positioned(
       left: 0,
@@ -273,15 +429,15 @@ class _ShotBarState extends State<ShotBar> {
               Flexible(
                 child: FloatingActionButton.extended(
                   heroTag: null,
-                  onPressed: _busy ? null : _take,
-                  icon: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.screenshot_outlined),
-                  label: Text(_busy ? 'Taking a screenshot…' : 'Screenshot this page'),
+                  onPressed: onTake,
+                  icon: icon,
+                  label: Text(label),
                 ),
               ),
               const SizedBox(width: 10),
               FloatingActionButton.small(
                 heroTag: null,
-                onPressed: _busy ? null : _back,
+                onPressed: onCancel,
                 child: Semantics(label: 'Cancel', child: const Icon(Icons.close)),
               ),
             ]),
@@ -294,64 +450,115 @@ class _ShotBarState extends State<ShotBar> {
 
 class _BugReportState extends State<BugReport> {
   late final Map<String, dynamic> _draft = Store.I.json<Map<String, dynamic>>(BugReport.draftKey, const {});
-  late final _text = TextEditingController(text: _draft['text'] as String? ?? '');
-  late final _contact = TextEditingController(text: _draft['contact'] as String? ?? '');
+  late final _textController = TextEditingController(text: _draftField('text'));
+  late final _contactController = TextEditingController(text: _draftField('contact'));
   late final Map<String, String> _details = BugReport.details();
-  List<String> get _shots => _Pictures.shots;
+
+  List<String> get _shots {
+    return _Pictures.shots;
+  }
+
   bool _sending = false;
   String _status = '';
   bool _offerEmail = false;
 
+  /// A field of the kept draft, or empty if there's none.
+  String _draftField(String key) {
+    final value = _draft[key] as String?;
+    if (value == null) {
+      return '';
+    }
+    return value;
+  }
+
   @override
   void dispose() {
-    _text.dispose();
-    _contact.dispose();
+    _textController.dispose();
+    _contactController.dispose();
     super.dispose();
   }
 
-  void _keep() => Store.I.putJson(BugReport.draftKey, {'text': _text.text, 'contact': _contact.text});
+  /// Keeps what's typed, so it's still there next time.
+  void _keepDraft() {
+    Store.I.putJson(BugReport.draftKey, {'text': _textController.text, 'contact': _contactController.text});
+  }
 
-  Future<void> _pick() async {
-    final files = await openFiles(acceptedTypeGroups: const [XTypeGroup(label: 'Images', mimeTypes: ['image/*'], extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'])]);
-    for (final f in files.take(_maxShots - _shots.length)) {
-      final s = await compute(BugReport.pictureJpeg, await f.readAsBytes());
-      if (s != null) {
-        _shots.add(s);
+  /// Adds pictures from the device, as many as there's room for.
+  Future<void> _pickPictures() async {
+    final files = await openFiles(acceptedTypeGroups: const [
+      XTypeGroup(label: 'Images', mimeTypes: ['image/*'], extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'])
+    ]);
+    for (final file in files.take(_maxPictures - _shots.length)) {
+      final picture = await compute(BugReport.pictureJpeg, await file.readAsBytes());
+      if (picture != null) {
+        _shots.add(picture);
       } else {
         AppNav.say("Couldn't add that picture.");
       }
     }
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
-  /// Off to the app to find the page to take; what's typed is kept (_keep).
+  /// Off to the app to find the page to take; what's typed is kept (_keepDraft).
   void _screenshot() {
-    _keep();
+    _keepDraft();
     AppNav.shooting.value = true;
-    AppNav.navigatorKey.currentState?.popUntil((r) => r.isFirst);
+    AppNav.navigatorKey.currentState?.popUntil((route) {
+      return route.isFirst;
+    });
   }
 
+  /// Sends the report to the site, and says how it went.
   Future<void> _send() async {
-    final text = _text.text.trim();
-    if (text.length < 5) return setState(() => _status = 'Please say what went wrong first.');
+    final text = _textController.text.trim();
+    if (text.length < 5) {
+      setState(() {
+        _status = 'Please say what went wrong first.';
+      });
+      return;
+    }
     setState(() {
       _sending = true;
       _status = 'Sending…';
       _offerEmail = false;
     });
     try {
-      final r = await Api.post('/api/bug-report', {..._details, 'text': text, 'contact': _contact.text.trim(), 'website': '', 'images': _shots, 'full': _Pictures.full.toList()});
-      final id = r?['id'] is String ? r!['id'] as String : null;
-      _text.clear();
-      _contact.clear();
+      final response = await Api.post('/api/bug-report', {
+        ..._details,
+        'text': text,
+        'contact': _contactController.text.trim(),
+        'website': '',
+        'images': _shots,
+        'full': _Pictures.wholePages.toList(),
+      });
+      String? id;
+      if (response?['id'] is String) {
+        id = response!['id'] as String;
+      }
+      _textController.clear();
+      _contactController.clear();
       _Pictures.clear();
       Store.I.remove(BugReport.draftKey);
-      _status = id != null ? 'Sent as report $id. Thank you! Augy will look into it.' : 'Sent. Thank you! Augy will look into it.';
-    } on ApiError catch (e) {
-      if (e.status == 400 || e.status == 413 || e.status == 429) {
-        _status = e.message.isNotEmpty ? e.message : "Couldn't send it right now.";
+      if (id != null) {
+        _status = 'Sent as report $id. Thank you! Augy will look into it.';
       } else {
-        _status = e.status == 503 ? "Bug reports can't be sent from the app yet." : "Couldn't send it right now.";
+        _status = 'Sent. Thank you! Augy will look into it.';
+      }
+    } on ApiError catch (error) {
+      if (error.status == 400 || error.status == 413 || error.status == 429) {
+        if (error.message.isNotEmpty) {
+          _status = error.message;
+        } else {
+          _status = "Couldn't send it right now.";
+        }
+      } else {
+        if (error.status == 503) {
+          _status = "Bug reports can't be sent from the app yet.";
+        } else {
+          _status = "Couldn't send it right now.";
+        }
         _offerEmail = true;
       }
     } on SocketException {
@@ -360,19 +567,62 @@ class _BugReportState extends State<BugReport> {
       _status = "Couldn't send it right now.";
       _offerEmail = true;
     }
-    if (mounted) setState(() => _sending = false);
+    if (mounted) {
+      setState(() {
+        _sending = false;
+      });
+    }
   }
 
+  /// Opens an email to Augy with the report in it, for when the site can't take it.
   void _emailIt() {
-    final body = '${_text.text.trim()}\n\n${BugReport.detailsText(_details)}';
-    launchUrl(Uri.parse('mailto:$_email?subject=${Uri.encodeComponent('uwuFix bug report')}&body=${Uri.encodeComponent(body)}')).catchError((_) => false);
+    final body = '${_textController.text.trim()}\n\n${BugReport.detailsText(_details)}';
+    launchUrl(Uri.parse('mailto:$_email?subject=${Uri.encodeComponent('uwuFix bug report')}&body=${Uri.encodeComponent(body)}'))
+        .catchError((_) {
+      return false;
+    });
+  }
+
+  /// One picture's thumbnail, with a button to remove it.
+  Widget _buildThumbnail(int index, String picture) {
+    return Stack(children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(base64Decode(picture.split(',').last),
+            width: 90, height: 140, fit: BoxFit.cover, alignment: Alignment.topCenter, semanticLabel: 'Picture ${index + 1}'),
+      ),
+      Positioned(
+        right: 0,
+        top: 0,
+        child: IconButton.filledTonal(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Remove picture ${index + 1}',
+          onPressed: () {
+            setState(() {
+              _Pictures.removeAt(index);
+            });
+          },
+          icon: const Icon(Icons.close, size: 16),
+        ),
+      ),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
-    final note = TextStyle(color: fx.muted, fontSize: 13);
-    final full = _shots.length >= _maxShots;
+    final palette = context.fx;
+    final noteStyle = TextStyle(color: palette.muted, fontSize: 13);
+    final hasAllPictures = _shots.length >= _maxPictures;
+    VoidCallback? onPickPictures;
+    VoidCallback? onScreenshot;
+    if (!hasAllPictures) {
+      onPickPictures = _pickPictures;
+      onScreenshot = _screenshot;
+    }
+    VoidCallback? onSend;
+    if (!_sending) {
+      onSend = _send;
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Report a bug')),
       body: ListView(padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.paddingOf(context).bottom + 32), children: [
@@ -382,61 +632,49 @@ class _BugReportState extends State<BugReport> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               TextField(
                 key: const ValueKey('bug.text'),
-                controller: _text,
+                controller: _textController,
                 minLines: 4,
                 maxLines: 10,
                 maxLength: 2000,
-                onChanged: (_) => _keep(),
+                onChanged: (_) {
+                  _keepDraft();
+                },
                 decoration: const InputDecoration(labelText: 'What went wrong?', hintText: 'What you did, what happened, and what you expected', alignLabelWithHint: true),
               ),
               const SizedBox(height: 4),
               TextField(
                 key: const ValueKey('bug.contact'),
-                controller: _contact,
+                controller: _contactController,
                 maxLength: 200,
-                onChanged: (_) => _keep(),
+                onChanged: (_) {
+                  _keepDraft();
+                },
                 decoration: const InputDecoration(labelText: 'How to reach you (optional)', hintText: 'Telegram @name or email, for an answer'),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 8),
-                child: Text('Pictures (optional)', style: TextStyle(color: fx.muted, fontSize: 14)),
+                child: Text('Pictures (optional)', style: TextStyle(color: palette.muted, fontSize: 14)),
               ),
               if (_shots.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final (i, s) in _shots.indexed)
-                      Stack(children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.memory(base64Decode(s.split(',').last), width: 90, height: 140, fit: BoxFit.cover, alignment: Alignment.topCenter, semanticLabel: 'Picture ${i + 1}'),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: IconButton.filledTonal(
-                            visualDensity: VisualDensity.compact,
-                            tooltip: 'Remove picture ${i + 1}',
-                            onPressed: () => setState(() => _Pictures.removeAt(i)),
-                            icon: const Icon(Icons.close, size: 16),
-                          ),
-                        ),
-                      ]),
+                    for (final (index, picture) in _shots.indexed) _buildThumbnail(index, picture),
                   ]),
                 ),
               Wrap(spacing: 8, runSpacing: 8, children: [
-                OutlinedButton.icon(onPressed: full ? null : _pick, icon: const Icon(Icons.image_outlined), label: const Text('Add pictures')),
-                OutlinedButton.icon(key: const ValueKey('bug.screenshot'), onPressed: full ? null : _screenshot, icon: const Icon(Icons.screenshot_outlined), label: const Text('Screenshot a page')),
+                OutlinedButton.icon(onPressed: onPickPictures, icon: const Icon(Icons.image_outlined), label: const Text('Add pictures')),
+                OutlinedButton.icon(key: const ValueKey('bug.screenshot'), onPressed: onScreenshot, icon: const Icon(Icons.screenshot_outlined), label: const Text('Screenshot a page')),
               ]),
               const SizedBox(height: 8),
               Text('Up to 3. Screenshot a page takes you to the app: go to the page you want, then tap Screenshot this page. It takes the whole page, top to bottom, and brings you back here.',
-                  style: note),
+                  style: noteStyle),
               const SizedBox(height: 12),
-              Text('Sent with it, to help find the bug: ${BugReport.detailsText(_details)}.', style: note),
+              Text('Sent with it, to help find the bug: ${BugReport.detailsText(_details)}.', style: noteStyle),
               const SizedBox(height: 16),
               Align(
                 alignment: Alignment.centerLeft,
-                child: FilledButton.icon(key: const ValueKey('bug.send'), onPressed: _sending ? null : _send, icon: const Icon(Icons.send), label: const Text('Send')),
+                child: FilledButton.icon(key: const ValueKey('bug.send'), onPressed: onSend, icon: const Icon(Icons.send), label: const Text('Send')),
               ),
               if (_status.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_status, key: const ValueKey('bug.status'))),
               if (_offerEmail) Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: _emailIt, child: const Text('Email it instead.'))),

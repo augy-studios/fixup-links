@@ -18,33 +18,48 @@ class QuickScreen extends StatefulWidget {
   const QuickScreen({super.key});
 
   @override
-  State<QuickScreen> createState() => _QuickScreenState();
+  State<QuickScreen> createState() {
+    return _QuickScreenState();
+  }
 }
 
 class _QuickScreenState extends State<QuickScreen> {
   String _text = '';
   String? _link;
   bool _replace = false;
-  NativeListener? _sub;
+  NativeListener? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _take(Map<String, dynamic>.from((Native.info?['quick'] as Map?) ?? const {}));
-    _sub = Native.on('Fixup', 'quick', _take);
+    final quick = Native.info?['quick'] as Map?;
+    if (quick == null) {
+      _take(<String, dynamic>{});
+    } else {
+      _take(Map<String, dynamic>.from(quick));
+    }
+    _subscription = Native.on('Fixup', 'quick', _take);
   }
 
   @override
   void dispose() {
-    _sub?.cancel();
+    _subscription?.cancel();
     super.dispose();
   }
 
-  void _take(Map<String, dynamic> q) {
-    final text = '${q['text'] ?? ''}';
+  /// What the quick screen was opened with: the text, whether Replace is offered, and the link
+  /// in it, cleaned at once (or the text itself, tried as one).
+  void _take(Map<String, dynamic> quick) {
+    final sharedText = quick['text'];
+    String text;
+    if (sharedText == null) {
+      text = '';
+    } else {
+      text = '$sharedText';
+    }
     setState(() {
       _text = text;
-      _replace = q['replace'] == true;
+      _replace = quick['replace'] == true;
       _link = extractUrlFromText(text);
     });
     if (_link != null) {
@@ -55,43 +70,76 @@ class _QuickScreenState extends State<QuickScreen> {
     }
   }
 
-  void _finish(String? text) => Native.call('Fixup', 'finish', {'text': ?text}).catchError((_) => null);
+  void _finish(String? text) {
+    Native.call('Fixup', 'finish', {'text': ?text}).catchError((_) {
+      return null;
+    });
+  }
+
+  /// Replace, when it's offered and there's a clean link: the sentence with the link swapped in.
+  VoidCallback? _replaceAction() {
+    if (_replace && Fixer.I.cleaned != null) {
+      return () {
+        _finish(replaceLinkInText(_text, _link, Fixer.I.cleaned!));
+      };
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
+    final palette = context.fx;
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(tooltip: 'Close', icon: const Icon(Icons.close), onPressed: () => _finish(null)),
+        leading: IconButton(
+          tooltip: 'Close',
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            _finish(null);
+          },
+        ),
         title: const Text('Fix link'),
         actions: [
           TextButton(
-            onPressed: () => Native.call('Fixup', 'open', {'url': 'https://fixup.uwuapps.org/'}).catchError((_) => null),
-            child: Text('Open uwuFix', style: TextStyle(color: fx.brandInk)),
+            onPressed: () {
+              Native.call('Fixup', 'open', {'url': 'https://fixup.uwuapps.org/'}).catchError((_) {
+                return null;
+              });
+            },
+            child: Text('Open uwuFix', style: TextStyle(color: palette.brandInk)),
           ),
         ],
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         ListenableBuilder(
           listenable: Fixer.I,
-          builder: (context, _) => CleanerCard(
-            onReplace: _replace && Fixer.I.cleaned != null
-                ? () => _finish(replaceLinkInText(_text, _link, Fixer.I.cleaned!))
-                : null,
-          ),
+          builder: (context, _) {
+            return CleanerCard(onReplace: _replaceAction());
+          },
         ),
         const SizedBox(height: 12),
-        Center(child: TextButton(onPressed: () => _finish(null), child: const Text('Done'))),
+        Center(
+          child: TextButton(
+            onPressed: () {
+              _finish(null);
+            },
+            child: const Text('Done'),
+          ),
+        ),
       ]),
     );
   }
 }
 
 /// Whether the app was opened as the quick screen.
-bool get isQuick => Native.info?['quick'] is Map;
+bool get isQuick {
+  return Native.info?['quick'] is Map;
+}
 
 /// Back, in the quick screen: back to the app it came over.
 void quickBack() {
   AppNav.say('');
-  Native.call('Fixup', 'finish').catchError((_) => null);
+  Native.call('Fixup', 'finish').catchError((_) {
+    return null;
+  });
 }

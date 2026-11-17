@@ -30,15 +30,15 @@ import io.flutter.plugin.common.BinaryMessenger;
 public abstract class FlutterHost extends AppCompatActivity implements FlutterEngineConfigurator {
     private static final String FLUTTER_TAG = "flutter";
 
-    protected Bridge mBridge;
-    private FlutterFragment mFlutter;
+    protected Bridge pluginBridge;
+    private FlutterFragment flutterFragment;
     // The engine's messenger when the engine came before the bridge: when Android brings the
     // app back after closing it in the background, super.onCreate restores the fragment, which
     // makes its engine before the bridge below exists.
-    private BinaryMessenger mEarlyMessenger;
+    private BinaryMessenger earlyMessenger;
 
     Bridge bridge() {
-        return mBridge;
+        return pluginBridge;
     }
 
     /** The plugins this screen offers the Dart side. */
@@ -47,31 +47,38 @@ public abstract class FlutterHost extends AppCompatActivity implements FlutterEn
     /** What an intent asks for: the one the screen was opened with, or a later one. */
     protected abstract void route(Intent intent);
 
+    /**
+     * Makes the bridge and this screen's plugins (connecting the engine's messenger if the engine
+     * came first), then the Flutter fragment, reusing the one Android restored if there is one.
+     * A fresh start is routed to what the screen was opened with.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mBridge = new Bridge(this);
-        registerPlugins(mBridge);
-        if (mEarlyMessenger != null) {
-            mBridge.connect(mEarlyMessenger);
-            mEarlyMessenger = null;
+        pluginBridge = new Bridge(this);
+        registerPlugins(pluginBridge);
+        if (earlyMessenger != null) {
+            pluginBridge.connect(earlyMessenger);
+            earlyMessenger = null;
         }
 
         FrameLayout root = new FrameLayout(this);
         root.setId(R.id.flutter_container);
         setContentView(root);
-        FragmentManager fm = getSupportFragmentManager();
-        mFlutter = (FlutterFragment) fm.findFragmentByTag(FLUTTER_TAG);
-        if (mFlutter == null) {
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        flutterFragment = (FlutterFragment) fragmentManager.findFragmentByTag(FLUTTER_TAG);
+        if (flutterFragment == null) {
             // Back is the Dart side's: its own screens first, then "Press back again to exit".
-            mFlutter = FlutterFragment.withNewEngine()
+            flutterFragment = FlutterFragment.withNewEngine()
                     .renderMode(RenderMode.surface)
                     .transparencyMode(TransparencyMode.opaque)
                     .shouldAutomaticallyHandleOnBackPressed(true)
                     .build();
-            fm.beginTransaction().add(R.id.flutter_container, mFlutter, FLUTTER_TAG).commit();
+            fragmentManager.beginTransaction().add(R.id.flutter_container, flutterFragment, FLUTTER_TAG).commit();
         }
-        if (savedInstanceState == null) route(getIntent());
+        if (savedInstanceState == null) {
+            route(getIntent());
+        }
     }
 
     // A FlutterFragment's engine leaves registering the Dart side's plugins (shared_preferences,
@@ -80,81 +87,98 @@ public abstract class FlutterHost extends AppCompatActivity implements FlutterEn
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
         GeneratedPluginRegister.registerGeneratedPlugins(engine);
         BinaryMessenger messenger = engine.getDartExecutor().getBinaryMessenger();
-        if (mBridge != null) mBridge.connect(messenger);
-        else mEarlyMessenger = messenger;
+        if (pluginBridge != null) {
+            pluginBridge.connect(messenger);
+        } else {
+            earlyMessenger = messenger;
+        }
     }
 
     @Override
     public void cleanUpFlutterEngine(@NonNull FlutterEngine engine) {
-        mEarlyMessenger = null;
-        if (mBridge != null) mBridge.disconnect();
+        earlyMessenger = null;
+        if (pluginBridge != null) {
+            pluginBridge.disconnect();
+        }
     }
 
     @Override
     protected void onNewIntent(@NonNull Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (mFlutter != null) mFlutter.onNewIntent(intent);
+        if (flutterFragment != null) {
+            flutterFragment.onNewIntent(intent);
+        }
         route(intent);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        mBridge.onStart();
+        pluginBridge.onStart();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        mBridge.onResume();
+        pluginBridge.onResume();
     }
 
     @Override
     public void onPause() {
-        mBridge.onPause();
+        pluginBridge.onPause();
         super.onPause();
     }
 
     @Override
     protected void onStop() {
-        mBridge.onStop();
+        pluginBridge.onStop();
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        mBridge.onDestroy();
+        pluginBridge.onDestroy();
         super.onDestroy();
     }
 
     @Override
     public void onPostResume() {
         super.onPostResume();
-        if (mFlutter != null) mFlutter.onPostResume();
+        if (flutterFragment != null) {
+            flutterFragment.onPostResume();
+        }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (mFlutter != null) mFlutter.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (flutterFragment != null) {
+            flutterFragment.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (mFlutter != null) mFlutter.onActivityResult(requestCode, resultCode, data);
+        if (flutterFragment != null) {
+            flutterFragment.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
-        if (mFlutter != null) mFlutter.onUserLeaveHint();
+        if (flutterFragment != null) {
+            flutterFragment.onUserLeaveHint();
+        }
     }
 
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
-        if (mFlutter != null) mFlutter.onTrimMemory(level);
+        if (flutterFragment != null) {
+            flutterFragment.onTrimMemory(level);
+        }
     }
 }

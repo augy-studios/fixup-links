@@ -59,13 +59,13 @@ class Fx extends ThemeExtension<Fx> {
     required this.brandFillStrong,
     required this.onBrand,
     required this.ok,
-    required this.warn,
+    required this.warning,
     required this.error,
     required this.uwu,
     this.glass,
   });
 
-  final Color bg, surface, surfaceStrong, border, ink, muted, brandInk, brandFill, brandFillStrong, onBrand, ok, warn, error;
+  final Color bg, surface, surfaceStrong, border, ink, muted, brandInk, brandFill, brandFillStrong, onBrand, ok, warning, error;
 
   /// The UwU Apps look (glass cards and Jua), rather than Material You's.
   final bool uwu;
@@ -76,41 +76,65 @@ class Fx extends ThemeExtension<Fx> {
 
   /// See-through surfaces with an edge, the UwU Apps look's or a desktop's glass, rather than
   /// Material You's flat tonal ones.
-  bool get glassy => uwu || glass != null;
+  bool get glassy {
+    return uwu || glass != null;
+  }
 
   @override
-  Fx copyWith() => this;
+  Fx copyWith() {
+    return this;
+  }
 
+  /// Part way from these colours to [other]'s, as Flutter animates between two themes; the two
+  /// switches (uwu, glass) change over halfway.
   @override
   Fx lerp(Fx? other, double t) {
-    if (other == null) return this;
-    Color c(Color a, Color b) => Color.lerp(a, b, t)!;
+    if (other == null) {
+      return this;
+    }
+    Color blend(Color from, Color to) {
+      return Color.lerp(from, to, t)!;
+    }
+
+    bool uwuLook;
+    Glass? glassLook;
+    if (t < 0.5) {
+      uwuLook = uwu;
+      glassLook = glass;
+    } else {
+      uwuLook = other.uwu;
+      glassLook = other.glass;
+    }
     return Fx(
-      bg: c(bg, other.bg),
-      surface: c(surface, other.surface),
-      surfaceStrong: c(surfaceStrong, other.surfaceStrong),
-      border: c(border, other.border),
-      ink: c(ink, other.ink),
-      muted: c(muted, other.muted),
-      brandInk: c(brandInk, other.brandInk),
-      brandFill: c(brandFill, other.brandFill),
-      brandFillStrong: c(brandFillStrong, other.brandFillStrong),
-      onBrand: c(onBrand, other.onBrand),
-      ok: c(ok, other.ok),
-      warn: c(warn, other.warn),
-      error: c(error, other.error),
-      uwu: t < 0.5 ? uwu : other.uwu,
-      glass: t < 0.5 ? glass : other.glass,
+      bg: blend(bg, other.bg),
+      surface: blend(surface, other.surface),
+      surfaceStrong: blend(surfaceStrong, other.surfaceStrong),
+      border: blend(border, other.border),
+      ink: blend(ink, other.ink),
+      muted: blend(muted, other.muted),
+      brandInk: blend(brandInk, other.brandInk),
+      brandFill: blend(brandFill, other.brandFill),
+      brandFillStrong: blend(brandFillStrong, other.brandFillStrong),
+      onBrand: blend(onBrand, other.onBrand),
+      ok: blend(ok, other.ok),
+      warning: blend(warning, other.warning),
+      error: blend(error, other.error),
+      uwu: uwuLook,
+      glass: glassLook,
     );
   }
 }
 
 extension FxContext on BuildContext {
-  Fx get fx => Theme.of(this).extension<Fx>()!;
+  Fx get fx {
+    return Theme.of(this).extension<Fx>()!;
+  }
 }
 
 /// Whether this is the desktop app (Windows, macOS, Linux), not a phone or a test.
-bool get onDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux) && !Platform.environment.containsKey('FLUTTER_TEST');
+bool get onDesktop {
+  return !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux) && !Platform.environment.containsKey('FLUTTER_TEST');
+}
 
 /// A desktop's own glass: the second look on a computer, in place of Material You. Each as its
 /// desktop's design language draws it, and each pushed as far towards iOS's Liquid Glass as that
@@ -216,10 +240,18 @@ enum Glass {
 
   /// This computer's, if it's a computer.
   static Glass? get current {
-    if (override != null) return override;
-    if (!onDesktop) return null;
-    if (Platform.isWindows) return fluent;
-    if (Platform.isMacOS) return tahoe;
+    if (override != null) {
+      return override;
+    }
+    if (!onDesktop) {
+      return null;
+    }
+    if (Platform.isWindows) {
+      return fluent;
+    }
+    if (Platform.isMacOS) {
+      return tahoe;
+    }
     return frosted;
   }
 
@@ -230,15 +262,22 @@ enum Glass {
 /// The accent, as ink that reads on glass: deep enough on light, light enough on dark (as Fluent
 /// 2 shades the Windows accent, and macOS its controls').
 Color accentInk(Color accent, bool dark) {
-  final h = HSLColor.fromColor(accent);
-  final l = dark ? math.max(h.lightness, 0.68) : math.min(h.lightness, 0.42);
-  return h.withLightness(l).withSaturation(math.min(h.saturation, 0.95)).toColor();
+  final hsl = HSLColor.fromColor(accent);
+  double lightness;
+  if (dark) {
+    lightness = math.max(hsl.lightness, 0.68);
+  } else {
+    lightness = math.min(hsl.lightness, 0.42);
+  }
+  return hsl.withLightness(lightness).withSaturation(math.min(hsl.saturation, 0.95)).toColor();
 }
 
 /// What draws the characters a look's font hasn't: an ellipsis or a middle dot in Jua, emoji in
 /// page titles. Whichever of these the device has.
 const fontFallback = ['Roboto', 'Segoe UI', 'Noto Sans', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji'];
 
+/// The app's look, as chosen in Look: which look, light or dark, the brand colour, and the
+/// device's own palette; and the ThemeData each gives. Screens rebuild when it notifies.
 class AppLook extends ChangeNotifier {
   AppLook._();
   static final AppLook I = AppLook._();
@@ -265,57 +304,102 @@ class AppLook extends ChangeNotifier {
   /// which a phone reads as Material You; a computer reads 'you' (its Material You, from before it
   /// had glass) as glass.
   bool get deviceLook {
-    final v = Store.I.get(lookKey);
-    if (v == 'you' || v == 'glass') return true;
-    if (v == 'uwu') return false;
+    final stored = Store.I.get(lookKey);
+    if (stored == 'you' || stored == 'glass') {
+      return true;
+    }
+    if (stored == 'uwu') {
+      return false;
+    }
     return !onDesktop; // Material You on Android, the UwU Apps look on the desktop
   }
 
   set deviceLook(bool on) {
-    Store.I.put(lookKey, on ? (Glass.current != null ? 'glass' : 'you') : 'uwu');
+    String look;
+    if (!on) {
+      look = 'uwu';
+    } else if (Glass.current != null) {
+      look = 'glass';
+    } else {
+      look = 'you';
+    }
+    Store.I.put(lookKey, look);
     notifyListeners();
   }
 
   /// Material You, the phone's look.
-  bool get materialYou => deviceLook && Glass.current == null;
+  bool get materialYou {
+    return deviceLook && Glass.current == null;
+  }
 
   /// The desktop's glass, when that's the look.
-  Glass? get glass => deviceLook ? Glass.current : null;
+  Glass? get glass {
+    if (deviceLook) {
+      return Glass.current;
+    }
+    return null;
+  }
 
   /// The device's own look's name: Material You, Fluent 2, macOS Tahoe or Frosted Glass.
-  String get deviceLookName => Glass.current?.label ?? 'Material You';
+  String get deviceLookName {
+    final current = Glass.current;
+    if (current == null) {
+      return 'Material You';
+    }
+    return current.label;
+  }
 
   /// Whether the system draws the window's backdrop (Mica, macOS's vibrancy, the compositor's
   /// blur), told by desktop/backdrop.dart. Without it the glass is drawn over a backdrop of its own.
-  bool get backdrop => _backdrop;
+  bool get backdrop {
+    return _backdrop;
+  }
+
   bool _backdrop = false;
   set backdrop(bool on) {
-    if (on == _backdrop) return;
+    if (on == _backdrop) {
+      return;
+    }
     _backdrop = on;
     notifyListeners();
   }
 
-  bool get useSystemAccent => Store.I.get(accentKey) == '1';
+  bool get useSystemAccent {
+    return Store.I.get(accentKey) == '1';
+  }
+
   set useSystemAccent(bool on) {
-    Store.I.put(accentKey, on ? '1' : null);
+    if (on) {
+      Store.I.put(accentKey, '1');
+    } else {
+      Store.I.put(accentKey, null);
+    }
     notifyListeners();
   }
 
   /// light, dark, time (by the clock) or system (the device's).
   String get modePreference {
-    final v = Store.I.get(modeKey);
-    return const ['light', 'dark', 'time', 'system'].contains(v) ? v! : 'system';
+    final stored = Store.I.get(modeKey);
+    if (const ['light', 'dark', 'time', 'system'].contains(stored)) {
+      return stored!;
+    }
+    return 'system';
   }
 
-  set modePreference(String v) {
-    Store.I.put(modeKey, v);
+  set modePreference(String mode) {
+    Store.I.put(modeKey, mode);
     _schedule();
     notifyListeners();
   }
 
   String get swatchId {
-    final v = Store.I.get(colorKey);
-    return swatches.any((s) => s.id == v) ? v! : 'classic';
+    final stored = Store.I.get(colorKey);
+    for (final swatch in swatches) {
+      if (swatch.id == stored) {
+        return stored!;
+      }
+    }
+    return 'classic';
   }
 
   set swatchId(String id) {
@@ -323,28 +407,56 @@ class AppLook extends ChangeNotifier {
     notifyListeners();
   }
 
-  Swatch get swatch => swatches.firstWhere((s) => s.id == swatchId);
+  Swatch get swatch {
+    final chosenId = swatchId;
+    return swatches.firstWhere((candidate) {
+      return candidate.id == chosenId;
+    });
+  }
 
-  static bool daylight(DateTime t) => t.hour >= lightFrom && t.hour < lightUntil;
+  static bool daylight(DateTime time) {
+    return time.hour >= lightFrom && time.hour < lightUntil;
+  }
 
   /// What the app is in right now, as Flutter wants it.
-  ThemeMode get themeMode => switch (modePreference) {
-        'light' => ThemeMode.light,
-        'dark' => ThemeMode.dark,
-        'time' => daylight(now()) ? ThemeMode.light : ThemeMode.dark,
-        _ => ThemeMode.system,
-      };
+  ThemeMode get themeMode {
+    switch (modePreference) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'time':
+        if (daylight(now())) {
+          return ThemeMode.light;
+        }
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
 
   Timer? _timer;
 
   // A time-based mode left open across 09:00 or 18:00 turns itself over.
   void _schedule() {
     _timer?.cancel();
-    if (modePreference != 'time') return;
-    final t = now();
-    var next = DateTime(t.year, t.month, t.day, t.hour < lightFrom ? lightFrom : (t.hour < lightUntil ? lightUntil : lightFrom));
-    if (!next.isAfter(t)) next = next.add(const Duration(days: 1));
-    _timer = Timer(next.difference(t) + const Duration(seconds: 1), () {
+    if (modePreference != 'time') {
+      return;
+    }
+    final current = now();
+    int nextHour;
+    if (current.hour < lightFrom) {
+      nextHour = lightFrom;
+    } else if (current.hour < lightUntil) {
+      nextHour = lightUntil;
+    } else {
+      nextHour = lightFrom;
+    }
+    var next = DateTime(current.year, current.month, current.day, nextHour);
+    if (!next.isAfter(current)) {
+      next = next.add(const Duration(days: 1));
+    }
+    _timer = Timer(next.difference(current) + const Duration(seconds: 1), () {
       notifyListeners();
       _schedule();
     });
@@ -369,21 +481,68 @@ class AppLook extends ChangeNotifier {
     notifyListeners();
   }
 
-  void refresh() => notifyListeners();
+  void refresh() {
+    notifyListeners();
+  }
 
-  ThemeData theme(Brightness b) {
-    final g = glass;
-    if (g != null) return _glass(b, g);
-    return materialYou ? _you(b) : _uwu(b);
+  ThemeData theme(Brightness brightness) {
+    final glassLook = glass;
+    if (glassLook != null) {
+      return _glassTheme(brightness, glassLook);
+    }
+    if (materialYou) {
+      return _materialYouTheme(brightness);
+    }
+    return _uwuAppsTheme(brightness);
+  }
+
+  /// Compact on a computer, as its own apps are; standard on a phone.
+  VisualDensity get _visualDensity {
+    if (onDesktop) {
+      return VisualDensity.compact;
+    }
+    return VisualDensity.standard;
+  }
+
+  /// The success colour, the same in every look.
+  static Color _okColor(bool dark) {
+    if (dark) {
+      return const Color(0xFF4ADE80);
+    }
+    return const Color(0xFF0F7234);
+  }
+
+  /// The warning colour, the same in every look.
+  static Color _warningColor(bool dark) {
+    if (dark) {
+      return const Color(0xFFFBBF24);
+    }
+    return const Color(0xFFA24B08);
   }
 
   // ---------- Material You ----------
 
-  ThemeData _you(Brightness b) {
-    final dark = b == Brightness.dark;
-    final scheme = (dark ? phoneDark : phoneLight) ??
-        ColorScheme.fromSeed(seedColor: systemAccent ?? const Color(0xFF1F6B3D), brightness: b);
-    final fx = Fx(
+  /// Material You: the phone's wallpaper palette, or, without one, a scheme seeded from the
+  /// system's accent (or the site's green).
+  ThemeData _materialYouTheme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    ColorScheme? phoneScheme;
+    if (dark) {
+      phoneScheme = phoneDark;
+    } else {
+      phoneScheme = phoneLight;
+    }
+    ColorScheme scheme;
+    if (phoneScheme != null) {
+      scheme = phoneScheme;
+    } else {
+      var seedColor = const Color(0xFF1F6B3D);
+      if (systemAccent != null) {
+        seedColor = systemAccent!;
+      }
+      scheme = ColorScheme.fromSeed(seedColor: seedColor, brightness: brightness);
+    }
+    final themeColors = Fx(
       bg: scheme.surface,
       surface: scheme.surfaceContainerLow,
       surfaceStrong: scheme.surfaceContainerHigh,
@@ -394,8 +553,8 @@ class AppLook extends ChangeNotifier {
       brandFill: scheme.primaryContainer,
       brandFillStrong: scheme.primary,
       onBrand: scheme.onPrimaryContainer,
-      ok: dark ? const Color(0xFF4ADE80) : const Color(0xFF0F7234),
-      warn: dark ? const Color(0xFFFBBF24) : const Color(0xFFA24B08),
+      ok: _okColor(dark),
+      warning: _warningColor(dark),
       error: scheme.error,
       uwu: false,
     );
@@ -403,34 +562,70 @@ class AppLook extends ChangeNotifier {
       useMaterial3: true,
       colorScheme: scheme,
       fontFamilyFallback: fontFallback,
-      visualDensity: onDesktop ? VisualDensity.compact : VisualDensity.standard,
-      extensions: [fx],
+      visualDensity: _visualDensity,
+      extensions: [themeColors],
       snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     );
   }
 
   // ---------- A desktop's glass (Fluent 2, macOS Tahoe, Frosted Glass) ----------
 
-  ThemeData _glass(Brightness b, Glass g) {
-    final dark = b == Brightness.dark;
-    final base = dark ? g.dark : g.light;
-    final accent = systemAccent ?? g.accent;
+  /// A desktop's glass look: see-through white panes over the window's backdrop, the accent for
+  /// what's chosen, and every control shaped by the glass's corner radii.
+  ThemeData _glassTheme(Brightness brightness, Glass glassLook) {
+    final dark = brightness == Brightness.dark;
+    Color base;
+    if (dark) {
+      base = glassLook.dark;
+    } else {
+      base = glassLook.light;
+    }
+    var accent = glassLook.accent;
+    if (systemAccent != null) {
+      accent = systemAccent!;
+    }
     final brandInk = accentInk(accent, dark);
     // White or near-black on the accent, whichever reads better (Fluent 2's dark accent buttons
     // take black text).
-    final lum = brandInk.computeLuminance();
-    final onAccent = (lum + 0.05) / 0.05 > 1.05 / (lum + 0.05) ? const Color(0xFF111111) : Colors.white;
-    final ink = dark ? const Color(0xFFF5F5F7) : const Color(0xFF1C1C1E);
-    final muted = dark ? const Color(0xFFA1A1A6) : const Color(0xFF5E5E63);
+    final luminance = brandInk.computeLuminance();
+    Color onAccent;
+    if ((luminance + 0.05) / 0.05 > 1.05 / (luminance + 0.05)) {
+      onAccent = const Color(0xFF111111);
+    } else {
+      onAccent = Colors.white;
+    }
+    Color ink;
+    Color muted;
+    Color border;
+    Color error;
+    double surfaceAlpha;
+    double surfaceStrongAlpha;
+    double fillAlpha;
+    if (dark) {
+      ink = const Color(0xFFF5F5F7);
+      muted = const Color(0xFFA1A1A6);
+      border = const Color(0x1FFFFFFF);
+      error = const Color(0xFFFF6961);
+      surfaceAlpha = glassLook.paneDark;
+      surfaceStrongAlpha = glassLook.paneDark + 0.06;
+      fillAlpha = 0.30;
+    } else {
+      ink = const Color(0xFF1C1C1E);
+      muted = const Color(0xFF5E5E63);
+      border = const Color(0x16000000);
+      error = const Color(0xFFC42B1C);
+      surfaceAlpha = glassLook.paneLight;
+      surfaceStrongAlpha = math.min(glassLook.paneLight + 0.22, 0.9);
+      fillAlpha = 0.16;
+    }
     // Panes are white: plenty over light, a breath of it over dark. Cards are a little stronger.
-    final surface = Colors.white.withValues(alpha: dark ? g.paneDark : g.paneLight);
-    final surfaceStrong = Colors.white.withValues(alpha: dark ? g.paneDark + 0.06 : math.min(g.paneLight + 0.22, 0.9));
-    final border = dark ? const Color(0x1FFFFFFF) : const Color(0x16000000);
+    final surface = Colors.white.withValues(alpha: surfaceAlpha);
+    final surfaceStrong = Colors.white.withValues(alpha: surfaceStrongAlpha);
     // What's chosen: the accent, see-through.
-    final fill = brandInk.withValues(alpha: dark ? 0.30 : 0.16);
+    final fill = brandInk.withValues(alpha: fillAlpha);
     // Menus, dialogs and sheets, over whatever's there: near enough opaque to read.
     final solid = Color.alphaBlend(surfaceStrong, base);
-    final fx = Fx(
+    final themeColors = Fx(
       bg: base,
       surface: surface,
       surfaceStrong: surfaceStrong,
@@ -441,13 +636,13 @@ class AppLook extends ChangeNotifier {
       brandFill: fill,
       brandFillStrong: brandInk,
       onBrand: ink,
-      ok: dark ? const Color(0xFF4ADE80) : const Color(0xFF0F7234),
-      warn: dark ? const Color(0xFFFBBF24) : const Color(0xFFA24B08),
-      error: dark ? const Color(0xFFFF6961) : const Color(0xFFC42B1C),
+      ok: _okColor(dark),
+      warning: _warningColor(dark),
+      error: error,
       uwu: false,
-      glass: g,
+      glass: glassLook,
     );
-    final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: b).copyWith(
+    final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: brightness).copyWith(
       primary: brandInk,
       onPrimary: onAccent,
       primaryContainer: Color.alphaBlend(fill, solid),
@@ -463,17 +658,38 @@ class AppLook extends ChangeNotifier {
       surfaceContainerHigh: solid,
       surfaceContainerHighest: solid,
       outlineVariant: border,
-      error: fx.error,
+      error: themeColors.error,
     );
-    final capsule = g.control >= 999;
-    final controlShape = capsule ? const StadiumBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(g.control)) as OutlinedBorder;
-    final fieldRadius = BorderRadius.circular(capsule ? 12 : g.control);
-    final font = g.font;
-    final fallback = [if (g == Glass.fluent) 'Segoe UI', ...fontFallback];
+    final capsule = glassLook.control >= 999;
+    OutlinedBorder controlShape;
+    OutlinedBorder iconButtonShape;
+    double smallRadius;
+    double tooltipRadius;
+    if (capsule) {
+      controlShape = const StadiumBorder();
+      iconButtonShape = const CircleBorder();
+      smallRadius = 12;
+      tooltipRadius = 10;
+    } else {
+      controlShape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(glassLook.control));
+      iconButtonShape = controlShape;
+      smallRadius = glassLook.control;
+      tooltipRadius = glassLook.control;
+    }
+    final fieldRadius = BorderRadius.circular(smallRadius);
+    final font = glassLook.font;
+    final fallback = [if (glassLook == Glass.fluent) 'Segoe UI', ...fontFallback];
     // A style of the glass's font, or of the platform's where it's the system's (as Flutter's own
     // typography picks it: San Francisco, Segoe UI, the Linux desktop's sans).
     final body = Typography.material2021(platform: defaultTargetPlatform).black.bodyMedium!;
-    TextStyle text([double? size, Color? color]) => body.copyWith(fontFamily: font ?? body.fontFamily, fontFamilyFallback: fallback, fontSize: size, color: color);
+    var textFamily = body.fontFamily;
+    if (font != null) {
+      textFamily = font;
+    }
+    TextStyle text([double? size, Color? color]) {
+      return body.copyWith(fontFamily: textFamily, fontFamilyFallback: fallback, fontSize: size, color: color);
+    }
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
@@ -482,12 +698,12 @@ class AppLook extends ChangeNotifier {
       // The window shows through: the system's backdrop, or the glass's own (GlassBackdrop).
       scaffoldBackgroundColor: Colors.transparent,
       canvasColor: solid,
-      visualDensity: onDesktop ? VisualDensity.compact : VisualDensity.standard,
+      visualDensity: _visualDensity,
       // Highlights on hover and press, as the desktops have, not Android's ripple.
       splashFactory: NoSplash.splashFactory,
       hoverColor: ink.withValues(alpha: 0.05),
       highlightColor: ink.withValues(alpha: 0.08),
-      extensions: [fx],
+      extensions: [themeColors],
       dividerTheme: DividerThemeData(color: border, space: 1),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: Colors.transparent,
@@ -502,7 +718,7 @@ class AppLook extends ChangeNotifier {
         backgroundColor: solid,
         contentTextStyle: text(14, ink),
         elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(g.card, 16)), side: BorderSide(color: border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(glassLook.card, 16)), side: BorderSide(color: border)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(backgroundColor: brandInk, foregroundColor: onAccent, shape: controlShape, elevation: 0),
@@ -511,7 +727,7 @@ class AppLook extends ChangeNotifier {
         style: OutlinedButton.styleFrom(backgroundColor: surfaceStrong, foregroundColor: ink, side: BorderSide(color: border), shape: controlShape),
       ),
       textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: brandInk, shape: controlShape)),
-      iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(shape: capsule ? const CircleBorder() : controlShape)),
+      iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(shape: iconButtonShape)),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
           backgroundColor: surface,
@@ -531,21 +747,21 @@ class AppLook extends ChangeNotifier {
       cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(g.card), side: BorderSide(color: border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(glassLook.card), side: BorderSide(color: border)),
       ),
-      listTileTheme: ListTileThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(capsule ? 12 : g.control)), selectedColor: brandInk),
+      listTileTheme: ListTileThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(smallRadius)), selectedColor: brandInk),
       dialogTheme: DialogThemeData(
         backgroundColor: solid,
         elevation: 12,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(g.card + 4), side: BorderSide(color: border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(glassLook.card + 4), side: BorderSide(color: border)),
       ),
       bottomSheetTheme: BottomSheetThemeData(backgroundColor: solid),
       popupMenuTheme: PopupMenuThemeData(
         color: solid,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(g.card, 14)), side: BorderSide(color: border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(math.min(glassLook.card, 14)), side: BorderSide(color: border)),
       ),
       tooltipTheme: TooltipThemeData(
-        decoration: BoxDecoration(color: solid, borderRadius: BorderRadius.circular(capsule ? 10 : g.control), border: Border.all(color: border)),
+        decoration: BoxDecoration(color: solid, borderRadius: BorderRadius.circular(tooltipRadius), border: Border.all(color: border)),
         textStyle: text(12.5, ink),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -560,39 +776,88 @@ class AppLook extends ChangeNotifier {
 
   // ---------- UwU Apps (the site's style.css) ----------
 
-  ThemeData _uwu(Brightness b) {
-    final dark = b == Brightness.dark;
+  /// The UwU Apps look: the site's pale page tinted with the brand colour, frosted surfaces, Jua,
+  /// and the brand colour (or, on the desktop if asked, the computer's accent) for highlights.
+  ThemeData _uwuAppsTheme(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
     final brand = swatch.color;
-    final bg = dark ? const Color(0xFF0C100E) : const Color(0xFFEEF2F0);
-    final page = Color.lerp(bg, brand, 0.10)!;
-    final ink = dark ? const Color(0xFFEEF2EF) : const Color(0xFF121815);
-    final surfaceStrong = dark ? Color.alphaBlend(const Color(0x1CFFFFFF), page) : Color.alphaBlend(const Color(0xC7FFFFFF), page);
-    final surface = dark ? Color.alphaBlend(const Color(0x0FFFFFFF), page) : Color.alphaBlend(const Color(0x8CFFFFFF), page);
+    Color background;
+    Color ink;
+    Color muted;
+    Color border;
+    Color error;
+    Color onPrimary;
+    if (dark) {
+      background = const Color(0xFF0C100E);
+      ink = const Color(0xFFEEF2EF);
+      muted = const Color(0xFF9AA7A0);
+      border = const Color(0x24FFFFFF);
+      error = const Color(0xFFFA9696);
+      onPrimary = const Color(0xFF0C100E);
+    } else {
+      background = const Color(0xFFEEF2F0);
+      ink = const Color(0xFF121815);
+      muted = const Color(0xFF5B665F);
+      border = const Color(0xA6FFFFFF);
+      error = const Color(0xFFB91C1C);
+      onPrimary = Colors.white;
+    }
+    final page = Color.lerp(background, brand, 0.10)!;
+    Color surfaceStrong;
+    Color surface;
+    if (dark) {
+      surfaceStrong = Color.alphaBlend(const Color(0x1CFFFFFF), page);
+      surface = Color.alphaBlend(const Color(0x0FFFFFFF), page);
+    } else {
+      surfaceStrong = Color.alphaBlend(const Color(0xC7FFFFFF), page);
+      surface = Color.alphaBlend(const Color(0x8CFFFFFF), page);
+    }
     // An accent from the computer, on the desktop, if asked for: its highlights only.
-    final accent = onDesktop && useSystemAccent ? systemAccent : null;
-    final brandInk = accent ?? (dark ? const Color(0xFFBFF5CF) : const Color(0xFF1F6B3D));
-    final fill = accent != null ? Color.lerp(accent, surfaceStrong, 0.55)! : Color.lerp(surfaceStrong, brand, 0.55)!;
-    final fillStrong = accent != null ? Color.lerp(accent, surfaceStrong, 0.3)! : Color.lerp(surfaceStrong, brand, 0.75)!;
-    final onBrand = fill.computeLuminance() > 0.4 ? const Color(0xFF121815) : Colors.white;
-    final fx = Fx(
+    Color? accent;
+    if (onDesktop && useSystemAccent) {
+      accent = systemAccent;
+    }
+    Color brandInk;
+    Color fill;
+    Color fillStrong;
+    if (accent != null) {
+      brandInk = accent;
+      fill = Color.lerp(accent, surfaceStrong, 0.55)!;
+      fillStrong = Color.lerp(accent, surfaceStrong, 0.3)!;
+    } else {
+      if (dark) {
+        brandInk = const Color(0xFFBFF5CF);
+      } else {
+        brandInk = const Color(0xFF1F6B3D);
+      }
+      fill = Color.lerp(surfaceStrong, brand, 0.55)!;
+      fillStrong = Color.lerp(surfaceStrong, brand, 0.75)!;
+    }
+    Color onBrand;
+    if (fill.computeLuminance() > 0.4) {
+      onBrand = const Color(0xFF121815);
+    } else {
+      onBrand = Colors.white;
+    }
+    final themeColors = Fx(
       bg: page,
       surface: surface,
       surfaceStrong: surfaceStrong,
-      border: dark ? const Color(0x24FFFFFF) : const Color(0xA6FFFFFF),
+      border: border,
       ink: ink,
-      muted: dark ? const Color(0xFF9AA7A0) : const Color(0xFF5B665F),
+      muted: muted,
       brandInk: brandInk,
       brandFill: fill,
       brandFillStrong: fillStrong,
       onBrand: onBrand,
-      ok: dark ? const Color(0xFF4ADE80) : const Color(0xFF0F7234),
-      warn: dark ? const Color(0xFFFBBF24) : const Color(0xFFA24B08),
-      error: dark ? const Color(0xFFFA9696) : const Color(0xFFB91C1C),
+      ok: _okColor(dark),
+      warning: _warningColor(dark),
+      error: error,
       uwu: true,
     );
-    final scheme = ColorScheme.fromSeed(seedColor: brandInk, brightness: b).copyWith(
+    final scheme = ColorScheme.fromSeed(seedColor: brandInk, brightness: brightness).copyWith(
       primary: brandInk,
-      onPrimary: dark ? const Color(0xFF0C100E) : Colors.white,
+      onPrimary: onPrimary,
       primaryContainer: fill,
       onPrimaryContainer: onBrand,
       secondaryContainer: fill,
@@ -604,8 +869,8 @@ class AppLook extends ChangeNotifier {
       surfaceContainer: surfaceStrong,
       surfaceContainerHigh: surfaceStrong,
       surfaceContainerHighest: surfaceStrong,
-      onSurfaceVariant: fx.muted,
-      error: fx.error,
+      onSurfaceVariant: themeColors.muted,
+      error: themeColors.error,
     );
     final base = ThemeData(
       useMaterial3: true,
@@ -613,8 +878,8 @@ class AppLook extends ChangeNotifier {
       fontFamily: 'Jua',
       fontFamilyFallback: fontFallback,
       scaffoldBackgroundColor: page,
-      visualDensity: onDesktop ? VisualDensity.compact : VisualDensity.standard,
-      extensions: [fx],
+      visualDensity: _visualDensity,
+      extensions: [themeColors],
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: fillStrong,
@@ -632,7 +897,7 @@ class AppLook extends ChangeNotifier {
         style: OutlinedButton.styleFrom(
           backgroundColor: surfaceStrong,
           foregroundColor: ink,
-          side: BorderSide(color: fx.border),
+          side: BorderSide(color: themeColors.border),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(fontFamily: 'Jua', fontSize: 15),
         ),
@@ -640,15 +905,15 @@ class AppLook extends ChangeNotifier {
       cardTheme: CardThemeData(
         color: surface,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: fx.border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: themeColors.border)),
       ),
       dialogTheme: DialogThemeData(backgroundColor: surfaceStrong, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
       bottomSheetTheme: BottomSheetThemeData(backgroundColor: surfaceStrong),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceStrong,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: fx.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: fx.border)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: themeColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: themeColors.border)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: brandInk, width: 2)),
       ),
     );

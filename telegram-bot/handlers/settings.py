@@ -9,12 +9,15 @@ import db
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-CB_AUTODETECT = 'ad'
+CALLBACK_AUTODETECT = 'ad'
 
 
 def _keyboard(enabled: bool) -> InlineKeyboardMarkup:
-    label = 'Turn autodetect off' if enabled else 'Turn autodetect on'
-    return InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=f'{CB_AUTODETECT}:{int(not enabled)}')]])
+    if enabled:
+        label = 'Turn autodetect off'
+    else:
+        label = 'Turn autodetect on'
+    return InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=f'{CALLBACK_AUTODETECT}:{int(not enabled)}')]])
 
 
 async def _is_group_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -32,7 +35,10 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     enabled = await db.get_autodetect_enabled(context.bot_data['db'], chat.id, default_autodetect=config.AUTODETECT_DEFAULT)
-    status = 'on' if enabled else 'off'
+    if enabled:
+        status = 'on'
+    else:
+        status = 'off'
     await update.effective_message.reply_text(
         f'Automatic link fixing in this chat is currently <b>{status}</b>.\n'
         'When on, links with trackers or a fixable embed get an automatic reply.',
@@ -50,7 +56,10 @@ async def autodetect_toggle_callback(update: Update, context: ContextTypes.DEFAU
 
     new_value = bool(int(query.data.split(':', 1)[1]))
     await db.set_autodetect_enabled(context.bot_data['db'], chat.id, new_value)
-    status = 'on' if new_value else 'off'
+    if new_value:
+        status = 'on'
+    else:
+        status = 'off'
     await query.edit_message_text(
         f'Automatic link fixing in this chat is now <b>{status}</b>.\n'
         'When on, links with trackers or a fixable embed get an automatic reply.',

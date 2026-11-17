@@ -22,11 +22,11 @@ allprojects {
 
 // Everything built goes in flutter/build/ (beside pubspec.yaml), where the flutter tool looks for
 // it: build/app/outputs/flutter-apk/ and build/app/outputs/bundle/.
-def newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+def newBuildDirectory = rootProject.layout.buildDirectory.dir("../../build").get()
+rootProject.layout.buildDirectory.value(newBuildDirectory)
 
 subprojects {
-    project.layout.buildDirectory.value(newBuildDir.dir(project.name))
+    project.layout.buildDirectory.value(newBuildDirectory.dir(project.name))
 }
 subprojects {
     project.evaluationDependsOn(":app")

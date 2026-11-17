@@ -12,7 +12,9 @@
 'use strict';
 
 (function () {
-  if (!window.AppBridge?.native) return;
+  if (!window.AppBridge?.native) {
+    return;
+  }
 
   const NOTES = {
     denied: "Notifications are off for uwuFix in Android's settings. Turn them on there, then come back.",
@@ -22,38 +24,51 @@
   let switches = [];
 
   function note(text, { settings = false } = {}) {
-    const p = document.getElementById('notifyNote');
-    p.textContent = text || '';
-    p.hidden = !text;
+    const paragraph = document.getElementById('notifyNote');
+    if (text) {
+      paragraph.textContent = text;
+    } else {
+      paragraph.textContent = '';
+    }
+    paragraph.hidden = !text;
     document.getElementById('notifySettingsBtn').hidden = !settings;
   }
 
+  /** Whether notifications are allowed, asking Android for permission if it hasn't been decided yet. */
   async function allowed() {
     const now = await AppBridge.call('PushNotifications', 'checkPermissions');
-    if (now.receive === 'granted') return true;
+    if (now.receive === 'granted') {
+      return true;
+    }
     // Once refused for good, Android won't prompt again: its settings are the only way.
-    if (now.receive === 'denied') return false;
+    if (now.receive === 'denied') {
+      return false;
+    }
     const after = await AppBridge.call('PushNotifications', 'requestPermissions');
     return after.receive === 'granted';
   }
 
+  /** Sets the switches from the topics the app has joined, and says so if Android has notifications off. */
   async function refresh() {
     note('');
     try {
-      const [topics, perm] = await Promise.all([
+      const [topics, permission] = await Promise.all([
         AppBridge.call('Fixup', 'topics'),
         AppBridge.call('PushNotifications', 'checkPermissions'),
       ]);
-      switches.forEach((input) => {
+      for (const input of switches) {
         input.checked = !!topics[input.dataset.topic];
-      });
+      }
       // Turned on here, then switched off in Android's settings: say why nothing arrives.
-      if ((topics.releases || topics.news) && perm.receive !== 'granted') note(NOTES.denied, { settings: true });
+      if ((topics.releases || topics.news) && permission.receive !== 'granted') {
+        note(NOTES.denied, { settings: true });
+      }
     } catch {
       // The switches stay as drawn.
     }
   }
 
+  /** Joins or leaves a switch's topic, asking for permission first when turning one on. */
   async function toggle(input) {
     const on = input.checked;
     input.disabled = true;
@@ -65,32 +80,44 @@
         return;
       }
       await AppBridge.call('Fixup', 'setTopic', { topic: input.dataset.topic, on });
-    } catch (err) {
+    } catch (error) {
       input.checked = !on;
-      note(err?.message || NOTES.offline);
+      if (error?.message) {
+        note(error.message);
+      } else {
+        note(NOTES.offline);
+      }
     } finally {
       input.disabled = false;
     }
   }
 
-  AppBridge.ready(5000).then((inApp) => {
-    if (!inApp || AppBridge.quick() || !AppBridge.has('push')) return;
+  AppBridge.ready(5000).then(function (inApp) {
+    if (!inApp || AppBridge.quick() || !AppBridge.has('push')) {
+      return;
+    }
     switches = [...document.querySelectorAll('#notifyModal [data-topic]')];
-    switches.forEach((input) => input.addEventListener('change', () => toggle(input)));
+    for (const input of switches) {
+      input.addEventListener('change', function () {
+        toggle(input);
+      });
+    }
 
     const bell = document.getElementById('notifyBtn');
     bell.hidden = false;
-    bell.addEventListener('click', () => {
+    bell.addEventListener('click', function () {
       refresh();
       openModal('notifyModal');
     });
 
-    document.getElementById('notifySettingsBtn').addEventListener('click', () => {
-      AppBridge.call('Fixup', 'openSettings', { what: 'notifications' }).catch(() => {});
+    document.getElementById('notifySettingsBtn').addEventListener('click', function () {
+      AppBridge.call('Fixup', 'openSettings', { what: 'notifications' }).catch(function () {});
     });
     // Back from Android's settings with the window still open.
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && !document.getElementById('notifyModal').classList.contains('hidden')) refresh();
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && !document.getElementById('notifyModal').classList.contains('hidden')) {
+        refresh();
+      }
     });
   });
 })();

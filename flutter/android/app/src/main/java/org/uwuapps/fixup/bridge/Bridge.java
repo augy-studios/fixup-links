@@ -49,13 +49,13 @@ import java.util.Map;
 public final class Bridge {
     private static final String TAG = "Fixup";
     public static final String CHANNEL = "org.uwuapps.fixup/bridge";
-    private static final String PREFS = "bridge.permissions";
+    private static final String PREFERENCES = "bridge.permissions";
 
     private final AppCompatActivity activity;
     private final Map<String, Plugin> plugins = new LinkedHashMap<>();
     private final Map<Plugin, Map<String, Method>> methods = new HashMap<>();
-    private final Handler main = new Handler(Looper.getMainLooper());
-    private final Handler work;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Handler workHandler;
 
     // The Dart side, and what it listens for ("Trip.location"). Events nobody hears yet, kept
     // for the first listener when they're asked to be (notifyListeners' retain).
@@ -81,9 +81,17 @@ public final class Bridge {
         this.activity = activity;
         HandlerThread thread = new HandlerThread("FixupPlugins");
         thread.start();
-        work = new Handler(thread.getLooper());
-        permissionLauncher = activity.registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), r -> afterPermissions());
-        activityLauncher = activity.registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), this::afterActivity);
+        workHandler = new Handler(thread.getLooper());
+        permissionLauncher = activity.registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                (results) -> {
+                    afterPermissions();
+                });
+        activityLauncher = activity.registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                (result) -> {
+                    afterActivity(result);
+                });
     }
 
     public Context getContext() {
@@ -95,28 +103,38 @@ public final class Bridge {
     }
 
     /** For a plugin's load(): a result launcher of its own, as Android allows only then. */
-    public <I, O> ActivityResultLauncher<I> registerForActivityResult(ActivityResultContract<I, O> contract, ActivityResultCallback<O> callback) {
+    public <Input, Output> ActivityResultLauncher<Input> registerForActivityResult(
+            ActivityResultContract<Input, Output> contract, ActivityResultCallback<Output> callback) {
         return activity.registerForActivityResult(contract, callback);
     }
 
+    /**
+     * Makes a plugin from its class, names it from its @AppPlugin annotation, and notes which of
+     * its methods the Dart side may call (each public @PluginMethod that takes one PluginCall).
+     */
     public void registerPlugin(Class<? extends Plugin> type) {
-        AppPlugin about = type.getAnnotation(AppPlugin.class);
-        if (about == null) throw new IllegalArgumentException(type.getName() + " has no @AppPlugin");
+        AppPlugin pluginInfo = type.getAnnotation(AppPlugin.class);
+        if (pluginInfo == null) {
+            throw new IllegalArgumentException(type.getName() + " has no @AppPlugin");
+        }
         Plugin plugin;
         try {
             plugin = type.getDeclaredConstructor().newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Couldn't make " + type.getName(), e);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Couldn't make " + type.getName(), exception);
         }
-        plugin.init(this, about.name(), about.permissions());
+        plugin.init(this, pluginInfo.name(), pluginInfo.permissions());
         Map<String, Method> callable = new HashMap<>();
-        for (Method m : type.getMethods()) {
-            if (m.isAnnotationPresent(PluginMethod.class) && m.getParameterCount() == 1 && m.getParameterTypes()[0] == PluginCall.class) {
-                callable.put(m.getName(), m);
+        for (Method method : type.getMethods()) {
+            boolean isPluginMethod = method.isAnnotationPresent(PluginMethod.class);
+            boolean takesOneCall = method.getParameterCount() == 1
+                    && method.getParameterTypes()[0] == PluginCall.class;
+            if (isPluginMethod && takesOneCall) {
+                callable.put(method.getName(), method);
             }
         }
         methods.put(plugin, callable);
-        plugins.put(about.name(), plugin);
+        plugins.put(pluginInfo.name(), plugin);
         plugin.load();
     }
 
@@ -128,27 +146,31 @@ public final class Bridge {
 
     /** The Flutter engine's messenger, once it's made (MainActivity.configureFlutterEngine). */
     public void connect(BinaryMessenger messenger) {
-        MethodChannel c = new MethodChannel(messenger, CHANNEL);
-        c.setMethodCallHandler(this::heard);
+        MethodChannel newChannel = new MethodChannel(messenger, CHANNEL);
+        newChannel.setMethodCallHandler((methodCall, result) -> {
+            heard(methodCall, result);
+        });
         synchronized (listening) {
-            channel = c;
+            channel = newChannel;
             listening.clear();
         }
     }
 
     public void disconnect() {
         synchronized (listening) {
-            if (channel != null) channel.setMethodCallHandler(null);
+            if (channel != null) {
+                channel.setMethodCallHandler(null);
+            }
             channel = null;
             listening.clear();
         }
     }
 
-    // On the main thread, from Dart.
-    private void heard(MethodCall m, MethodChannel.Result result) {
-        String plugin = m.argument("plugin");
-        String event = m.argument("event");
-        switch (m.method) {
+    /** A message from the Dart side, on the main thread: hello, listen, unlisten or call. */
+    private void heard(MethodCall methodCall, MethodChannel.Result result) {
+        String plugin = methodCall.argument("plugin");
+        String event = methodCall.argument("event");
+        switch (methodCall.method) {
             case "hello" -> {
                 synchronized (listening) {
                     listening.clear();
@@ -168,61 +190,117 @@ public final class Bridge {
             case "call" -> {
                 JSObject options;
                 try {
-                    String o = m.argument("options");
-                    options = o == null || o.isEmpty() ? new JSObject() : new JSObject(o);
-                } catch (JSONException e) {
+                    String optionsJson = methodCall.argument("options");
+                    if (optionsJson == null || optionsJson.isEmpty()) {
+                        options = new JSObject();
+                    } else {
+                        options = new JSObject(optionsJson);
+                    }
+                } catch (JSONException exception) {
                     options = new JSObject();
                 }
-                call(result, plugin, m.argument("method"), options);
+                call(result, plugin, methodCall.argument("method"), options);
             }
             default -> result.notImplemented();
         }
     }
 
+    /**
+     * Runs a plugin's @PluginMethod on the bridge's own thread, with a PluginCall whose answer
+     * goes back to the Dart side on the main thread. A method this app doesn't have is rejected
+     * with "UNIMPLEMENTED".
+     */
     private void call(MethodChannel.Result result, String pluginName, String methodName, JSObject options) {
         PluginCall.Answer answer = new PluginCall.Answer() {
             @Override
             public void resolve(JSObject data) {
-                String json = data == null ? null : data.toString();
-                main.post(() -> result.success(json));
+                String json;
+                if (data == null) {
+                    json = null;
+                } else {
+                    json = data.toString();
+                }
+                mainHandler.post(() -> {
+                    result.success(json);
+                });
             }
 
             @Override
             public void reject(String message, String code, JSObject data) {
-                String json = data == null ? null : data.toString();
-                main.post(() -> result.error(code == null ? "failed" : code, message == null ? "Failed" : message, json));
+                String json;
+                if (data == null) {
+                    json = null;
+                } else {
+                    json = data.toString();
+                }
+                String errorCode;
+                if (code == null) {
+                    errorCode = "failed";
+                } else {
+                    errorCode = code;
+                }
+                String errorMessage;
+                if (message == null) {
+                    errorMessage = "Failed";
+                } else {
+                    errorMessage = message;
+                }
+                mainHandler.post(() -> {
+                    result.error(errorCode, errorMessage, json);
+                });
             }
         };
         PluginCall call = new PluginCall(pluginName, methodName, options, answer);
         Plugin plugin = plugins.get(pluginName);
-        Method method = plugin == null ? null : methods.get(plugin).get(methodName);
+        Method method;
+        if (plugin == null) {
+            method = null;
+        } else {
+            method = methods.get(plugin).get(methodName);
+        }
         if (method == null) {
             call.reject(pluginName + "." + methodName + " isn't in this version of the app", "UNIMPLEMENTED");
             return;
         }
-        work.post(() -> {
+        workHandler.post(() -> {
             try {
                 method.invoke(plugin, call);
-            } catch (InvocationTargetException e) {
-                Log.e(TAG, pluginName + "." + methodName + " failed", e.getCause());
-                call.reject(e.getCause() == null ? "Failed" : String.valueOf(e.getCause().getMessage()));
-            } catch (IllegalAccessException e) {
+            } catch (InvocationTargetException exception) {
+                Log.e(TAG, pluginName + "." + methodName + " failed", exception.getCause());
+                call.reject(failureMessage(exception));
+            } catch (IllegalAccessException exception) {
                 call.reject("Failed");
             }
         });
     }
 
+    /** What a plugin method that threw says went wrong, or "Failed" when it says nothing. */
+    private static String failureMessage(InvocationTargetException exception) {
+        if (exception.getCause() == null) {
+            return "Failed";
+        }
+        return String.valueOf(exception.getCause().getMessage());
+    }
+
     private void send(String plugin, String event, JSObject data) {
-        Map<String, Object> args = new HashMap<>();
-        args.put("plugin", plugin);
-        args.put("event", event);
-        args.put("data", (data == null ? new JSObject() : data).toString());
-        main.post(() -> {
-            MethodChannel c;
+        JSObject sentData;
+        if (data == null) {
+            sentData = new JSObject();
+        } else {
+            sentData = data;
+        }
+        Map<String, Object> arguments = new HashMap<>();
+        arguments.put("plugin", plugin);
+        arguments.put("event", event);
+        arguments.put("data", sentData.toString());
+        mainHandler.post(() -> {
+            MethodChannel currentChannel;
             synchronized (listening) {
-                c = channel;
+                currentChannel = channel;
             }
-            if (c != null) c.invokeMethod("event", args);
+            if (currentChannel != null) {
+                currentChannel.invokeMethod("event", arguments);
+            }
         });
     }
 
@@ -235,10 +313,14 @@ public final class Bridge {
             listening.add(key);
             kept = retained.remove(key);
         }
-        if (kept != null) for (JSObject data : kept) send(plugin, event, data);
+        if (kept != null) {
+            for (JSObject data : kept) {
+                send(plugin, event, data);
+            }
+        }
     }
 
-    boolean listening(String plugin, String event) {
+    boolean isListening(String plugin, String event) {
         synchronized (listening) {
             return channel != null && listening.contains(plugin + "." + event);
         }
@@ -248,7 +330,17 @@ public final class Bridge {
         String key = plugin.getName() + "." + event;
         synchronized (listening) {
             if (channel == null || !listening.contains(key)) {
-                if (retain) retained.computeIfAbsent(key, k -> new ArrayList<>()).add(data == null ? new JSObject() : data);
+                if (retain) {
+                    JSObject keptData;
+                    if (data == null) {
+                        keptData = new JSObject();
+                    } else {
+                        keptData = data;
+                    }
+                    retained.computeIfAbsent(key, (missingKey) -> {
+                        return new ArrayList<>();
+                    }).add(keptData);
+                }
                 return;
             }
         }
@@ -260,42 +352,75 @@ public final class Bridge {
     // Only asked for on the Android versions that have them; before, they're granted with the
     // app (or by another permission already asked, as Bluetooth's by location before 12).
     private static boolean applies(String permission) {
-        int sdk = Build.VERSION.SDK_INT;
-        return switch (permission) {
-            case Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.NEARBY_WIFI_DEVICES -> sdk >= Build.VERSION_CODES.TIRAMISU;
-            case Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.ACTIVITY_RECOGNITION -> sdk >= Build.VERSION_CODES.Q;
-            case Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE -> sdk >= Build.VERSION_CODES.S;
-            default -> true;
-        };
+        int sdkVersion = Build.VERSION.SDK_INT;
+        switch (permission) {
+            case Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.NEARBY_WIFI_DEVICES -> {
+                return sdkVersion >= Build.VERSION_CODES.TIRAMISU;
+            }
+            case Manifest.permission.ACCESS_BACKGROUND_LOCATION, Manifest.permission.ACTIVITY_RECOGNITION -> {
+                return sdkVersion >= Build.VERSION_CODES.Q;
+            }
+            case Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT,
+                 Manifest.permission.BLUETOOTH_ADVERTISE -> {
+                return sdkVersion >= Build.VERSION_CODES.S;
+            }
+            default -> {
+                return true;
+            }
+        }
     }
 
     private boolean granted(String permission) {
-        return !applies(permission) || ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED;
+        return !applies(permission)
+                || ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private SharedPreferences asked() {
-        return activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    private SharedPreferences askedPreferences() {
+        return activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
     }
 
     /** The state of a set of permissions together: granted only when every one is. */
     public PermissionState permissionState(String... strings) {
-        boolean denied = false, prompt = false, rationale = false;
-        for (String p : strings) {
-            if (granted(p)) continue;
-            if (activity.shouldShowRequestPermissionRationale(p)) rationale = true;
-            else if (asked().getBoolean(p, false)) denied = true;
-            else prompt = true;
+        boolean denied = false;
+        boolean prompt = false;
+        boolean rationale = false;
+        for (String permission : strings) {
+            if (granted(permission)) {
+                continue;
+            }
+            if (activity.shouldShowRequestPermissionRationale(permission)) {
+                rationale = true;
+            } else if (askedPreferences().getBoolean(permission, false)) {
+                denied = true;
+            } else {
+                prompt = true;
+            }
         }
-        return denied ? PermissionState.DENIED : prompt ? PermissionState.PROMPT
-                : rationale ? PermissionState.PROMPT_WITH_RATIONALE : PermissionState.GRANTED;
+        if (denied) {
+            return PermissionState.DENIED;
+        }
+        if (prompt) {
+            return PermissionState.PROMPT;
+        }
+        if (rationale) {
+            return PermissionState.PROMPT_WITH_RATIONALE;
+        }
+        return PermissionState.GRANTED;
     }
 
     void requestPermissions(Plugin plugin, String[] strings, PluginCall call, String callback) {
         List<String> wanted = new ArrayList<>();
-        for (String p : strings) if (!granted(p) && !wanted.contains(p)) wanted.add(p);
-        main.post(() -> {
-            if (wanted.isEmpty()) invoke(plugin, callback, call, null);
-            else ask(new PermissionAsk(wanted.toArray(new String[0]), plugin, call, callback, null));
+        for (String permission : strings) {
+            if (!granted(permission) && !wanted.contains(permission)) {
+                wanted.add(permission);
+            }
+        }
+        mainHandler.post(() -> {
+            if (wanted.isEmpty()) {
+                invoke(plugin, callback, call, null);
+            } else {
+                ask(new PermissionAsk(wanted.toArray(new String[0]), plugin, call, callback, null));
+            }
         });
     }
 
@@ -303,33 +428,52 @@ public final class Bridge {
      * prompt for these, then whether they're all allowed. On the main thread. */
     public void askFor(String[] strings, java.util.function.Consumer<Boolean> then) {
         List<String> wanted = new ArrayList<>();
-        for (String p : strings) if (!granted(p)) wanted.add(p);
-        if (wanted.isEmpty()) then.accept(true);
-        else ask(new PermissionAsk(wanted.toArray(new String[0]), null, null, null, then));
+        for (String permission : strings) {
+            if (!granted(permission)) {
+                wanted.add(permission);
+            }
+        }
+        if (wanted.isEmpty()) {
+            then.accept(true);
+        } else {
+            ask(new PermissionAsk(wanted.toArray(new String[0]), null, null, null, then));
+        }
     }
 
     // One prompt at a time, as Android shows them.
-    private void ask(PermissionAsk a) {
-        permissionAsks.add(a);
-        if (permissionAsks.size() == 1) permissionLauncher.launch(a.strings());
+    private void ask(PermissionAsk permissionAsk) {
+        permissionAsks.add(permissionAsk);
+        if (permissionAsks.size() == 1) {
+            permissionLauncher.launch(permissionAsk.strings());
+        }
     }
 
+    /**
+     * Android's prompt answered: notes each permission as asked (so a refusal can later be told
+     * apart from never asking), hands the answer on, then shows the next prompt waiting, if any.
+     */
     private void afterPermissions() {
-        PermissionAsk done = permissionAsks.poll();
-        if (done != null) {
-            SharedPreferences.Editor edit = asked().edit();
-            for (String p : done.strings()) edit.putBoolean(p, true);
-            edit.apply();
-            if (done.then() != null) {
-                boolean all = true;
-                for (String p : done.strings()) all &= granted(p);
-                done.then().accept(all);
+        PermissionAsk finishedAsk = permissionAsks.poll();
+        if (finishedAsk != null) {
+            SharedPreferences.Editor editor = askedPreferences().edit();
+            for (String permission : finishedAsk.strings()) {
+                editor.putBoolean(permission, true);
+            }
+            editor.apply();
+            if (finishedAsk.then() != null) {
+                boolean allGranted = true;
+                for (String permission : finishedAsk.strings()) {
+                    allGranted &= granted(permission);
+                }
+                finishedAsk.then().accept(allGranted);
             } else {
-                invoke(done.plugin(), done.callback(), done.call(), null);
+                invoke(finishedAsk.plugin(), finishedAsk.callback(), finishedAsk.call(), null);
             }
         }
-        PermissionAsk next = permissionAsks.peek();
-        if (next != null) permissionLauncher.launch(next.strings());
+        PermissionAsk nextAsk = permissionAsks.peek();
+        if (nextAsk != null) {
+            permissionLauncher.launch(nextAsk.strings());
+        }
     }
 
     // ---------- other activities ----------
@@ -339,45 +483,62 @@ public final class Bridge {
         if (intent.resolveActivity(activity.getPackageManager()) == null) {
             throw new android.content.ActivityNotFoundException(intent.toString());
         }
-        main.post(() -> {
+        mainHandler.post(() -> {
             activityAsks.add(new ActivityAsk(plugin, intent, call, callback));
-            if (activityAsks.size() == 1) launch(intent);
+            if (activityAsks.size() == 1) {
+                launch(intent);
+            }
         });
     }
 
     private void launch(Intent intent) {
         try {
             activityLauncher.launch(intent);
-        } catch (android.content.ActivityNotFoundException e) {
+        } catch (android.content.ActivityNotFoundException exception) {
             afterActivity(new ActivityResult(AppCompatActivity.RESULT_CANCELED, null));
         }
     }
 
     private void afterActivity(ActivityResult result) {
-        ActivityAsk done = activityAsks.poll();
-        if (done != null) invoke(done.plugin(), done.callback(), done.call(), result);
-        ActivityAsk next = activityAsks.peek();
-        if (next != null) launch(next.intent());
+        ActivityAsk finishedAsk = activityAsks.poll();
+        if (finishedAsk != null) {
+            invoke(finishedAsk.plugin(), finishedAsk.callback(), finishedAsk.call(), result);
+        }
+        ActivityAsk nextAsk = activityAsks.peek();
+        if (nextAsk != null) {
+            launch(nextAsk.intent());
+        }
     }
 
     // A plugin's @PermissionCallback (call) or @ActivityCallback (call, result), by name, private
     // or not.
     private void invoke(Plugin plugin, String name, PluginCall call, ActivityResult result) {
-        if (name == null) return;
-        for (Class<?> c = plugin.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
-            for (Method m : c.getDeclaredMethods()) {
-                if (!m.getName().equals(name)) continue;
-                boolean withResult = m.getParameterCount() == 2 && m.isAnnotationPresent(ActivityCallback.class);
-                boolean plain = m.getParameterCount() == 1 && m.isAnnotationPresent(PermissionCallback.class);
-                if (!withResult && !plain) continue;
+        if (name == null) {
+            return;
+        }
+        for (Class<?> type = plugin.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
+            for (Method method : type.getDeclaredMethods()) {
+                if (!method.getName().equals(name)) {
+                    continue;
+                }
+                boolean withResult = method.getParameterCount() == 2
+                        && method.isAnnotationPresent(ActivityCallback.class);
+                boolean plain = method.getParameterCount() == 1
+                        && method.isAnnotationPresent(PermissionCallback.class);
+                if (!withResult && !plain) {
+                    continue;
+                }
                 try {
-                    m.setAccessible(true);
-                    if (withResult) m.invoke(plugin, call, result);
-                    else m.invoke(plugin, call);
-                } catch (InvocationTargetException e) {
-                    Log.e(TAG, plugin.getName() + "." + name + " failed", e.getCause());
-                    call.reject(e.getCause() == null ? "Failed" : String.valueOf(e.getCause().getMessage()));
-                } catch (IllegalAccessException e) {
+                    method.setAccessible(true);
+                    if (withResult) {
+                        method.invoke(plugin, call, result);
+                    } else {
+                        method.invoke(plugin, call);
+                    }
+                } catch (InvocationTargetException exception) {
+                    Log.e(TAG, plugin.getName() + "." + name + " failed", exception.getCause());
+                    call.reject(failureMessage(exception));
+                } catch (IllegalAccessException exception) {
                     call.reject("Failed");
                 }
                 return;
@@ -389,36 +550,50 @@ public final class Bridge {
     // ---------- the activity's lifecycle ----------
 
     public void onStart() {
-        for (Plugin p : plugins.values()) p.handleOnStart();
+        for (Plugin plugin : plugins.values()) {
+            plugin.handleOnStart();
+        }
     }
 
     public void onResume() {
-        for (Plugin p : plugins.values()) p.handleOnResume();
+        for (Plugin plugin : plugins.values()) {
+            plugin.handleOnResume();
+        }
     }
 
     public void onPause() {
-        for (Plugin p : plugins.values()) p.handleOnPause();
+        for (Plugin plugin : plugins.values()) {
+            plugin.handleOnPause();
+        }
     }
 
     public void onStop() {
-        for (Plugin p : plugins.values()) p.handleOnStop();
+        for (Plugin plugin : plugins.values()) {
+            plugin.handleOnStop();
+        }
     }
 
     public void onDestroy() {
-        for (Plugin p : plugins.values()) p.handleOnDestroy();
+        for (Plugin plugin : plugins.values()) {
+            plugin.handleOnDestroy();
+        }
         disconnect();
-        work.getLooper().quitSafely();
+        workHandler.getLooper().quitSafely();
     }
 
     public void onNewIntent(Intent intent) {
-        for (Plugin p : plugins.values()) p.handleOnNewIntent(intent);
+        for (Plugin plugin : plugins.values()) {
+            plugin.handleOnNewIntent(intent);
+        }
     }
 
     /** A link off the site (an intent: link, say): true when a plugin dealt with it. */
     public boolean shouldOverrideLoad(Uri url) {
-        for (Plugin p : plugins.values()) {
-            Boolean handled = p.shouldOverrideLoad(url);
-            if (handled != null) return handled;
+        for (Plugin plugin : plugins.values()) {
+            Boolean handled = plugin.shouldOverrideLoad(url);
+            if (handled != null) {
+                return handled;
+            }
         }
         return false;
     }

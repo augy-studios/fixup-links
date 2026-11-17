@@ -5,7 +5,9 @@
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-FMCYFTFPEL"></script>
     <script>
-        window.dataLayer = window.dataLayer || [];
+        if (!window.dataLayer) {
+            window.dataLayer = [];
+        }
 
         function gtag() {
             dataLayer.push(arguments);
@@ -32,48 +34,65 @@
     <!-- Land the saved theme before first paint -->
     <script>
         (function () {
-            var k = "uwufix";
+            var appKey = "uwufix";
             try {
                 var legacy = localStorage.getItem("uwufix_theme");
                 if (legacy) {
-                    var map = {
+                    var legacyThemeIds = {
                         classic: "classic", notgreen1: "not-green-1", notgreen2: "not-green-2",
                         notgreen3: "not-green-3", notgreen4: "not-green-4", notgreen5: "not-green-5",
                         white: "really-light-green"
                     };
-                    if (!localStorage.getItem(k + ".colorTheme") && map[legacy]) {
-                        localStorage.setItem(k + ".colorTheme", map[legacy]);
+                    if (!localStorage.getItem(appKey + ".colorTheme") && legacyThemeIds[legacy]) {
+                        localStorage.setItem(appKey + ".colorTheme", legacyThemeIds[legacy]);
                     }
                     localStorage.removeItem("uwufix_theme");
                 }
-            } catch (e) { }
-            var m = "light", c = "classic";
+            } catch (error) { }
+            var mode = "light";
+            var colorTheme = "classic";
             try {
-                m = localStorage.getItem(k + ".mode") || "light";
-                c = localStorage.getItem(k + ".colorTheme") || "classic";
-            } catch (e) { }
+                var storedMode = localStorage.getItem(appKey + ".mode");
+                if (storedMode) {
+                    mode = storedMode;
+                } else {
+                    mode = "light";
+                }
+                var storedColorTheme = localStorage.getItem(appKey + ".colorTheme");
+                if (storedColorTheme) {
+                    colorTheme = storedColorTheme;
+                } else {
+                    colorTheme = "classic";
+                }
+            } catch (error) { }
 
             // Time based mode. Resolved here rather than in theme.js because
             // theme.js runs after first paint, and an evening reader would
             // otherwise watch a white page turn dark. Keep the two hours in step
             // with LIGHT_FROM_HOUR and LIGHT_UNTIL_HOUR in js/theme.js.
-            if (m !== "dark" && m !== "time") m = "light";
-            document.documentElement.setAttribute("data-mode-preference", m);
-            if (m === "time") {
-                var h = new Date().getHours();
-                m = h >= 9 && h < 18 ? "light" : "dark";
+            if (mode !== "dark" && mode !== "time") {
+                mode = "light";
+            }
+            document.documentElement.setAttribute("data-mode-preference", mode);
+            if (mode === "time") {
+                var hour = new Date().getHours();
+                if (hour >= 9 && hour < 18) {
+                    mode = "light";
+                } else {
+                    mode = "dark";
+                }
             }
 
-            document.documentElement.setAttribute("data-mode", m);
-            document.documentElement.setAttribute("data-color-theme", c);
+            document.documentElement.setAttribute("data-mode", mode);
+            document.documentElement.setAttribute("data-color-theme", colorTheme);
 
             // The Edge Tray, tucked away from the first frame for someone who left it so,
             // rather than sliding shut on load. Same key as TRAY_KEY in js/tray.js.
             try {
-                if (localStorage.getItem(k + ".trayOpen") === "0") {
+                if (localStorage.getItem(appKey + ".trayOpen") === "0") {
                     document.documentElement.classList.add("tray-start-collapsed");
                 }
-            } catch (e) { }
+            } catch (error) { }
         })();
     </script>
 

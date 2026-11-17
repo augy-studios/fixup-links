@@ -15,15 +15,19 @@ import 'package:flutter/material.dart';
 import '../theme/theme.dart';
 import 'desktop.dart';
 
+/// Asks the window for the system's backdrop whenever the look or the system's light or dark
+/// changes, and tells the look whether it got it.
 class GlassWindow with WidgetsBindingObserver {
   GlassWindow._();
-  static final GlassWindow I = GlassWindow._();
+  static final GlassWindow instance = GlassWindow._();
 
   bool _started = false;
   (bool, bool)? _asked;
 
   void start() {
-    if (_started) return;
+    if (_started) {
+      return;
+    }
     _started = true;
     WidgetsBinding.instance.addObserver(this);
     AppLook.I.addListener(apply);
@@ -31,13 +35,20 @@ class GlassWindow with WidgetsBindingObserver {
   }
 
   @override
-  void didChangePlatformBrightness() => apply();
+  void didChangePlatformBrightness() {
+    apply();
+  }
 
-  bool get _dark => switch (AppLook.I.themeMode) {
-        ThemeMode.dark => true,
-        ThemeMode.light => false,
-        ThemeMode.system => WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark,
-      };
+  bool get _dark {
+    switch (AppLook.I.themeMode) {
+      case ThemeMode.dark:
+        return true;
+      case ThemeMode.light:
+        return false;
+      case ThemeMode.system:
+        return WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    }
+  }
 
   /// Asks the window for the backdrop the look wants. [again] even if that's what it was last
   /// asked: window_manager takes Windows' extended frame away whenever it sets a title bar style
@@ -45,7 +56,9 @@ class GlassWindow with WidgetsBindingObserver {
   Future<void> apply({bool again = false}) async {
     final on = AppLook.I.glass != null;
     final dark = _dark;
-    if (!again && _asked == (on, dark)) return;
+    if (!again && _asked == (on, dark)) {
+      return;
+    }
     _asked = (on, dark);
     try {
       final drawn = await Desktop.channel.invokeMethod<bool>('setBackdrop', {'on': on, 'dark': dark});

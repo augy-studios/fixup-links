@@ -32,7 +32,11 @@ public abstract class Plugin {
     final void init(Bridge bridge, String name, Permission[] permissions) {
         this.bridge = bridge;
         this.name = name;
-        this.permissions = permissions == null ? new Permission[0] : permissions;
+        if (permissions == null) {
+            this.permissions = new Permission[0];
+        } else {
+            this.permissions = permissions;
+        }
     }
 
     /** Called once, as the plugin's registered, while the activity's being created. */
@@ -71,7 +75,7 @@ public abstract class Plugin {
     }
 
     protected boolean hasListeners(String event) {
-        return bridge.listening(name, event);
+        return bridge.isListening(name, event);
     }
 
     // ---------- permissions ----------
@@ -81,19 +85,28 @@ public abstract class Plugin {
     }
 
     Permission permission(String alias) {
-        for (Permission p : permissions) if (p.alias().equals(alias)) return p;
+        for (Permission permission : permissions) {
+            if (permission.alias().equals(alias)) {
+                return permission;
+            }
+        }
         return null;
     }
 
     public PermissionState getPermissionState(String alias) {
-        Permission p = permission(alias);
-        return p == null ? PermissionState.DENIED : bridge.permissionState(p.strings());
+        Permission permission = permission(alias);
+        if (permission == null) {
+            return PermissionState.DENIED;
+        }
+        return bridge.permissionState(permission.strings());
     }
 
     public Map<String, PermissionState> getPermissionStates() {
-        Map<String, PermissionState> out = new LinkedHashMap<>();
-        for (Permission p : permissions) out.put(p.alias(), bridge.permissionState(p.strings()));
-        return out;
+        Map<String, PermissionState> states = new LinkedHashMap<>();
+        for (Permission permission : permissions) {
+            states.put(permission.alias(), bridge.permissionState(permission.strings()));
+        }
+        return states;
     }
 
     /** Android's prompt for one alias's permissions, then callbackName(call), a @PermissionCallback. */
@@ -104,16 +117,25 @@ public abstract class Plugin {
     protected void requestPermissionForAliases(String[] aliases, PluginCall call, String callbackName) {
         java.util.List<String> strings = new java.util.ArrayList<>();
         for (String alias : aliases) {
-            Permission p = permission(alias);
-            if (p != null) java.util.Collections.addAll(strings, p.strings());
+            Permission permission = permission(alias);
+            if (permission != null) {
+                java.util.Collections.addAll(strings, permission.strings());
+            }
         }
         bridge.requestPermissions(this, strings.toArray(new String[0]), call, callbackName);
     }
 
     protected void requestAllPermissions(PluginCall call, String callbackName) {
+        requestPermissionForAliases(allAliases(), call, callbackName);
+    }
+
+    /** The alias of every one of this plugin's permissions, in the order @AppPlugin lists them. */
+    private String[] allAliases() {
         String[] aliases = new String[permissions.length];
-        for (int i = 0; i < permissions.length; i++) aliases[i] = permissions[i].alias();
-        requestPermissionForAliases(aliases, call, callbackName);
+        for (int index = 0; index < permissions.length; index++) {
+            aliases[index] = permissions[index].alias();
+        }
+        return aliases;
     }
 
     @PluginMethod
@@ -126,11 +148,12 @@ public abstract class Plugin {
         JSArray asked = call.getArray("permissions");
         String[] aliases;
         if (asked == null || asked.length() == 0) {
-            aliases = new String[permissions.length];
-            for (int i = 0; i < permissions.length; i++) aliases[i] = permissions[i].alias();
+            aliases = allAliases();
         } else {
             aliases = new String[asked.length()];
-            for (int i = 0; i < asked.length(); i++) aliases[i] = asked.optString(i);
+            for (int index = 0; index < asked.length(); index++) {
+                aliases[index] = asked.optString(index);
+            }
         }
         requestPermissionForAliases(aliases, call, "afterRequestPermissions");
     }
@@ -141,9 +164,11 @@ public abstract class Plugin {
     }
 
     private JSObject states() {
-        JSObject out = new JSObject();
-        for (Map.Entry<String, PermissionState> e : getPermissionStates().entrySet()) out.put(e.getKey(), e.getValue().toString());
-        return out;
+        JSObject states = new JSObject();
+        for (Map.Entry<String, PermissionState> entry : getPermissionStates().entrySet()) {
+            states.put(entry.getKey(), entry.getValue().toString());
+        }
+        return states;
     }
 
     // ---------- other activities ----------

@@ -15,174 +15,247 @@ class BinaryPack {
   BinaryPack._();
 
   static Uint8List pack(Object? value) {
-    final b = BytesBuilder(copy: false);
-    _pack(b, value);
-    return b.takeBytes();
+    final builder = BytesBuilder(copy: false);
+    _pack(builder, value);
+    return builder.takeBytes();
   }
 
-  static void _u8(BytesBuilder b, int v) => b.addByte(v & 0xff);
-  static void _u16(BytesBuilder b, int v) => b.add([(v >> 8) & 0xff, v & 0xff]);
-  static void _u32(BytesBuilder b, int v) => b.add([(v >> 24) & 0xff, (v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff]);
-  static void _i64(BytesBuilder b, int v) {
-    final d = ByteData(8)..setInt64(0, v);
-    b.add(d.buffer.asUint8List());
+  static void _writeUint8(BytesBuilder builder, int value) {
+    builder.addByte(value & 0xff);
   }
 
-  static void _pack(BytesBuilder b, Object? v) {
-    if (v == null) return _u8(b, 0xc0);
-    if (v is bool) return _u8(b, v ? 0xc3 : 0xc2);
-    if (v is int) return _int(b, v);
-    if (v is double) {
-      if (v == v.truncateToDouble() && v.abs() < 9007199254740992) return _int(b, v.toInt());
-      _u8(b, 0xcb);
-      final d = ByteData(8)..setFloat64(0, v);
-      return b.add(d.buffer.asUint8List());
+  static void _writeUint16(BytesBuilder builder, int value) {
+    builder.add([(value >> 8) & 0xff, value & 0xff]);
+  }
+
+  static void _writeUint32(BytesBuilder builder, int value) {
+    builder.add([(value >> 24) & 0xff, (value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff]);
+  }
+
+  static void _writeInt64(BytesBuilder builder, int value) {
+    final data = ByteData(8);
+    data.setInt64(0, value);
+    builder.add(data.buffer.asUint8List());
+  }
+
+  /// One value in BinaryPack: null, a bool, a number, a string, bytes, a list or a map (its keys
+  /// as strings), each with the smallest header that fits. Anything else goes as its text.
+  static void _pack(BytesBuilder builder, Object? value) {
+    if (value == null) {
+      _writeUint8(builder, 0xc0);
+      return;
     }
-    if (v is String) {
-      final bytes = utf8.encode(v);
-      if (bytes.length <= 0x0f) {
-        _u8(b, 0xb0 | bytes.length);
-      } else if (bytes.length <= 0xffff) {
-        _u8(b, 0xd8);
-        _u16(b, bytes.length);
+    if (value is bool) {
+      if (value) {
+        _writeUint8(builder, 0xc3);
       } else {
-        _u8(b, 0xd9);
-        _u32(b, bytes.length);
-      }
-      return b.add(bytes);
-    }
-    if (v is Uint8List) {
-      if (v.length <= 0x0f) {
-        _u8(b, 0xa0 | v.length);
-      } else if (v.length <= 0xffff) {
-        _u8(b, 0xda);
-        _u16(b, v.length);
-      } else {
-        _u8(b, 0xdb);
-        _u32(b, v.length);
-      }
-      return b.add(v);
-    }
-    if (v is List) {
-      if (v.length <= 0x0f) {
-        _u8(b, 0x90 | v.length);
-      } else if (v.length <= 0xffff) {
-        _u8(b, 0xdc);
-        _u16(b, v.length);
-      } else {
-        _u8(b, 0xdd);
-        _u32(b, v.length);
-      }
-      for (final x in v) {
-        _pack(b, x);
+        _writeUint8(builder, 0xc2);
       }
       return;
     }
-    if (v is Map) {
-      final n = v.length;
-      if (n <= 0x0f) {
-        _u8(b, 0x80 | n);
-      } else if (n <= 0xffff) {
-        _u8(b, 0xde);
-        _u16(b, n);
-      } else {
-        _u8(b, 0xdf);
-        _u32(b, n);
+    if (value is int) {
+      _packInteger(builder, value);
+      return;
+    }
+    if (value is double) {
+      if (value == value.truncateToDouble() && value.abs() < 9007199254740992) {
+        _packInteger(builder, value.toInt());
+        return;
       }
-      v.forEach((k, x) {
-        _pack(b, k is String ? k : '$k');
-        _pack(b, x);
+      _writeUint8(builder, 0xcb);
+      final data = ByteData(8);
+      data.setFloat64(0, value);
+      builder.add(data.buffer.asUint8List());
+      return;
+    }
+    if (value is String) {
+      final bytes = utf8.encode(value);
+      if (bytes.length <= 0x0f) {
+        _writeUint8(builder, 0xb0 | bytes.length);
+      } else if (bytes.length <= 0xffff) {
+        _writeUint8(builder, 0xd8);
+        _writeUint16(builder, bytes.length);
+      } else {
+        _writeUint8(builder, 0xd9);
+        _writeUint32(builder, bytes.length);
+      }
+      builder.add(bytes);
+      return;
+    }
+    if (value is Uint8List) {
+      if (value.length <= 0x0f) {
+        _writeUint8(builder, 0xa0 | value.length);
+      } else if (value.length <= 0xffff) {
+        _writeUint8(builder, 0xda);
+        _writeUint16(builder, value.length);
+      } else {
+        _writeUint8(builder, 0xdb);
+        _writeUint32(builder, value.length);
+      }
+      builder.add(value);
+      return;
+    }
+    if (value is List) {
+      if (value.length <= 0x0f) {
+        _writeUint8(builder, 0x90 | value.length);
+      } else if (value.length <= 0xffff) {
+        _writeUint8(builder, 0xdc);
+        _writeUint16(builder, value.length);
+      } else {
+        _writeUint8(builder, 0xdd);
+        _writeUint32(builder, value.length);
+      }
+      for (final item in value) {
+        _pack(builder, item);
+      }
+      return;
+    }
+    if (value is Map) {
+      final count = value.length;
+      if (count <= 0x0f) {
+        _writeUint8(builder, 0x80 | count);
+      } else if (count <= 0xffff) {
+        _writeUint8(builder, 0xde);
+        _writeUint16(builder, count);
+      } else {
+        _writeUint8(builder, 0xdf);
+        _writeUint32(builder, count);
+      }
+      value.forEach((key, item) {
+        if (key is String) {
+          _pack(builder, key);
+        } else {
+          _pack(builder, '$key');
+        }
+        _pack(builder, item);
       });
       return;
     }
     // Anything else as its words, as JSON would have it.
-    _pack(b, '$v');
+    _pack(builder, '$value');
   }
 
   // In js-binarypack's order, so the same number is packed the same way.
-  static void _int(BytesBuilder b, int n) {
-    if (-0x20 <= n && n <= 0x7f) return _u8(b, n);
-    if (0 <= n && n <= 0xff) {
-      _u8(b, 0xcc);
-      return _u8(b, n);
+  static void _packInteger(BytesBuilder builder, int number) {
+    if (-0x20 <= number && number <= 0x7f) {
+      _writeUint8(builder, number);
+      return;
     }
-    if (-0x80 <= n && n <= 0x7f) {
-      _u8(b, 0xd0);
-      return _u8(b, n);
+    if (0 <= number && number <= 0xff) {
+      _writeUint8(builder, 0xcc);
+      _writeUint8(builder, number);
+      return;
     }
-    if (0 <= n && n <= 0xffff) {
-      _u8(b, 0xcd);
-      return _u16(b, n);
+    if (-0x80 <= number && number <= 0x7f) {
+      _writeUint8(builder, 0xd0);
+      _writeUint8(builder, number);
+      return;
     }
-    if (-0x8000 <= n && n <= 0x7fff) {
-      _u8(b, 0xd1);
-      return _u16(b, n);
+    if (0 <= number && number <= 0xffff) {
+      _writeUint8(builder, 0xcd);
+      _writeUint16(builder, number);
+      return;
     }
-    if (0 <= n && n <= 0xffffffff) {
-      _u8(b, 0xce);
-      return _u32(b, n);
+    if (-0x8000 <= number && number <= 0x7fff) {
+      _writeUint8(builder, 0xd1);
+      _writeUint16(builder, number);
+      return;
     }
-    if (-0x80000000 <= n && n <= 0x7fffffff) {
-      _u8(b, 0xd2);
-      return _u32(b, n);
+    if (0 <= number && number <= 0xffffffff) {
+      _writeUint8(builder, 0xce);
+      _writeUint32(builder, number);
+      return;
     }
-    _u8(b, 0xd3);
-    _i64(b, n);
+    if (-0x80000000 <= number && number <= 0x7fffffff) {
+      _writeUint8(builder, 0xd2);
+      _writeUint32(builder, number);
+      return;
+    }
+    _writeUint8(builder, 0xd3);
+    _writeInt64(builder, number);
   }
 
-  static Object? unpack(Uint8List bytes) => _Reader(bytes).value();
+  static Object? unpack(Uint8List bytes) {
+    return _Reader(bytes).value();
+  }
 }
 
+/// Reads BinaryPack values from bytes, one after another, from [position] on.
 class _Reader {
   _Reader(this.bytes) : data = ByteData.sublistView(bytes);
   final Uint8List bytes;
   final ByteData data;
-  int i = 0;
+  int position = 0;
 
-  int _u8() => bytes[i++];
-  int _u16() {
-    final v = data.getUint16(i);
-    i += 2;
-    return v;
+  int _readUint8() {
+    final value = bytes[position];
+    position++;
+    return value;
   }
 
-  int _u32() {
-    final v = data.getUint32(i);
-    i += 4;
-    return v;
+  int _readUint16() {
+    final value = data.getUint16(position);
+    position += 2;
+    return value;
   }
 
-  String _str(int n) {
-    final s = utf8.decode(bytes.sublist(i, i + n), allowMalformed: true);
-    i += n;
-    return s;
+  int _readUint32() {
+    final value = data.getUint32(position);
+    position += 4;
+    return value;
   }
 
-  Uint8List _raw(int n) {
-    final r = Uint8List.fromList(bytes.sublist(i, i + n));
-    i += n;
-    return r;
+  String _readString(int length) {
+    final text = utf8.decode(bytes.sublist(position, position + length), allowMalformed: true);
+    position += length;
+    return text;
   }
 
-  List<Object?> _array(int n) => [for (var k = 0; k < n; k++) value()];
-  Map<String, Object?> _map(int n) {
-    final out = <String, Object?>{};
-    for (var k = 0; k < n; k++) {
-      final key = value();
-      out['$key'] = value();
+  Uint8List _readBytes(int length) {
+    final result = Uint8List.fromList(bytes.sublist(position, position + length));
+    position += length;
+    return result;
+  }
+
+  List<Object?> _readArray(int length) {
+    final items = <Object?>[];
+    for (var index = 0; index < length; index++) {
+      items.add(value());
     }
-    return out;
+    return items;
   }
 
+  Map<String, Object?> _readMap(int length) {
+    final result = <String, Object?>{};
+    for (var index = 0; index < length; index++) {
+      final key = value();
+      result['$key'] = value();
+    }
+    return result;
+  }
+
+  /// The next value: its header byte says its type, and for the fixed kinds its size too.
   Object? value() {
-    final t = _u8();
-    if (t < 0x80) return t;
-    if ((t ^ 0xe0) < 0x20) return (t ^ 0xe0) - 0x20;
-    if ((t ^ 0xa0) <= 0x0f) return _raw(t ^ 0xa0);
-    if ((t ^ 0xb0) <= 0x0f) return _str(t ^ 0xb0);
-    if ((t ^ 0x90) <= 0x0f) return _array(t ^ 0x90);
-    if ((t ^ 0x80) <= 0x0f) return _map(t ^ 0x80);
-    switch (t) {
+    final header = _readUint8();
+    if (header < 0x80) {
+      return header;
+    }
+    if ((header ^ 0xe0) < 0x20) {
+      return (header ^ 0xe0) - 0x20;
+    }
+    if ((header ^ 0xa0) <= 0x0f) {
+      return _readBytes(header ^ 0xa0);
+    }
+    if ((header ^ 0xb0) <= 0x0f) {
+      return _readString(header ^ 0xb0);
+    }
+    if ((header ^ 0x90) <= 0x0f) {
+      return _readArray(header ^ 0x90);
+    }
+    if ((header ^ 0x80) <= 0x0f) {
+      return _readMap(header ^ 0x80);
+    }
+    switch (header) {
       case 0xc0:
       case 0xc1:
         return null;
@@ -191,52 +264,55 @@ class _Reader {
       case 0xc3:
         return true;
       case 0xca:
-        final v = data.getFloat32(i);
-        i += 4;
-        return v;
+        final number = data.getFloat32(position);
+        position += 4;
+        return number;
       case 0xcb:
-        final v = data.getFloat64(i);
-        i += 8;
-        return v;
+        final number = data.getFloat64(position);
+        position += 8;
+        return number;
       case 0xcc:
-        return _u8();
+        return _readUint8();
       case 0xcd:
-        return _u16();
+        return _readUint16();
       case 0xce:
-        return _u32();
+        return _readUint32();
       case 0xcf:
-        final hi = _u32(), lo = _u32();
-        return hi * 4294967296 + lo;
+        final high = _readUint32();
+        final low = _readUint32();
+        return high * 4294967296 + low;
       case 0xd0:
-        return data.getInt8(i++);
+        final number = data.getInt8(position);
+        position++;
+        return number;
       case 0xd1:
-        final v = data.getInt16(i);
-        i += 2;
-        return v;
+        final number = data.getInt16(position);
+        position += 2;
+        return number;
       case 0xd2:
-        final v = data.getInt32(i);
-        i += 4;
-        return v;
+        final number = data.getInt32(position);
+        position += 4;
+        return number;
       case 0xd3:
-        final v = data.getInt64(i);
-        i += 8;
-        return v;
+        final number = data.getInt64(position);
+        position += 8;
+        return number;
       case 0xd8:
-        return _str(_u16());
+        return _readString(_readUint16());
       case 0xd9:
-        return _str(_u32());
+        return _readString(_readUint32());
       case 0xda:
-        return _raw(_u16());
+        return _readBytes(_readUint16());
       case 0xdb:
-        return _raw(_u32());
+        return _readBytes(_readUint32());
       case 0xdc:
-        return _array(_u16());
+        return _readArray(_readUint16());
       case 0xdd:
-        return _array(_u32());
+        return _readArray(_readUint32());
       case 0xde:
-        return _map(_u16());
+        return _readMap(_readUint16());
       case 0xdf:
-        return _map(_u32());
+        return _readMap(_readUint32());
     }
     return null;
   }

@@ -32,50 +32,65 @@
     home: {
       label: 'Home',
       steps: [
-        { el: '.cleaner-card .input-group', text: 'Paste or type a link here. The paste button fills it in from what you’ve copied.' },
-        { el: '#cleanBtn', text: 'Clean it: trackers go, and links to X, Instagram, TikTok and more turn into ones that show a preview.' },
-        { el: '#resultArea .result-actions', text: 'Copy the clean link, open it, share it, or make a QR code of it.' },
-        { el: '#openHistoryModal', text: 'Every link you clean is kept here, on this device. Share it with your other devices from there.' },
-        { el: '#tourBtn', text: 'Show me around has this tour, and the others, again. The arrow above tucks these buttons away.' },
+        { selector: '.cleaner-card .input-group', text: 'Paste or type a link here. The paste button fills it in from what you’ve copied.' },
+        { selector: '#cleanBtn', text: 'Clean it: trackers go, and links to X, Instagram, TikTok and more turn into ones that show a preview.' },
+        { selector: '#resultArea .result-actions', text: 'Copy the clean link, open it, share it, or make a QR code of it.' },
+        { selector: '#openHistoryModal', text: 'Every link you clean is kept here, on this device. Share it with your other devices from there.' },
+        { selector: '#tourBtn', text: 'Show me around has this tour, and the others, again. The arrow above tucks these buttons away.' },
       ],
     },
     history: {
       label: 'History',
       steps: [
-        { el: '#historyList .history-item, #historyEmpty', text: 'Every link you’ve cleaned, newest first, with its page’s title. Tap one to clean it again.' },
-        { el: '#historyList .history-item-delete', text: 'The bin deletes one link from your history.' },
-        { el: '#openSyncBtn', text: 'Share history with your phone, computer or another browser, straight from one to the other.' },
-        { el: '#clearHistoryBtn', text: 'Clear All empties your history on this device.' },
+        { selector: '#historyList .history-item, #historyEmpty', text: 'Every link you’ve cleaned, newest first, with its page’s title. Tap one to clean it again.' },
+        { selector: '#historyList .history-item-delete', text: 'The bin deletes one link from your history.' },
+        { selector: '#openSyncBtn', text: 'Share history with your phone, computer or another browser, straight from one to the other.' },
+        { selector: '#clearHistoryBtn', text: 'Clear All empties your history on this device.' },
       ],
     },
     sync: {
       label: 'Share history',
       steps: [
-        { el: '#syncTabs', text: 'One device shows a code, and the other enters it.' },
-        { el: '#syncHostCard, #syncJoinForm', text: 'On the other device, type this code, scan the QR code or open the link. Or type the code the other device shows.' },
-        { el: '#syncNetNote', text: 'Both have to be on the same wifi, or one on the other’s hotspot. Your history goes straight between them, through no server.' },
+        { selector: '#syncTabs', text: 'One device shows a code, and the other enters it.' },
+        { selector: '#syncHostCard, #syncJoinForm', text: 'On the other device, type this code, scan the QR code or open the link. Or type the code the other device shows.' },
+        { selector: '#syncNetNote', text: 'Both have to be on the same wifi, or one on the other’s hotspot. Your history goes straight between them, through no server.' },
       ],
     },
   };
 
   /* ---------- the app's pages (§6) ---------- */
 
-  const isOpen = (id) => { const m = document.getElementById(id); return !!m && !m.classList.contains('hidden'); };
+  function isOpen(id) {
+    const modal = document.getElementById(id);
+    return !!modal && !modal.classList.contains('hidden');
+  }
 
   const pages = {
     active() {
-      if (isOpen('syncModal')) return 'sync';
-      if (isOpen('historyModal')) return 'history';
+      if (isOpen('syncModal')) {
+        return 'sync';
+      }
+      if (isOpen('historyModal')) {
+        return 'history';
+      }
       return 'home';
     },
     open(id) {
       if (id === 'home') {
-        for (const m of Object.values(WINDOWS)) if (isOpen(m)) closeModal(m);
+        for (const modalId of Object.values(WINDOWS)) {
+          if (isOpen(modalId)) {
+            closeModal(modalId);
+          }
+        }
       } else if (id === 'history') {
-        if (isOpen('syncModal')) closeModal('syncModal');
+        if (isOpen('syncModal')) {
+          closeModal('syncModal');
+        }
         document.getElementById('openHistoryModal').click();
       } else if (id === 'sync') {
-        if (isOpen('historyModal')) closeModal('historyModal');
+        if (isOpen('historyModal')) {
+          closeModal('historyModal');
+        }
         window.HistorySync?.open();
       }
     },
@@ -84,23 +99,46 @@
   // Another window over the page: Theme, QR code, Notifications... A page's own window doesn't
   // count.
   function blocked(id) {
-    return [...document.querySelectorAll('.modal-backdrop:not(.hidden)')].some((m) => m.id !== WINDOWS[id]);
+    for (const modal of document.querySelectorAll('.modal-backdrop:not(.hidden)')) {
+      if (modal.id !== WINDOWS[id]) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /* ---------- state (§5) ---------- */
 
+  /** The ids of the pages (other than home) whose tours have been seen, from storage. Throws if storage does. */
+  function seenPages() {
+    let storedText = localStorage.getItem(PAGES_KEY);
+    if (!storedText) {
+      storedText = '[]';
+    }
+    return JSON.parse(storedText);
+  }
+
   function seen(id) {
     try {
-      if (id === START) return localStorage.getItem(WELCOME_KEY) === 'done';
-      return JSON.parse(localStorage.getItem(PAGES_KEY) || '[]').includes(id);
-    } catch { return true; }
+      if (id === START) {
+        return localStorage.getItem(WELCOME_KEY) === 'done';
+      }
+      return seenPages().includes(id);
+    } catch {
+      return true;
+    }
   }
 
   function markSeen(id) {
     try {
-      if (id === START) return localStorage.setItem(WELCOME_KEY, 'done');
-      const list = JSON.parse(localStorage.getItem(PAGES_KEY) || '[]');
-      if (!list.includes(id)) localStorage.setItem(PAGES_KEY, JSON.stringify([...list, id]));
+      if (id === START) {
+        localStorage.setItem(WELCOME_KEY, 'done');
+        return;
+      }
+      const list = seenPages();
+      if (!list.includes(id)) {
+        localStorage.setItem(PAGES_KEY, JSON.stringify([...list, id]));
+      }
     } catch { /* shown again next time */ }
   }
 
@@ -112,13 +150,26 @@
   let page = null;
   let began = null;
 
-  function visible(el) {
-    if (!el || el.closest('[hidden]') || el.closest('.modal-backdrop.hidden')) return false;
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+  /** Whether the element is on the page and drawn: not hidden, not in a closed window, not zero-sized. */
+  function visible(element) {
+    if (!element || element.closest('[hidden]') || element.closest('.modal-backdrop.hidden')) {
+      return false;
+    }
+    const rectangle = element.getBoundingClientRect();
+    return rectangle.width > 0 && rectangle.height > 0 && getComputedStyle(element).visibility !== 'hidden';
   }
-  const target = (s) => [...document.querySelectorAll(s.el)].find(visible) || null;
 
+  /** The first visible element matching the step's selector, or null. */
+  function target(step) {
+    for (const element of document.querySelectorAll(step.selector)) {
+      if (visible(element)) {
+        return element;
+      }
+    }
+    return null;
+  }
+
+  /** Creates the tour layer (hole, chalk arrow, Skip, and the card) and wires its buttons and keys. */
   function build() {
     root = document.createElement('div');
     root.className = 'tour';
@@ -135,9 +186,14 @@
     document.body.appendChild(root);
     root.querySelector('.tourSkip').addEventListener('click', end);
     root.querySelector('.tourNext').addEventListener('click', next);
-    root.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); end(); }
-      if (e.key === 'ArrowRight') next();
+    root.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        end();
+      }
+      if (event.key === 'ArrowRight') {
+        next();
+      }
     });
     addEventListener('resize', place);
     addEventListener('scroll', place, true);
@@ -145,142 +201,246 @@
 
   // §3.1: scrolled to the centre, or a tall thing to its top, inside whatever scrolls it (the
   // page, or a window's list), so it's on screen before it's lit.
-  function reveal(el) {
-    const tall = el.getBoundingClientRect().height > innerHeight * 0.6;
-    el.scrollIntoView({ block: tall ? 'start' : 'center', inline: 'nearest', behavior: 'instant' });
+  function reveal(element) {
+    const tall = element.getBoundingClientRect().height > innerHeight * 0.6;
+    let block = 'center';
+    if (tall) {
+      block = 'start';
+    }
+    element.scrollIntoView({ block, inline: 'nearest', behavior: 'instant' });
   }
 
-  function show(i) {
-    at = i;
-    const s = steps[i];
+  /** Shows step number stepIndex: its thing scrolled into view, its text, the dots, and Next or Done. */
+  function show(stepIndex) {
+    at = stepIndex;
+    const step = steps[stepIndex];
     // It may have gone (a result cleared, a list emptied): looked for again.
-    if (!s.target.isConnected || !visible(s.target)) s.target = target(s) || s.target;
-    reveal(s.target);
-    root.querySelector('.tourText').textContent = s.text;
-    root.querySelector('.tourDots').innerHTML = steps.map((_, n) => `<span${n === i ? ' class="on"' : ''}></span>`).join('');
-    root.querySelector('.tourNext').textContent = i === steps.length - 1 ? 'Done' : 'Next';
+    if (!step.target.isConnected || !visible(step.target)) {
+      const foundAgain = target(step);
+      if (foundAgain) {
+        step.target = foundAgain;
+      }
+    }
+    reveal(step.target);
+    root.querySelector('.tourText').textContent = step.text;
+    let dotsHtml = '';
+    for (let dotIndex = 0; dotIndex < steps.length; dotIndex++) {
+      if (dotIndex === stepIndex) {
+        dotsHtml += '<span class="on"></span>';
+      } else {
+        dotsHtml += '<span></span>';
+      }
+    }
+    root.querySelector('.tourDots').innerHTML = dotsHtml;
+    if (stepIndex === steps.length - 1) {
+      root.querySelector('.tourNext').textContent = 'Done';
+    } else {
+      root.querySelector('.tourNext').textContent = 'Next';
+    }
     requestAnimationFrame(place);
     root.querySelector('.tourNext').focus({ preventScroll: true });
   }
 
   // §3: the hole, the card on the side with room, lined up with its thing, and the arrow between
   // them, all of it on screen.
-  const M = 12; // the card's margin from the viewport's edges
+  const MARGIN = 12; // the card's margin from the viewport's edges
   const EDGE = 20; // the arrow's: more than the head's length
   const GAP_MIN = 36;
   const GAP_MAX = 70;
   const CARD_MIN = 220;
-  const clamp = (lo, v, hi) => Math.max(lo, Math.min(v, Math.max(lo, hi)));
 
+  /** The value kept between low and high (and never below low, even when high is). */
+  function clamp(low, value, high) {
+    return Math.max(low, Math.min(value, Math.max(low, high)));
+  }
+
+  /**
+   * Lays out the current step: the hole over its thing, the card on whichever side has room (or on
+   * a backing when no side has), and the chalk arrow from the card to the thing, all inside the
+   * viewport. Runs on every step, resize and scroll.
+   */
   function place() {
-    if (!root || root === true) return;
-    const el = steps[at]?.target;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+    if (!root || root === true) {
+      return;
+    }
+    const element = steps[at]?.target;
+    if (!element) {
+      return;
+    }
+    const rectangle = element.getBoundingClientRect();
+    let viewportWidth = document.documentElement.clientWidth;
+    if (!viewportWidth) {
+      viewportWidth = innerWidth;
+    }
+    const viewportHeight = innerHeight;
     const hole = root.querySelector('.tourHole');
     Object.assign(hole.style, {
-      left: `${r.left - PAD}px`, top: `${r.top - PAD}px`,
-      width: `${r.width + PAD * 2}px`, height: `${r.height + PAD * 2}px`,
+      left: `${rectangle.left - PAD}px`, top: `${rectangle.top - PAD}px`,
+      width: `${rectangle.width + PAD * 2}px`, height: `${rectangle.height + PAD * 2}px`,
     });
 
     // The thing's visible part: all placement works from it.
-    const v = {
-      left: clamp(0, r.left, vw), right: clamp(0, r.right, vw),
-      top: clamp(0, r.top, vh), bottom: clamp(0, r.bottom, vh),
+    const shown = {
+      left: clamp(0, rectangle.left, viewportWidth), right: clamp(0, rectangle.right, viewportWidth),
+      top: clamp(0, rectangle.top, viewportHeight), bottom: clamp(0, rectangle.bottom, viewportHeight),
     };
     const card = root.querySelector('.tourCard');
     card.classList.remove('solid');
     card.style.width = '';
-    let cw = card.offsetWidth, ch = card.offsetHeight;
+    let cardWidth = card.offsetWidth;
+    let cardHeight = card.offsetHeight;
     const room = {
-      below: vh - v.bottom - PAD - M, above: v.top - PAD - M,
-      right: vw - v.right - PAD - M, left: v.left - PAD - M,
+      below: viewportHeight - shown.bottom - PAD - MARGIN, above: shown.top - PAD - MARGIN,
+      right: viewportWidth - shown.right - PAD - MARGIN, left: shown.left - PAD - MARGIN,
     };
     let side = null;
-    if (Math.max(room.below, room.above) >= ch + GAP_MIN) side = room.below >= room.above ? 'below' : 'above';
-    else {
+    if (Math.max(room.below, room.above) >= cardHeight + GAP_MIN) {
+      if (room.below >= room.above) {
+        side = 'below';
+      } else {
+        side = 'above';
+      }
+    } else {
       // Beside it, narrowing the card to fit if need be, while its text still fits the height.
-      const s = room.right >= room.left ? 'right' : 'left';
-      const fit = room[s] - GAP_MIN;
-      if (fit >= Math.min(cw, CARD_MIN)) {
-        if (fit < cw) {
+      let besideSide = 'left';
+      if (room.right >= room.left) {
+        besideSide = 'right';
+      }
+      const fit = room[besideSide] - GAP_MIN;
+      if (fit >= Math.min(cardWidth, CARD_MIN)) {
+        if (fit < cardWidth) {
           card.style.width = `${fit}px`;
-          cw = card.offsetWidth;
-          ch = card.offsetHeight;
+          cardWidth = card.offsetWidth;
+          cardHeight = card.offsetHeight;
         }
-        if (ch <= vh - M * 2) side = s;
-        else card.style.width = '';
+        if (cardHeight <= viewportHeight - MARGIN * 2) {
+          side = besideSide;
+        } else {
+          card.style.width = '';
+        }
       }
     }
 
     const line = root.querySelector('.tourLine');
     const head = root.querySelector('.tourHead');
-    let left, top;
+    let left;
+    let top;
     if (!side) {
       // No room: the card on a backing at the end away from most of the thing, and no arrow.
       card.classList.add('solid');
-      cw = card.offsetWidth;
-      ch = card.offsetHeight;
-      left = clamp(M, (vw - cw) / 2, vw - cw - M);
-      top = (v.top + v.bottom) / 2 > vh / 2 ? M : vh - ch - M;
-      top = clamp(M, top, vh - ch - M);
+      cardWidth = card.offsetWidth;
+      cardHeight = card.offsetHeight;
+      left = clamp(MARGIN, (viewportWidth - cardWidth) / 2, viewportWidth - cardWidth - MARGIN);
+      if ((shown.top + shown.bottom) / 2 > viewportHeight / 2) {
+        top = MARGIN;
+      } else {
+        top = viewportHeight - cardHeight - MARGIN;
+      }
+      top = clamp(MARGIN, top, viewportHeight - cardHeight - MARGIN);
       Object.assign(card.style, { left: `${left}px`, top: `${top}px` });
       line.setAttribute('d', '');
       head.setAttribute('d', '');
       return;
     }
 
-    const midX = (v.left + v.right) / 2, midY = (v.top + v.bottom) / 2;
-    let sx, sy, tx, ty;
+    const middleX = (shown.left + shown.right) / 2;
+    const middleY = (shown.top + shown.bottom) / 2;
+    // The arrow runs from (startX, startY) at the card to (tipX, tipY) at the thing.
+    let startX;
+    let startY;
+    let tipX;
+    let tipY;
     if (side === 'below' || side === 'above') {
-      const gap = clamp(GAP_MIN, room[side] - ch, GAP_MAX);
-      left = clamp(M, midX - cw / 2, vw - cw - M);
-      top = side === 'below' ? v.bottom + PAD + gap : v.top - PAD - gap - ch;
-      top = clamp(M, top, vh - ch - M);
-      tx = clamp(v.left + 12, midX, v.right - 12);
-      ty = side === 'below' ? v.bottom + PAD + 4 : v.top - PAD - 4;
-      sx = clamp(left + 24, tx, left + cw - 24);
-      sy = side === 'below' ? top - 6 : top + ch + 6;
+      const gap = clamp(GAP_MIN, room[side] - cardHeight, GAP_MAX);
+      left = clamp(MARGIN, middleX - cardWidth / 2, viewportWidth - cardWidth - MARGIN);
+      if (side === 'below') {
+        top = shown.bottom + PAD + gap;
+      } else {
+        top = shown.top - PAD - gap - cardHeight;
+      }
+      top = clamp(MARGIN, top, viewportHeight - cardHeight - MARGIN);
+      tipX = clamp(shown.left + 12, middleX, shown.right - 12);
+      if (side === 'below') {
+        tipY = shown.bottom + PAD + 4;
+      } else {
+        tipY = shown.top - PAD - 4;
+      }
+      startX = clamp(left + 24, tipX, left + cardWidth - 24);
+      if (side === 'below') {
+        startY = top - 6;
+      } else {
+        startY = top + cardHeight + 6;
+      }
     } else {
-      const gap = clamp(GAP_MIN, room[side] - cw, GAP_MAX);
-      left = side === 'right' ? v.right + PAD + gap : v.left - PAD - gap - cw;
-      left = clamp(M, left, vw - cw - M);
-      top = clamp(M, midY - ch / 2, vh - ch - M);
-      tx = side === 'right' ? v.right + PAD + 4 : v.left - PAD - 4;
-      ty = clamp(v.top + 12, midY, v.bottom - 12);
-      sx = side === 'right' ? left - 6 : left + cw + 6;
-      sy = clamp(top + 16, ty, top + ch - 16);
+      const gap = clamp(GAP_MIN, room[side] - cardWidth, GAP_MAX);
+      if (side === 'right') {
+        left = shown.right + PAD + gap;
+      } else {
+        left = shown.left - PAD - gap - cardWidth;
+      }
+      left = clamp(MARGIN, left, viewportWidth - cardWidth - MARGIN);
+      top = clamp(MARGIN, middleY - cardHeight / 2, viewportHeight - cardHeight - MARGIN);
+      if (side === 'right') {
+        tipX = shown.right + PAD + 4;
+      } else {
+        tipX = shown.left - PAD - 4;
+      }
+      tipY = clamp(shown.top + 12, middleY, shown.bottom - 12);
+      if (side === 'right') {
+        startX = left - 6;
+      } else {
+        startX = left + cardWidth + 6;
+      }
+      startY = clamp(top + 16, tipY, top + cardHeight - 16);
     }
     Object.assign(card.style, { left: `${left}px`, top: `${top}px` });
 
     // Every point of the arrow EDGE in from the viewport, so none of it is cut off.
-    const inX = (x) => clamp(EDGE, x, vw - EDGE);
-    const inY = (y) => clamp(EDGE, y, vh - EDGE);
-    tx = inX(tx); ty = inY(ty); sx = inX(sx); sy = inY(sy);
-    const dx = tx - sx, dy = ty - sy;
-    const mx = inX((sx + tx) / 2 - dy * 0.2);
-    const my = inY((sy + ty) / 2 + dx * 0.2);
+    function insideX(coordinate) {
+      return clamp(EDGE, coordinate, viewportWidth - EDGE);
+    }
+    function insideY(coordinate) {
+      return clamp(EDGE, coordinate, viewportHeight - EDGE);
+    }
+    tipX = insideX(tipX);
+    tipY = insideY(tipY);
+    startX = insideX(startX);
+    startY = insideY(startY);
+    const deltaX = tipX - startX;
+    const deltaY = tipY - startY;
+    // The curve's control point, pushed off to one side of the straight line so the arrow bends.
+    const controlX = insideX((startX + tipX) / 2 - deltaY * 0.2);
+    const controlY = insideY((startY + tipY) / 2 + deltaX * 0.2);
 
-    root.querySelector('.tourArrow').setAttribute('viewBox', `0 0 ${vw} ${vh}`);
-    line.setAttribute('d', `M${sx},${sy} Q${mx},${my} ${tx},${ty}`);
-    line.style.setProperty('--len', Math.ceil(line.getTotalLength()) + 10);
-    const ang = Math.atan2(ty - my, tx - mx);
-    const a1 = ang + Math.PI * 0.8, a2 = ang - Math.PI * 0.8, len = 14;
+    root.querySelector('.tourArrow').setAttribute('viewBox', `0 0 ${viewportWidth} ${viewportHeight}`);
+    line.setAttribute('d', `M${startX},${startY} Q${controlX},${controlY} ${tipX},${tipY}`);
+    line.style.setProperty('--length', Math.ceil(line.getTotalLength()) + 10);
+    const angle = Math.atan2(tipY - controlY, tipX - controlX);
+    const firstBarbAngle = angle + Math.PI * 0.8;
+    const secondBarbAngle = angle - Math.PI * 0.8;
+    const barbLength = 14;
     head.setAttribute('d',
-      `M${tx + Math.cos(a1) * len},${ty + Math.sin(a1) * len} L${tx},${ty} L${tx + Math.cos(a2) * len},${ty + Math.sin(a2) * len}`);
+      `M${tipX + Math.cos(firstBarbAngle) * barbLength},${tipY + Math.sin(firstBarbAngle) * barbLength} L${tipX},${tipY} L${tipX + Math.cos(secondBarbAngle) * barbLength},${tipY + Math.sin(secondBarbAngle) * barbLength}`);
   }
 
   function next() {
-    if (at < steps.length - 1) show(at + 1);
-    else end();
+    if (at < steps.length - 1) {
+      show(at + 1);
+    } else {
+      end();
+    }
   }
 
+  /** Ends the tour (Skip, Escape or Done): marks it seen, removes the layer, and goes back where it began. */
   function end() {
-    if (page) markSeen(page);
+    if (page) {
+      markSeen(page);
+    }
     removeEventListener('resize', place);
     removeEventListener('scroll', place, true);
-    if (root && root !== true) root.remove();
+    if (root && root !== true) {
+      root.remove();
+    }
     root = null;
     page = null;
     document.body.classList.remove('touring');
@@ -291,22 +451,42 @@
     if (back && pages.active() !== back) {
       pages.open(back);
       setTimeout(forPage, 600);
-    } else setTimeout(forPage, 600);
+    } else {
+      setTimeout(forPage, 600);
+    }
   }
 
   // `id`'s tour, on its page.
   function start(id = START) {
-    if (root || !TOURS[id]) return;
+    if (root || !TOURS[id]) {
+      return;
+    }
     const from = pages.active();
-    if (from !== id) pages.open(id);
+    if (from !== id) {
+      pages.open(id);
+    }
     root = true; // taken, while the page draws
-    setTimeout(() => {
+    let delay = 450;
+    if (from === id) {
+      delay = 0;
+    }
+    setTimeout(function () {
       root = null;
-      if (pages.active() !== id) return; // the page didn't open (Share history, say, offline)
-      steps = TOURS[id].steps.map((s) => ({ ...s, target: target(s) })).filter((s) => s.target);
+      if (pages.active() !== id) {
+        return; // the page didn't open (Share history, say, offline)
+      }
+      steps = [];
+      for (const step of TOURS[id].steps) {
+        const stepTarget = target(step);
+        if (stepTarget) {
+          steps.push({ ...step, target: stepTarget });
+        }
+      }
       if (!steps.length) {
         markSeen(id);
-        if (pages.active() !== from) pages.open(from);
+        if (pages.active() !== from) {
+          pages.open(from);
+        }
         return;
       }
       page = id;
@@ -314,54 +494,73 @@
       document.body.classList.add('touring');
       build();
       show(0);
-    }, from === id ? 0 : 450);
+    }, delay);
   }
 
   // The page on show's tour, the first time, once it's drawn.
   let waiting = null;
   function forPage() {
     const id = pages.active();
-    if (!id || root || seen(id) || !TOURS[id]) return;
+    if (!id || root || seen(id) || !TOURS[id]) {
+      return;
+    }
     clearInterval(waiting);
     let tries = 0;
-    waiting = setInterval(() => {
+    waiting = setInterval(function () {
       tries++;
-      if (pages.active() !== id || root) return clearInterval(waiting);
-      if (tries < 2) return;
+      if (pages.active() !== id || root) {
+        clearInterval(waiting);
+        return;
+      }
+      if (tries < 2) {
+        return;
+      }
       clearInterval(waiting);
-      if (!blocked(id)) start(id);
+      if (!blocked(id)) {
+        start(id);
+      }
     }, 500);
   }
 
   // At start-up: the welcome, unless a link opened something (a link came for that, not a tour).
   function init() {
     addEventListener('pagechange', forPage);
-    if (location.hash.length > 1 || location.search || window.uwufixOpenedByLink) return;
+    if (location.hash.length > 1 || location.search || window.uwufixOpenedByLink) {
+      return;
+    }
     forPage();
   }
 
   // Show me around: a button per page.
   function pickers() {
-    return Object.entries(TOURS)
-      .map(([id, t]) => `<button class="pick" type="button" data-tour="${id}">${t.label}</button>`)
-      .join('');
+    let html = '';
+    for (const [id, tour] of Object.entries(TOURS)) {
+      html += `<button class="pick" type="button" data-tour="${id}">${tour.label}</button>`;
+    }
+    return html;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', function () {
     // After the other scripts' own DOMContentLoaded work, so the page is set up.
     setTimeout(init, 0);
     const picks = document.getElementById('tourPicks');
-    const btn = document.getElementById('tourBtn');
-    if (!picks || !btn) return;
-    btn.addEventListener('click', () => {
+    const button = document.getElementById('tourBtn');
+    if (!picks || !button) {
+      return;
+    }
+    button.addEventListener('click', function () {
       picks.innerHTML = pickers();
       openModal('tourModal');
     });
-    picks.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-tour]');
-      if (!b) return;
+    picks.addEventListener('click', function (event) {
+      const pickButton = event.target.closest('[data-tour]');
+      if (!pickButton) {
+        return;
+      }
       closeModal('tourModal');
-      setTimeout(() => start(b.dataset.tour), 300); // after the window has gone
+      setTimeout(function () {
+        start(pickButton.dataset.tour);
+      }, 300); // after the window has gone
     });
   });
 

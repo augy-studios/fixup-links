@@ -21,49 +21,104 @@ const sandbox = {
   window: {},
   navigator: {},
   localStorage: {
-    getItem: (k) => (store.has(k) ? store.get(k) : null),
-    setItem: (k, v) => store.set(k, String(v)),
-    removeItem: (k) => store.delete(k),
+    getItem: function (key) {
+      if (store.has(key)) {
+        return store.get(key);
+      }
+      return null;
+    },
+    setItem: function (key, value) {
+      return store.set(key, String(value));
+    },
+    removeItem: function (key) {
+      return store.delete(key);
+    },
   },
 };
 vm.createContext(sandbox);
-vm.runInContext(`${source}
-globalThis.__lf = {
+
+// Runs inside the sandbox, after script.js, to hand its functions and lists back out. Sets become
+// arrays and regular expressions their source text, so they can be written as JSON.
+const exportCode = `
+function toPlainPlatformTrackers() {
+  const plain = {};
+  for (const [host, trackerSet] of Object.entries(PLATFORM_TRACKERS)) {
+    plain[host] = [...trackerSet];
+  }
+  return plain;
+}
+function toPlainPlatformPatterns() {
+  const plain = {};
+  for (const [host, pattern] of Object.entries(PLATFORM_TRACKER_PATTERNS)) {
+    plain[host] = pattern.source;
+  }
+  return plain;
+}
+function converterNames() {
+  const names = [];
+  for (const converter of EMBED_CONVERTERS) {
+    names.push(converter.name);
+  }
+  return names;
+}
+globalThis.__linkFixer = {
   cleanUrl, extractUrlFromText, replaceLinkInText, isMeaningfulRedirect, urlsEquivalent, detectPlatform,
   TRACKER_PREFIXES, UNIVERSAL_TRACKERS: [...UNIVERSAL_TRACKERS],
-  PLATFORM_TRACKERS: Object.fromEntries(Object.entries(PLATFORM_TRACKERS).map(([k, v]) => [k, [...v]])),
-  PLATFORM_TRACKER_PATTERNS: Object.fromEntries(Object.entries(PLATFORM_TRACKER_PATTERNS).map(([k, v]) => [k, v.source])),
-  STRIP_ALL_PARAM_HOSTS, STRIP_ALL_PARAM_PATH, MASTODON_INSTANCES,
-  CONVERTERS: EMBED_CONVERTERS.map((c) => c.name),
-};`, sandbox);
-const lf = sandbox.__lf;
+  PLATFORM_TRACKERS: toPlainPlatformTrackers(),
+  PLATFORM_TRACKER_PATTERNS: toPlainPlatformPatterns(),
+  STRIP_ALL_PARAMETER_HOSTS, STRIP_ALL_PARAMETER_PATH, MASTODON_INSTANCES,
+  CONVERTERS: converterNames(),
+};`;
+vm.runInContext(`${source}\n${exportCode}`, sandbox);
+const linkFixer = sandbox.__linkFixer;
 
 const cases = JSON.parse(readFileSync(join(root, 'test', 'fixtures', 'linkfix_cases.json'), 'utf8'));
-const clean = cases.clean.map((input) => {
-  try {
-    const r = lf.cleanUrl(input);
-    return { input, cleaned: r.cleaned, platform: r.platform, wasConverted: r.wasConverted, changes: r.changes };
-  } catch (e) {
-    return { input, error: e.message };
-  }
-});
-const extract = cases.extract.map((text) => ({ text, url: lf.extractUrlFromText(text) }));
-const redirects = cases.redirects.map(([a, b]) => ({ a, b, meaningful: lf.isMeaningfulRedirect(a, b), equivalent: lf.urlsEquivalent(a, b) }));
 
-const out = {
+const clean = [];
+for (const input of cases.clean) {
+  try {
+    const result = linkFixer.cleanUrl(input);
+    clean.push({
+      input,
+      cleaned: result.cleaned,
+      platform: result.platform,
+      wasConverted: result.wasConverted,
+      changes: result.changes,
+    });
+  } catch (error) {
+    clean.push({ input, error: error.message });
+  }
+}
+
+const extract = [];
+for (const text of cases.extract) {
+  extract.push({ text, url: linkFixer.extractUrlFromText(text) });
+}
+
+const redirects = [];
+for (const [fromUrl, toUrl] of cases.redirects) {
+  redirects.push({
+    a: fromUrl,
+    b: toUrl,
+    meaningful: linkFixer.isMeaningfulRedirect(fromUrl, toUrl),
+    equivalent: linkFixer.urlsEquivalent(fromUrl, toUrl),
+  });
+}
+
+const output = {
   lists: {
-    trackerPrefixes: lf.TRACKER_PREFIXES,
-    universal: lf.UNIVERSAL_TRACKERS,
-    platform: lf.PLATFORM_TRACKERS,
-    patterns: lf.PLATFORM_TRACKER_PATTERNS,
-    stripAllHosts: lf.STRIP_ALL_PARAM_HOSTS,
-    stripAllPath: lf.STRIP_ALL_PARAM_PATH,
-    mastodon: lf.MASTODON_INSTANCES,
-    converters: lf.CONVERTERS,
+    trackerPrefixes: linkFixer.TRACKER_PREFIXES,
+    universal: linkFixer.UNIVERSAL_TRACKERS,
+    platform: linkFixer.PLATFORM_TRACKERS,
+    patterns: linkFixer.PLATFORM_TRACKER_PATTERNS,
+    stripAllHosts: linkFixer.STRIP_ALL_PARAMETER_HOSTS,
+    stripAllPath: linkFixer.STRIP_ALL_PARAMETER_PATH,
+    mastodon: linkFixer.MASTODON_INSTANCES,
+    converters: linkFixer.CONVERTERS,
   },
   clean,
   extract,
   redirects,
 };
-writeFileSync(join(root, 'test', 'fixtures', 'linkfix_expected.json'), `${JSON.stringify(out, null, 1)}\n`);
+writeFileSync(join(root, 'test', 'fixtures', 'linkfix_expected.json'), `${JSON.stringify(output, null, 1)}\n`);
 console.log(`${clean.length} links, ${extract.length} texts, ${redirects.length} redirects`);

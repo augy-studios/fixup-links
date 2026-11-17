@@ -34,25 +34,35 @@
   function migrateLegacyTheme() {
     try {
       var legacy = localStorage.getItem(LEGACY_KEY);
-      if (!legacy) return;
+      if (!legacy) {
+        return;
+      }
       if (!localStorage.getItem(STORAGE_KEY_COLOR) && LEGACY_MAP[legacy]) {
         localStorage.setItem(STORAGE_KEY_COLOR, LEGACY_MAP[legacy]);
       }
       localStorage.removeItem(LEGACY_KEY);
-    } catch (e) {
+    } catch (error) {
       /* storage unavailable, fall back to defaults */
     }
   }
 
+  // "#ccffcc" -> "204, 255, 204", for the --brand-rgb custom property.
   function hexToRgb(hex) {
-    var n = parseInt(hex.replace('#', ''), 16);
-    return ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255);
+    var colorNumber = parseInt(hex.replace('#', ''), 16);
+    var red = (colorNumber >> 16) & 255;
+    var green = (colorNumber >> 8) & 255;
+    var blue = colorNumber & 255;
+    return red + ', ' + green + ', ' + blue;
   }
 
   function getStoredColorTheme() {
     try {
-      return localStorage.getItem(STORAGE_KEY_COLOR) || 'classic';
-    } catch (e) {
+      var storedColorTheme = localStorage.getItem(STORAGE_KEY_COLOR);
+      if (!storedColorTheme) {
+        return 'classic';
+      }
+      return storedColorTheme;
+    } catch (error) {
       return 'classic';
     }
   }
@@ -70,19 +80,38 @@
   var LIGHT_UNTIL_HOUR = 18;
 
   function getModePreference() {
-    var v = null;
-    try { v = localStorage.getItem(STORAGE_KEY_MODE); } catch (e) {}
-    return MODE_PREFERENCES.indexOf(v) !== -1 ? v : 'light';
+    var storedPreference = null;
+    try {
+      storedPreference = localStorage.getItem(STORAGE_KEY_MODE);
+    } catch (error) {
+      // Storage unavailable: the default below.
+    }
+    if (MODE_PREFERENCES.indexOf(storedPreference) !== -1) {
+      return storedPreference;
+    }
+    return 'light';
   }
 
   function isDaylightHours(now) {
-    var hour = (now || new Date()).getHours();
+    var time = now;
+    if (!time) {
+      time = new Date();
+    }
+    var hour = time.getHours();
     return hour >= LIGHT_FROM_HOUR && hour < LIGHT_UNTIL_HOUR;
   }
 
   function resolveMode(preference) {
-    if (preference === 'time') return isDaylightHours() ? 'light' : 'dark';
-    return preference === 'dark' ? 'dark' : 'light';
+    if (preference === 'time') {
+      if (isDaylightHours()) {
+        return 'light';
+      }
+      return 'dark';
+    }
+    if (preference === 'dark') {
+      return 'dark';
+    }
+    return 'light';
   }
 
   // The mode the document is in right now, resolved. What the theme button
@@ -92,23 +121,41 @@
   }
 
   function applyColorTheme(id) {
-    var theme = COLOR_THEMES.filter(function (t) { return t.id === id; })[0] || COLOR_THEMES[0];
+    var theme = COLOR_THEMES.filter(function (colorTheme) {
+      return colorTheme.id === id;
+    })[0];
+    if (!theme) {
+      theme = COLOR_THEMES[0];
+    }
     document.documentElement.setAttribute('data-color-theme', theme.id);
     document.documentElement.style.setProperty('--brand', theme.hex);
     document.documentElement.style.setProperty('--brand-rgb', hexToRgb(theme.hex));
-    try { localStorage.setItem(STORAGE_KEY_COLOR, theme.id); } catch (e) {}
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', theme.hex);
+    try {
+      localStorage.setItem(STORAGE_KEY_COLOR, theme.id);
+    } catch (error) {
+      // Storage unavailable: applied for this page view only.
+    }
+    var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', theme.hex);
+    }
     return theme;
   }
 
   function applyMode(preference) {
-    var chosen = MODE_PREFERENCES.indexOf(preference) !== -1 ? preference : 'light';
+    var chosen = 'light';
+    if (MODE_PREFERENCES.indexOf(preference) !== -1) {
+      chosen = preference;
+    }
     var resolved = resolveMode(chosen);
 
     document.documentElement.setAttribute('data-mode', resolved);
     document.documentElement.setAttribute('data-mode-preference', chosen);
-    try { localStorage.setItem(STORAGE_KEY_MODE, chosen); } catch (e) {}
+    try {
+      localStorage.setItem(STORAGE_KEY_MODE, chosen);
+    } catch (error) {
+      // Storage unavailable: applied for this page view only.
+    }
 
     scheduleModeCheck();
 
@@ -121,8 +168,10 @@
   var watchingVisibility = false;
 
   // Milliseconds until the next 09:00 or 18:00, whichever comes first.
-  function msUntilNextBoundary(now) {
-    now = now || new Date();
+  function millisecondsUntilNextBoundary(now) {
+    if (!now) {
+      now = new Date();
+    }
     var next = new Date(now);
     next.setMinutes(0, 0, 0);
 
@@ -147,23 +196,29 @@
       modeTimer = null;
     }
 
-    if (getModePreference() !== 'time') return;
+    if (getModePreference() !== 'time') {
+      return;
+    }
 
     modeTimer = setTimeout(function () {
       modeTimer = null;
       refreshTimeMode();
-    }, msUntilNextBoundary());
+    }, millisecondsUntilNextBoundary());
 
     if (!watchingVisibility && typeof document !== 'undefined') {
       watchingVisibility = true;
       document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') refreshTimeMode();
+        if (document.visibilityState === 'visible') {
+          refreshTimeMode();
+        }
       });
     }
   }
 
   function refreshTimeMode() {
-    if (getModePreference() !== 'time') return;
+    if (getModePreference() !== 'time') {
+      return;
+    }
 
     var resolved = resolveMode('time');
     var current = document.documentElement.getAttribute('data-mode');
@@ -190,30 +245,40 @@
 
   /* ---- modal wiring ---- */
 
+  /** Fills the theme window with one swatch per colour and wires up its swatches and mode buttons. */
   function buildThemeModal() {
     var grid = document.getElementById('swatchGrid');
-    if (!grid) return;
+    if (!grid) {
+      return;
+    }
 
-    grid.innerHTML = COLOR_THEMES.map(function (t) {
-      return '<button class="swatch" data-theme-id="' + t.id + '" style="--swatch-color:' + t.hex + '" type="button" aria-label="' + t.label + '">' +
+    var swatchesHtml = '';
+    for (var themeIndex = 0; themeIndex < COLOR_THEMES.length; themeIndex++) {
+      var colorTheme = COLOR_THEMES[themeIndex];
+      swatchesHtml += '<button class="swatch" data-theme-id="' + colorTheme.id + '" style="--swatch-color:' + colorTheme.hex + '" type="button" aria-label="' + colorTheme.label + '">' +
         '<span class="swatch-dot"></span>' +
-        '<span class="swatch-label">' + t.label + '</span>' +
+        '<span class="swatch-label">' + colorTheme.label + '</span>' +
         '</button>';
-    }).join('');
+    }
+    grid.innerHTML = swatchesHtml;
 
     syncThemeModalState();
 
-    grid.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-theme-id]');
-      if (!btn) return;
-      applyColorTheme(btn.dataset.themeId);
+    grid.addEventListener('click', function (event) {
+      var swatchButton = event.target.closest('[data-theme-id]');
+      if (!swatchButton) {
+        return;
+      }
+      applyColorTheme(swatchButton.dataset.themeId);
       syncThemeModalState();
     });
 
-    document.getElementById('modeToggle').addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-mode]');
-      if (!btn) return;
-      applyMode(btn.dataset.mode);
+    document.getElementById('modeToggle').addEventListener('click', function (event) {
+      var modeButton = event.target.closest('[data-mode]');
+      if (!modeButton) {
+        return;
+      }
+      applyMode(modeButton.dataset.mode);
       syncThemeModalState();
     });
 
@@ -222,19 +287,20 @@
     document.addEventListener('uwu:modechange', syncThemeModalState);
   }
 
+  /** Marks the chosen swatch and mode as pressed, shows the clock note, and updates the theme button. */
   function syncThemeModalState() {
     var activeTheme = getStoredColorTheme();
     var activePreference = getModePreference();
     var resolvedMode = getStoredMode();
-    document.querySelectorAll('#swatchGrid .swatch').forEach(function (el) {
-      var on = el.dataset.themeId === activeTheme;
-      el.classList.toggle('active', on);
-      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.querySelectorAll('#swatchGrid .swatch').forEach(function (element) {
+      var isActive = element.dataset.themeId === activeTheme;
+      element.classList.toggle('active', isActive);
+      element.setAttribute('aria-pressed', String(isActive));
     });
-    document.querySelectorAll('#modeToggle .mode-btn').forEach(function (el) {
-      var on = el.dataset.mode === activePreference;
-      el.classList.toggle('active', on);
-      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.querySelectorAll('#modeToggle .mode-btn').forEach(function (element) {
+      var isActive = element.dataset.mode === activePreference;
+      element.classList.toggle('active', isActive);
+      element.setAttribute('aria-pressed', String(isActive));
     });
 
     var note = document.getElementById('modeNote');
@@ -249,26 +315,36 @@
   }
 
   function updateThemeButtonIcon() {
-    var span = document.querySelector('#themeBtn [data-icon]');
-    if (!span) return;
-    span.setAttribute('data-icon', getStoredMode() === 'dark' ? 'moon' : 'sun');
+    var iconSpan = document.querySelector('#themeBtn [data-icon]');
+    if (!iconSpan) {
+      return;
+    }
+    var iconName = 'sun';
+    if (getStoredMode() === 'dark') {
+      iconName = 'moon';
+    }
+    iconSpan.setAttribute('data-icon', iconName);
     window.hydrateIcons(document.getElementById('themeBtn'));
   }
 
   function wireModals() {
-    document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        window.closeModal(btn.dataset.closeModal);
+    document.querySelectorAll('[data-close-modal]').forEach(function (closeButton) {
+      closeButton.addEventListener('click', function () {
+        window.closeModal(closeButton.dataset.closeModal);
       });
     });
     document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
-      backdrop.addEventListener('click', function (e) {
-        if (e.target === backdrop) window.closeModal(backdrop.id);
+      backdrop.addEventListener('click', function (event) {
+        if (event.target === backdrop) {
+          window.closeModal(backdrop.id);
+        }
       });
     });
-    var themeBtn = document.getElementById('themeBtn');
-    if (themeBtn) {
-      themeBtn.addEventListener('click', function () { window.openModal('themeModal'); });
+    var themeButton = document.getElementById('themeBtn');
+    if (themeButton) {
+      themeButton.addEventListener('click', function () {
+        window.openModal('themeModal');
+      });
     }
   }
 

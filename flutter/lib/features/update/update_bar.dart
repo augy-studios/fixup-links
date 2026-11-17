@@ -39,6 +39,8 @@ abstract class UpdateBackend {
   Future<void> install();
 }
 
+/// The app's update state, shared by the bar, the desktop's splash and its menus: whether a newer
+/// version is out, and how far its download has got.
 class AppUpdate extends ChangeNotifier with WidgetsBindingObserver {
   AppUpdate._();
   static final AppUpdate I = AppUpdate._();
@@ -52,39 +54,78 @@ class AppUpdate extends ChangeNotifier with WidgetsBindingObserver {
   String? detail;
   bool dismissed = false;
   int _checkedAt = 0;
-  Timer? _hide;
+  Timer? _hideTimer;
 
   /// Whether this build updates itself at all: GitHub's Android APK and the desktop apps.
-  static bool get supported => desktop != null || Native.has('update');
+  static bool get supported {
+    return desktop != null || Native.has('update');
+  }
 
-  /// Whether version a comes after b, number by number: 1.10.0 after 1.9.0. The same as
-  /// main-site/api/_release.js's newer().
-  static bool newer(String a, String b) {
-    final x = a.split('.').map((n) => int.tryParse(n.replaceAll(RegExp(r'\D'), '')) ?? 0).toList();
-    final y = b.split('.').map((n) => int.tryParse(n.replaceAll(RegExp(r'\D'), '')) ?? 0).toList();
-    for (var i = 0; i < (x.length > y.length ? x.length : y.length); i++) {
-      final d = (i < x.length ? x[i] : 0) - (i < y.length ? y[i] : 0);
-      if (d != 0) return d > 0;
+  /// The numbers in a version, with anything but digits dropped from each part: "v1.10.0" gives
+  /// [1, 10, 0]. A part with no digits counts as 0.
+  static List<int> _versionNumbers(String version) {
+    final numbers = <int>[];
+    for (final part in version.split('.')) {
+      final number = int.tryParse(part.replaceAll(RegExp(r'\D'), ''));
+      if (number == null) {
+        numbers.add(0);
+      } else {
+        numbers.add(number);
+      }
+    }
+    return numbers;
+  }
+
+  /// Whether version [candidate] comes after [current], number by number: 1.10.0 after 1.9.0.
+  /// The same as main-site/api/_release.js's newer().
+  static bool newer(String candidate, String current) {
+    final candidateNumbers = _versionNumbers(candidate);
+    final currentNumbers = _versionNumbers(current);
+    int longest;
+    if (candidateNumbers.length > currentNumbers.length) {
+      longest = candidateNumbers.length;
+    } else {
+      longest = currentNumbers.length;
+    }
+    for (var index = 0; index < longest; index++) {
+      var candidateNumber = 0;
+      if (index < candidateNumbers.length) {
+        candidateNumber = candidateNumbers[index];
+      }
+      var currentNumber = 0;
+      if (index < currentNumbers.length) {
+        currentNumber = currentNumbers[index];
+      }
+      final difference = candidateNumber - currentNumber;
+      if (difference != 0) {
+        return difference > 0;
+      }
     }
     return false;
   }
 
   void start() {
-    if (!supported) return;
+    if (!supported) {
+      return;
+    }
     WidgetsBinding.instance.addObserver(this);
     check();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && DateTime.now().millisecondsSinceEpoch - _checkedAt > 6 * 3600 * 1000) check();
+    final sinceLastCheck = DateTime.now().millisecondsSinceEpoch - _checkedAt;
+    if (state == AppLifecycleState.resumed && sinceLastCheck > 6 * 3600 * 1000) {
+      check();
+    }
   }
 
-  void _set(String s, {Duration? hideAfter}) {
-    state = s;
-    _hide?.cancel();
+  /// Moves to [newState], and back to idle after [hideAfter] if it's given.
+  void _changeState(String newState, {Duration? hideAfter}) {
+    state = newState;
+    _hideTimer?.cancel();
     if (hideAfter != null) {
-      _hide = Timer(hideAfter, () {
+      _hideTimer = Timer(hideAfter, () {
         state = 'idle';
         notifyListeners();
       });
@@ -94,44 +135,55 @@ class AppUpdate extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Looks for a newer version. [asked]: Check for app updates, which always says what it found.
   Future<void> check({bool asked = false}) async {
-    if (!supported || state == 'checking' || state == 'downloading') return;
+    if (!supported || state == 'checking' || state == 'downloading') {
+      return;
+    }
     _checkedAt = DateTime.now().millisecondsSinceEpoch;
     if (asked) {
       dismissed = false;
-      _set('checking');
+      _changeState('checking');
     }
     try {
-      if (desktop != null) {
-        final found = await desktop!.latest();
+      final desktopBackend = desktop;
+      if (desktopBackend != null) {
+        final found = await desktopBackend.latest();
         if (found == null) {
-          if (asked) _set('upToDate', hideAfter: const Duration(seconds: 4));
+          if (asked) {
+            _changeState('upToDate', hideAfter: const Duration(seconds: 4));
+          }
           return;
         }
         version = found.version;
         page = found.page;
-        if (state != 'ready') _set('available');
+        if (state != 'ready') {
+          _changeState('available');
+        }
         return;
       }
       final running = Native.version;
-      final got = await Api.getJson('/api/app-release');
-      final v = got?['version'] as String?;
-      if (running != null && v != null && newer(v, running)) {
-        version = v;
-        page = got?['page'] as String?;
-        _set('available');
+      final release = await Api.getJson('/api/app-release');
+      final latestVersion = release?['version'] as String?;
+      if (running != null && latestVersion != null && newer(latestVersion, running)) {
+        version = latestVersion;
+        page = release?['page'] as String?;
+        _changeState('available');
       } else if (asked) {
-        _set('upToDate', hideAfter: const Duration(seconds: 4));
+        _changeState('upToDate', hideAfter: const Duration(seconds: 4));
       } else if (state == 'checking') {
-        _set('idle');
+        _changeState('idle');
       }
     } catch (_) {
-      if (asked) _set('failed', hideAfter: const Duration(seconds: 4));
+      if (asked) {
+        _changeState('failed', hideAfter: const Duration(seconds: 4));
+      }
     }
   }
 
   /// Android's updates page: every release's notes, and the update, if there's one.
   /// A release's page, in the browser.
-  static Future<void> openExternal(String url) => openLink(url);
+  static Future<void> openExternal(String url) {
+    return openLink(url);
+  }
 
   static Future<void> openPage({String? version, bool check = true}) async {
     try {
@@ -139,95 +191,169 @@ class AppUpdate extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  /// Updates: on Android, opens the updates page; on the desktop, downloads the new version here.
   Future<void> update() async {
-    if (desktop == null) {
+    final desktopBackend = desktop;
+    if (desktopBackend == null) {
       await openPage(check: false);
       return;
     }
-    if (!desktop!.canInstall) return;
-    _set('downloading');
+    if (!desktopBackend.canInstall) {
+      return;
+    }
+    _changeState('downloading');
     progress = 0;
     try {
-      await desktop!.download((p, d) {
-        progress = p;
-        detail = d;
+      await desktopBackend.download((newProgress, newDetail) {
+        progress = newProgress;
+        detail = newDetail;
         notifyListeners();
       });
-      _set('ready');
+      _changeState('ready');
     } catch (_) {
-      _set('failed', hideAfter: const Duration(seconds: 6));
+      _changeState('failed', hideAfter: const Duration(seconds: 6));
     }
   }
 
   void notNow() {
     dismissed = true;
-    _set('idle');
+    _changeState('idle');
   }
 }
 
+/// The bar at the top of the app that says what the update is doing, with its buttons.
 class AppUpdateBar extends StatelessWidget {
   const AppUpdateBar({super.key});
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-        listenable: AppUpdate.I,
-        builder: (context, _) {
-          final u = AppUpdate.I;
-          if (u.state == 'idle' || (u.dismissed && u.state == 'available')) return const SizedBox.shrink();
-          final scheme = Theme.of(context).colorScheme;
-          final fx = context.fx;
-          final (title, sub) = switch (u.state) {
-            'checking' => ('Checking for updates…', null),
-            'available' => ('Version ${u.version} of uwuFix is out.', AppUpdate.desktop != null && !AppUpdate.desktop!.canInstall ? 'Download it from GitHub.' : null),
-            'downloading' => ('Downloading version ${u.version}', u.detail),
-            'ready' => ('Version ${u.version} is ready', 'Restart to update. Otherwise it updates the next time you quit.'),
-            'upToDate' => ('${Native.version ?? 'This'} is the newest version.', null),
-            _ => ('Couldn’t check for updates.', 'Check you’re online, then try again.'),
-          };
-          final busy = u.state == 'checking' || u.state == 'downloading';
-          return Semantics(
-            container: true,
-            liveRegion: true,
-            label: 'App update',
-            child: Material(
-              color: fx.uwu ? fx.brandFill : scheme.secondaryContainer,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                    Row(children: [
-                      Icon(
-                        u.state == 'upToDate' ? Icons.check_circle_outline : u.state == 'failed' ? Icons.error_outline : Icons.system_update_alt,
-                        color: fx.uwu ? fx.onBrand : scheme.onSecondaryContainer,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(title, style: TextStyle(color: fx.uwu ? fx.onBrand : scheme.onSecondaryContainer, fontWeight: FontWeight.w600)),
-                          if (sub != null) Text(sub, style: TextStyle(color: (fx.uwu ? fx.onBrand : scheme.onSecondaryContainer).withValues(alpha: 0.8), fontSize: 13)),
-                        ]),
-                      ),
-                      if (u.state == 'available' && (AppUpdate.desktop == null || AppUpdate.desktop!.canInstall))
-                        FilledButton(onPressed: u.update, child: const Text('Update')),
-                      if (u.state == 'available' && AppUpdate.desktop != null && !AppUpdate.desktop!.canInstall && u.page != null)
-                        FilledButton(onPressed: () => AppUpdate.openExternal(u.page!), child: const Text('Download')),
-                      if (u.state == 'ready') FilledButton(onPressed: () => AppUpdate.desktop?.install(), child: const Text('Restart')),
-                      if (u.state == 'available' || u.state == 'ready')
-                        TextButton(onPressed: u.notNow, child: Text('Not now', style: TextStyle(color: fx.uwu ? fx.onBrand : scheme.onSecondaryContainer))),
-                    ]),
-                    if (busy) ...[
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: WavyProgress(value: u.state == 'downloading' ? u.progress : null, semanticsLabel: title),
-                      ),
-                    ],
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: AppUpdate.I,
+      builder: (context, _) {
+        return _buildBar(context, AppUpdate.I);
+      },
+    );
+  }
+
+  /// The bar for the update's current state, or nothing while there's nothing to say.
+  Widget _buildBar(BuildContext context, AppUpdate update) {
+    if (update.state == 'idle' || (update.dismissed && update.state == 'available')) {
+      return const SizedBox.shrink();
+    }
+    final scheme = Theme.of(context).colorScheme;
+    final palette = context.fx;
+    final desktop = AppUpdate.desktop;
+
+    String title;
+    String? subtitle;
+    switch (update.state) {
+      case 'checking':
+        title = 'Checking for updates…';
+        subtitle = null;
+      case 'available':
+        title = 'Version ${update.version} of uwuFix is out.';
+        if (desktop != null && !desktop.canInstall) {
+          subtitle = 'Download it from GitHub.';
+        } else {
+          subtitle = null;
+        }
+      case 'downloading':
+        title = 'Downloading version ${update.version}';
+        subtitle = update.detail;
+      case 'ready':
+        title = 'Version ${update.version} is ready';
+        subtitle = 'Restart to update. Otherwise it updates the next time you quit.';
+      case 'upToDate':
+        String runningVersion = 'This';
+        final nativeVersion = Native.version;
+        if (nativeVersion != null) {
+          runningVersion = nativeVersion;
+        }
+        title = '$runningVersion is the newest version.';
+        subtitle = null;
+      default:
+        title = 'Couldn’t check for updates.';
+        subtitle = 'Check you’re online, then try again.';
+    }
+    final busy = update.state == 'checking' || update.state == 'downloading';
+
+    Color barColor;
+    Color textColor;
+    if (palette.uwu) {
+      barColor = palette.brandFill;
+      textColor = palette.onBrand;
+    } else {
+      barColor = scheme.secondaryContainer;
+      textColor = scheme.onSecondaryContainer;
+    }
+
+    IconData stateIcon;
+    if (update.state == 'upToDate') {
+      stateIcon = Icons.check_circle_outline;
+    } else if (update.state == 'failed') {
+      stateIcon = Icons.error_outline;
+    } else {
+      stateIcon = Icons.system_update_alt;
+    }
+
+    double? downloadProgress;
+    if (update.state == 'downloading') {
+      downloadProgress = update.progress;
+    }
+
+    final canInstallHere = desktop == null || desktop.canInstall;
+    final onlyDownload = desktop != null && !desktop.canInstall;
+
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: 'App update',
+      child: Material(
+        color: barColor,
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                Icon(stateIcon, color: textColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                    if (subtitle != null) Text(subtitle, style: TextStyle(color: textColor.withValues(alpha: 0.8), fontSize: 13)),
                   ]),
                 ),
-              ),
-            ),
-          );
-        },
-      );
+                if (update.state == 'available' && canInstallHere)
+                  FilledButton(onPressed: update.update, child: const Text('Update')),
+                if (update.state == 'available' && onlyDownload && update.page != null)
+                  FilledButton(
+                    onPressed: () {
+                      AppUpdate.openExternal(update.page!);
+                    },
+                    child: const Text('Download'),
+                  ),
+                if (update.state == 'ready')
+                  FilledButton(
+                    onPressed: () {
+                      AppUpdate.desktop?.install();
+                    },
+                    child: const Text('Restart'),
+                  ),
+                if (update.state == 'available' || update.state == 'ready')
+                  TextButton(onPressed: update.notNow, child: Text('Not now', style: TextStyle(color: textColor))),
+              ]),
+              if (busy) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: WavyProgress(value: downloadProgress, semanticsLabel: title),
+                ),
+              ],
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 }

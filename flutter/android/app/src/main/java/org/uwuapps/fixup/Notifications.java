@@ -22,7 +22,9 @@ final class Notifications {
     private Notifications() {}
 
     static void createChannels(Context context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return;
+        }
         NotificationManager manager = context.getSystemService(NotificationManager.class);
 
         NotificationChannel releases = new NotificationChannel(RELEASES, "New versions",

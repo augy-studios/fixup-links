@@ -16,9 +16,20 @@ vm.runInContext(readFileSync(join(root, '..', 'main-site', 'js', 'history-merge.
 const { merge, sanitize } = sandbox.window.HistoryMerge;
 
 const cases = JSON.parse(readFileSync(join(root, 'test', 'fixtures', 'history_cases.json'), 'utf8'));
-const out = {
-  sanitize: cases.sanitize.map((input) => ({ input, output: sanitize(input) })),
-  merge: cases.merge.map(({ name, mine, theirs }) => ({ name, mine, theirs, ...merge(mine, theirs) })),
+
+// Each sanitize case with what the site gives for it, and each merge case with the merge's result
+// alongside its two sides.
+const sanitizeResults = [];
+for (const input of cases.sanitize) {
+  sanitizeResults.push({ input, output: sanitize(input) });
+}
+const mergeResults = [];
+for (const { name, mine, theirs } of cases.merge) {
+  mergeResults.push({ name, mine, theirs, ...merge(mine, theirs) });
+}
+const expected = {
+  sanitize: sanitizeResults,
+  merge: mergeResults,
 };
-writeFileSync(join(root, 'test', 'fixtures', 'history_expected.json'), `${JSON.stringify(out, null, 1)}\n`);
-console.log(`${out.sanitize.length} entries, ${out.merge.length} merges`);
+writeFileSync(join(root, 'test', 'fixtures', 'history_expected.json'), `${JSON.stringify(expected, null, 1)}\n`);
+console.log(`${expected.sanitize.length} entries, ${expected.merge.length} merges`);

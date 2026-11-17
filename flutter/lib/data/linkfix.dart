@@ -48,7 +48,7 @@ const _xTrackers = {
   's', 't', 'a', 'twsrc', 'twcamp', 'twterm', 'twgr', 'twcon',
   'src', 'original_referer', 'pc', 'lang', 'cxt', 'ref_src', 'ref_url',
 };
-const _fbTrackers = {
+const _facebookTrackers = {
   '__cft__', '__tn__', '__xts__', 'hc_ref', 'fref', 'rc',
   'theater', 'refsrc', 'source', '_rdr',
   'referral_source', 'surface_type', 'in_reels_tab_context',
@@ -60,8 +60,8 @@ const platformTrackers = <String, Set<String>>{
   'twitter.com': _xTrackers,
   'x.com': _xTrackers,
   'instagram.com': {'igshid', 'igsh', 'igsi', 'ig_rid', 'ig_mid', 'stp', 'smid', 'hl', 'taken-by'},
-  'facebook.com': _fbTrackers,
-  'fb.com': _fbTrackers,
+  'facebook.com': _facebookTrackers,
+  'fb.com': _facebookTrackers,
   'youtube.com': {'feature', 'app', 'list', 'index', 'pp', 'si', 'is', 'ab_channel', 'cbrd', 'ucbcb', 'pbc', 'pbj'},
   'youtu.be': {'feature', 'si', 'is'},
   'tiktok.com': {
@@ -112,11 +112,20 @@ final platformTrackerPatterns = <String, RegExp>{
 };
 
 /// Workday job postings: the whole query string goes, on /job/ pages only.
-const stripAllParamHosts = ['myworkdayjobs.com', 'myworkdaysite.com'];
-const stripAllParamPath = '/job/';
+const stripAllParameterHosts = ['myworkdayjobs.com', 'myworkdaysite.com'];
+const stripAllParameterPath = '/job/';
 
-bool stripsAllParams(String hostname, String pathname) =>
-    stripAllParamHosts.any((h) => hostname == h || hostname.endsWith('.$h')) && pathname.contains(stripAllParamPath);
+/// Whether a Workday job page's whole query string goes (script.js's stripsAllParameters).
+bool stripsAllParameters(String hostname, String pathname) {
+  var onStripAllHost = false;
+  for (final stripHost in stripAllParameterHosts) {
+    if (hostname == stripHost || hostname.endsWith('.$stripHost')) {
+      onStripAllHost = true;
+      break;
+    }
+  }
+  return onStripAllHost && pathname.contains(stripAllParameterPath);
+}
 
 /// The Mastodon instances FxMastodon covers.
 const mastodonInstances = [
@@ -125,6 +134,8 @@ const mastodonInstances = [
   'mastodon.uno', 'infosec.exchange',
 ];
 
+/// One of script.js's EMBED_CONVERTERS: a platform's name, which hosts it covers, and how it
+/// moves a link to the embed-friendly host.
 class _Converter {
   const _Converter(this.name, this.match, this.convert);
   final String name;
@@ -133,43 +144,108 @@ class _Converter {
 }
 
 final _converters = <_Converter>[
-  _Converter('X / Twitter', (h) => h == 'x.com' || h == 'twitter.com' || h == 'www.x.com' || h == 'www.twitter.com', (url) {
+  _Converter('X / Twitter', (host) {
+    return host == 'x.com' || host == 'twitter.com' || host == 'www.x.com' || host == 'www.twitter.com';
+  }, (url) {
     url.hostname = 'fixupx.com';
     final status = RegExp(r'^/[^/]+/(status/\d+)$').firstMatch(url.pathname);
-    if (status != null) url.pathname = '/i/${status.group(1)}';
+    if (status != null) {
+      url.pathname = '/i/${status.group(1)}';
+    }
   }),
-  _Converter('Instagram', (h) => h == 'instagram.com' || h == 'www.instagram.com', (url) => url.hostname = 'www.oginstagram.com'),
-  _Converter('YouTube', (h) => h == 'youtube.com' || h == 'www.youtube.com' || h == 'm.youtube.com', (url) {
-    if (RegExp(r'^/shorts/').hasMatch(url.pathname)) url.hostname = 'koutube.com';
+  _Converter('Instagram', (host) {
+    return host == 'instagram.com' || host == 'www.instagram.com';
+  }, (url) {
+    url.hostname = 'www.oginstagram.com';
   }),
-  _Converter('TikTok', (h) => h == 'tiktok.com' || h == 'www.tiktok.com' || h == 'vm.tiktok.com' || h == 'vt.tiktok.com', (url) {
+  _Converter('YouTube', (host) {
+    return host == 'youtube.com' || host == 'www.youtube.com' || host == 'm.youtube.com';
+  }, (url) {
+    if (RegExp(r'^/shorts/').hasMatch(url.pathname)) {
+      url.hostname = 'koutube.com';
+    }
+  }),
+  _Converter('TikTok', (host) {
+    return host == 'tiktok.com' || host == 'www.tiktok.com' || host == 'vm.tiktok.com' || host == 'vt.tiktok.com';
+  }, (url) {
     url.hostname = url.hostname.replaceFirst(RegExp(r'^www\.'), '').replaceFirst(RegExp(r'tiktok\.com$'), 'tnktok.com');
   }),
-  _Converter('Facebook', (h) => h == 'facebook.com' || h == 'www.facebook.com' || h == 'fb.com' || h == 'www.fb.com' || h == 'm.facebook.com',
-      (url) => url.hostname = 'www.facebed.com'),
-  _Converter('Reddit', (h) => h == 'reddit.com' || h == 'www.reddit.com' || h == 'old.reddit.com' || h == 'new.reddit.com',
-      (url) => url.hostname = 'www.vxreddit.com'),
-  _Converter('Discord', (h) => h == 'canary.discord.com' || h == 'ptb.discord.com', (url) => url.hostname = 'discord.com'),
-  _Converter('Threads', (h) => h == 'threads.net' || h == 'www.threads.net' || h == 'threads.com' || h == 'www.threads.com',
-      (url) => url.hostname = 'fixthreads.seria.moe'),
-  _Converter('Bluesky', (h) => h == 'bsky.app' || h == 'www.bsky.app', (url) => url.hostname = 'fxbsky.app'),
-  _Converter('Twitch', (h) => h == 'twitch.tv' || h == 'www.twitch.tv' || h == 'm.twitch.tv', (url) => url.hostname = 'fxtwitch.seria.moe'),
-  _Converter('Spotify', (h) => h == 'open.spotify.com' || h == 'spotify.com' || h == 'www.spotify.com', (url) {
-    if (!RegExp(r'^(/intl-[^/]+)?/(album|prerelease)/').hasMatch(url.pathname)) url.hostname = 'fxspotify.com';
+  _Converter('Facebook', (host) {
+    return host == 'facebook.com' || host == 'www.facebook.com' || host == 'fb.com' || host == 'www.fb.com' || host == 'm.facebook.com';
+  }, (url) {
+    url.hostname = 'www.facebed.com';
   }),
-  _Converter('Pixiv', (h) => h == 'pixiv.net' || h == 'www.pixiv.net', (url) => url.hostname = 'phixiv.net'),
-  _Converter('Tumblr', (h) => h == 'tumblr.com' || h == 'www.tumblr.com', (url) => url.hostname = 'tpmblr.com'),
-  _Converter('BiliBili', (h) => h == 'bilibili.com' || h == 'www.bilibili.com' || h == 'm.bilibili.com', (url) => url.hostname = 'vxbilibili.com'),
-  _Converter('DeviantArt', (h) => h == 'deviantart.com' || h == 'www.deviantart.com', (url) {
-    if (RegExp(r'^/[^/]+/(art|journal)/[^/]+').hasMatch(url.pathname)) url.hostname = 'fixdeviantart.com';
+  _Converter('Reddit', (host) {
+    return host == 'reddit.com' || host == 'www.reddit.com' || host == 'old.reddit.com' || host == 'new.reddit.com';
+  }, (url) {
+    url.hostname = 'www.vxreddit.com';
   }),
-  _Converter('Newgrounds', (h) => h == 'newgrounds.com' || h == 'www.newgrounds.com', (url) {
-    if (RegExp(r'^/art/view/[^/]+/[^/]+').hasMatch(url.pathname)) url.hostname = 'fixnewgrounds.com';
+  _Converter('Discord', (host) {
+    return host == 'canary.discord.com' || host == 'ptb.discord.com';
+  }, (url) {
+    url.hostname = 'discord.com';
   }),
-  _Converter('Fur Affinity', (h) => h == 'furaffinity.net' || h == 'www.furaffinity.net', (url) {
-    if (RegExp(r'^/view/[^/]+').hasMatch(url.pathname)) url.hostname = 'xfuraffinity.net';
+  _Converter('Threads', (host) {
+    return host == 'threads.net' || host == 'www.threads.net' || host == 'threads.com' || host == 'www.threads.com';
+  }, (url) {
+    url.hostname = 'fixthreads.seria.moe';
   }),
-  _Converter('Mastodon', (h) => mastodonInstances.contains(h.replaceFirst(RegExp(r'^www\.'), '')), (url) {
+  _Converter('Bluesky', (host) {
+    return host == 'bsky.app' || host == 'www.bsky.app';
+  }, (url) {
+    url.hostname = 'fxbsky.app';
+  }),
+  _Converter('Twitch', (host) {
+    return host == 'twitch.tv' || host == 'www.twitch.tv' || host == 'm.twitch.tv';
+  }, (url) {
+    url.hostname = 'fxtwitch.seria.moe';
+  }),
+  _Converter('Spotify', (host) {
+    return host == 'open.spotify.com' || host == 'spotify.com' || host == 'www.spotify.com';
+  }, (url) {
+    if (!RegExp(r'^(/intl-[^/]+)?/(album|prerelease)/').hasMatch(url.pathname)) {
+      url.hostname = 'fxspotify.com';
+    }
+  }),
+  _Converter('Pixiv', (host) {
+    return host == 'pixiv.net' || host == 'www.pixiv.net';
+  }, (url) {
+    url.hostname = 'phixiv.net';
+  }),
+  _Converter('Tumblr', (host) {
+    return host == 'tumblr.com' || host == 'www.tumblr.com';
+  }, (url) {
+    url.hostname = 'tpmblr.com';
+  }),
+  _Converter('BiliBili', (host) {
+    return host == 'bilibili.com' || host == 'www.bilibili.com' || host == 'm.bilibili.com';
+  }, (url) {
+    url.hostname = 'vxbilibili.com';
+  }),
+  _Converter('DeviantArt', (host) {
+    return host == 'deviantart.com' || host == 'www.deviantart.com';
+  }, (url) {
+    if (RegExp(r'^/[^/]+/(art|journal)/[^/]+').hasMatch(url.pathname)) {
+      url.hostname = 'fixdeviantart.com';
+    }
+  }),
+  _Converter('Newgrounds', (host) {
+    return host == 'newgrounds.com' || host == 'www.newgrounds.com';
+  }, (url) {
+    if (RegExp(r'^/art/view/[^/]+/[^/]+').hasMatch(url.pathname)) {
+      url.hostname = 'fixnewgrounds.com';
+    }
+  }),
+  _Converter('Fur Affinity', (host) {
+    return host == 'furaffinity.net' || host == 'www.furaffinity.net';
+  }, (url) {
+    if (RegExp(r'^/view/[^/]+').hasMatch(url.pathname)) {
+      url.hostname = 'xfuraffinity.net';
+    }
+  }),
+  _Converter('Mastodon', (host) {
+    return mastodonInstances.contains(host.replaceFirst(RegExp(r'^www\.'), ''));
+  }, (url) {
     if (RegExp(r'^/@[^/]+/[^/]+').hasMatch(url.pathname)) {
       url.pathname = '/${url.hostname.replaceFirst(RegExp(r'^www\.'), '')}${url.pathname}';
       url.hostname = 'fx.zillanlabs.tech';
@@ -178,7 +254,13 @@ final _converters = <_Converter>[
 ];
 
 /// The names script.js's EMBED_CONVERTERS have, in order, for the parity test.
-List<String> get converterNames => [for (final c in _converters) c.name];
+List<String> get converterNames {
+  final names = <String>[];
+  for (final converter in _converters) {
+    names.add(converter.name);
+  }
+  return names;
+}
 
 const _platformNames = <String, String>{
   'twitter.com': 'X / Twitter',
@@ -217,19 +299,34 @@ const _platformNames = <String, String>{
   'community.samsung.com': 'Samsung Community',
 };
 
+/// script.js's detectPlatform: the platform's name for a host (or one of its subdomains), or null.
 String? detectPlatform(String hostname) {
-  for (final e in _platformNames.entries) {
-    if (hostname == e.key || hostname.endsWith('.${e.key}')) return e.value;
+  for (final platform in _platformNames.entries) {
+    if (hostname == platform.key || hostname.endsWith('.${platform.key}')) {
+      return platform.value;
+    }
   }
-  if (mastodonInstances.contains(hostname)) return 'Mastodon';
+  if (mastodonInstances.contains(hostname)) {
+    return 'Mastodon';
+  }
   return null;
 }
 
-bool isTrackerParam(String key, Set<String>? platformSet, RegExp? platformPattern) {
+/// script.js's isTrackerParameter: whether a query parameter is a tracker, on every host or on this
+/// platform.
+bool isTrackerParameter(String key, Set<String>? platformSet, RegExp? platformPattern) {
   final lower = key.toLowerCase();
-  if (trackerPrefixes.any(lower.startsWith)) return true;
-  if (universalTrackers.contains(lower)) return true;
-  if (platformPattern != null && platformPattern.hasMatch(lower)) return true;
+  for (final prefix in trackerPrefixes) {
+    if (lower.startsWith(prefix)) {
+      return true;
+    }
+  }
+  if (universalTrackers.contains(lower)) {
+    return true;
+  }
+  if (platformPattern != null && platformPattern.hasMatch(lower)) {
+    return true;
+  }
   return platformSet != null && platformSet.contains(lower);
 }
 
@@ -242,7 +339,9 @@ class Change {
   final String label;
   final List<String> params;
 
-  Map<String, Object?> toJson() => {'type': type, 'label': label, if (params.isNotEmpty) 'params': params};
+  Map<String, Object?> toJson() {
+    return {'type': type, 'label': label, if (params.isNotEmpty) 'params': params};
+  }
 }
 
 class CleanResult {
@@ -257,24 +356,46 @@ class LinkFixError implements Exception {
   const LinkFixError(this.message);
   final String message;
   @override
-  String toString() => message;
+  String toString() {
+    return message;
+  }
 }
 
-String? _extractGoogleDest(WhatwgUrl url) {
-  final q = url.getParam('url') ?? url.getParam('q');
-  if (q == null || q.isEmpty) return null;
-  final dest = WhatwgUrl.tryParse(q);
-  return dest?.href;
+/// script.js's extractGoogleDestination: where a Google Search result link really goes (its url= or
+/// q= parameter), or null.
+String? _extractGoogleDestination(WhatwgUrl url) {
+  String? query;
+  final urlParameter = url.getParameter('url');
+  if (urlParameter != null) {
+    query = urlParameter;
+  } else {
+    query = url.getParameter('q');
+  }
+  if (query == null || query.isEmpty) {
+    return null;
+  }
+  final destination = WhatwgUrl.tryParse(query);
+  return destination?.href;
 }
 
 /// script.js's cleanUrl: the link without its trackers, on an embed-friendly host where there is
 /// one, with what was done to it.
 CleanResult cleanUrl(String rawInput) {
   final input = rawInput.trim();
-  if (input.isEmpty) throw const LinkFixError('Please enter a URL.');
+  if (input.isEmpty) {
+    throw const LinkFixError('Please enter a URL.');
+  }
 
-  final url = WhatwgUrl.tryParse(input.startsWith('http') ? input : 'https://$input');
-  if (url == null) throw const LinkFixError("That doesn't look like a valid URL. Please include https://");
+  String withScheme;
+  if (input.startsWith('http')) {
+    withScheme = input;
+  } else {
+    withScheme = 'https://$input';
+  }
+  final url = WhatwgUrl.tryParse(withScheme);
+  if (url == null) {
+    throw const LinkFixError("That doesn't look like a valid URL. Please include https://");
+  }
   if (url.protocol != 'http:' && url.protocol != 'https:') {
     throw const LinkFixError('Only http:// and https:// URLs are supported.');
   }
@@ -288,7 +409,7 @@ CleanResult cleanUrl(String rawInput) {
     if (videoId.isNotEmpty) {
       url.hostname = 'www.youtube.com';
       url.pathname = '/watch';
-      url.setParam('v', videoId);
+      url.setParameter('v', videoId);
       hostname = 'youtube.com';
       changes.add(const Change('embed', 'Converted youtu.be to youtube.com'));
     }
@@ -303,45 +424,55 @@ CleanResult cleanUrl(String rawInput) {
 
   // 1. Google Search: the destination.
   if (hostname == 'google.com' || hostname.endsWith('.google.com')) {
-    final dest = _extractGoogleDest(url);
-    if (dest != null) {
+    final destination = _extractGoogleDestination(url);
+    if (destination != null) {
       changes.add(const Change('redirect', 'Extracted destination from Google Search'));
-      return CleanResult(dest, changes, 'Google Search', false);
+      return CleanResult(destination, changes, 'Google Search', false);
     }
   }
 
   // 2. Platform-specific trackers.
   String? platformKey;
-  for (final k in platformTrackers.keys) {
-    if (hostname == k || hostname.endsWith('.$k')) {
-      platformKey = k;
+  for (final trackerHost in platformTrackers.keys) {
+    if (hostname == trackerHost || hostname.endsWith('.$trackerHost')) {
+      platformKey = trackerHost;
       break;
     }
   }
-  final platformSet = platformKey == null ? null : platformTrackers[platformKey];
-  final platformPattern = platformKey == null ? null : platformTrackerPatterns[platformKey];
-  final stripAll = stripsAllParams(hostname, url.pathname);
-  final removed = <String>[];
-  for (final key in url.paramKeys) {
-    if (stripAll || isTrackerParam(key, platformSet, platformPattern)) removed.add(key);
+  Set<String>? platformSet;
+  RegExp? platformPattern;
+  if (platformKey != null) {
+    platformSet = platformTrackers[platformKey];
+    platformPattern = platformTrackerPatterns[platformKey];
   }
-  for (final k in removed) {
-    url.deleteParam(k);
+  final stripAll = stripsAllParameters(hostname, url.pathname);
+  final removed = <String>[];
+  for (final key in url.parameterKeys) {
+    if (stripAll || isTrackerParameter(key, platformSet, platformPattern)) {
+      removed.add(key);
+    }
+  }
+  for (final key in removed) {
+    url.deleteParameter(key);
   }
   if (removed.isNotEmpty) {
-    changes.add(Change('trackers', 'Removed ${removed.length} tracker${removed.length > 1 ? 's' : ''}', removed));
+    var plural = '';
+    if (removed.length > 1) {
+      plural = 's';
+    }
+    changes.add(Change('trackers', 'Removed ${removed.length} tracker$plural', removed));
   }
 
   // 3. Embed conversion.
   String? convertedPlatform;
   var wasConverted = false;
-  for (final c in _converters) {
-    if (c.match(url.hostname)) {
+  for (final converter in _converters) {
+    if (converter.match(url.hostname)) {
       final before = url.hostname;
-      c.convert(url);
+      converter.convert(url);
       if (url.hostname != before) {
         changes.add(Change('embed', 'Converted to embed-friendly domain (${url.hostname})'));
-        convertedPlatform = c.name;
+        convertedPlatform = converter.name;
         wasConverted = true;
       }
       break;
@@ -349,47 +480,86 @@ CleanResult cleanUrl(String rawInput) {
   }
 
   // 4. The platform, for history.
-  final platformLabel = convertedPlatform ?? detectPlatform(hostname) ?? 'General';
+  String platformLabel;
+  if (convertedPlatform != null) {
+    platformLabel = convertedPlatform;
+  } else {
+    final detected = detectPlatform(hostname);
+    if (detected != null) {
+      platformLabel = detected;
+    } else {
+      platformLabel = 'General';
+    }
+  }
 
   // 5. No empty query string left over.
   var cleaned = url.href;
-  if (cleaned.endsWith('?')) cleaned = cleaned.substring(0, cleaned.length - 1);
+  if (cleaned.endsWith('?')) {
+    cleaned = cleaned.substring(0, cleaned.length - 1);
+  }
 
-  if (changes.isEmpty) changes.add(const Change('clean', 'URL was already clean'));
+  if (changes.isEmpty) {
+    changes.add(const Change('clean', 'URL was already clean'));
+  }
   return CleanResult(cleaned, changes, platformLabel, wasConverted);
 }
 
 /// script.js's extractUrlFromText: the first link in some text, or a bare one like
 /// x.com/user/status/1, or null.
 String? extractUrlFromText(String? text) {
-  if (text == null || text.isEmpty) return null;
-  final m = RegExp(r'https?://\S+').firstMatch(text);
-  if (m != null) return m.group(0);
+  if (text == null || text.isEmpty) {
+    return null;
+  }
+  final match = RegExp(r'https?://\S+').firstMatch(text);
+  if (match != null) {
+    return match.group(0);
+  }
   final bare = text.trim();
-  return RegExp(r'^[^\s/]+\.[a-z]{2,}(/\S*)?$', caseSensitive: false).hasMatch(bare) ? bare : null;
+  if (RegExp(r'^[^\s/]+\.[a-z]{2,}(/\S*)?$', caseSensitive: false).hasMatch(bare)) {
+    return bare;
+  }
+  return null;
 }
 
 /// script.js's replaceLinkInText: the text with its link swapped for the fixed one.
 String replaceLinkInText(String text, String? link, String fixed) {
-  final at = link == null || link.isEmpty ? -1 : text.indexOf(link);
-  return at == -1 ? fixed : text.substring(0, at) + fixed + text.substring(at + link!.length);
+  var position = -1;
+  if (link != null && link.isNotEmpty) {
+    position = text.indexOf(link);
+  }
+  if (position == -1) {
+    return fixed;
+  }
+  return text.substring(0, position) + fixed + text.substring(position + link!.length);
 }
 
-String _h(String s) => s.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
+/// A host as the redirect checks compare it: lowercase, without www.
+String _comparableHost(String host) {
+  return host.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
+}
 
 /// script.js's isMeaningfulRedirect: the redirect lands on another host.
 bool isMeaningfulRedirect(String fromUrl, String toUrl) {
-  final from = WhatwgUrl.tryParse(fromUrl), to = WhatwgUrl.tryParse(toUrl);
-  if (from == null || to == null) return false;
-  return _h(from.hostname) != _h(to.hostname);
+  final from = WhatwgUrl.tryParse(fromUrl);
+  final to = WhatwgUrl.tryParse(toUrl);
+  if (from == null || to == null) {
+    return false;
+  }
+  return _comparableHost(from.hostname) != _comparableHost(to.hostname);
 }
 
 /// script.js's urlsEquivalent: the same host and path, trailing slash aside.
-bool urlsEquivalent(String a, String b) {
-  final ua = WhatwgUrl.tryParse(a), ub = WhatwgUrl.tryParse(b);
-  if (ua == null || ub == null) return false;
-  String norm(WhatwgUrl u) => _h(u.hostname) + u.pathname.replaceFirst(RegExp(r'/$'), '');
-  return norm(ua) == norm(ub);
+bool urlsEquivalent(String firstUrl, String secondUrl) {
+  final first = WhatwgUrl.tryParse(firstUrl);
+  final second = WhatwgUrl.tryParse(secondUrl);
+  if (first == null || second == null) {
+    return false;
+  }
+  String normalised(WhatwgUrl url) {
+    return _comparableHost(url.hostname) + url.pathname.replaceFirst(RegExp(r'/$'), '');
+  }
+
+  return normalised(first) == normalised(second);
 }
 
 /// A URL taken apart and put back as a browser's URL API does, as far as script.js needs:
@@ -405,48 +575,67 @@ class WhatwgUrl {
   String pathname;
   String? _query; // as written, without '?', or null for none
   final String? _fragment; // without '#'
-  List<MapEntry<String, String>>? _params; // once read
+  List<MapEntry<String, String>>? _parameters; // once read
 
-  static const _special = {'http:': '80', 'https:': '443', 'ws:': '80', 'wss:': '443', 'ftp:': '21'};
+  /// The special schemes (web links and the like), with each one's default port.
+  static const _specialSchemePorts = {'http:': '80', 'https:': '443', 'ws:': '80', 'wss:': '443', 'ftp:': '21'};
 
+  /// The input as a browser's URL parser would read it, or null where a browser would throw:
+  /// scheme, user info, host (lowercased, percent-decoded, Punycode for international names),
+  /// port (dropped when it's the scheme's default), normalised path, query and fragment.
   static WhatwgUrl? tryParse(String input) {
-    final s = input.trim();
-    final m = RegExp(r'^([a-zA-Z][a-zA-Z0-9+.\-]*):').firstMatch(s);
-    if (m == null) return null;
-    final protocol = '${m.group(1)!.toLowerCase()}:';
-    var rest = s.substring(m.end).replaceAll('\\', _special.containsKey(protocol) ? '/' : '\\');
+    final trimmed = input.trim();
+    final schemeMatch = RegExp(r'^([a-zA-Z][a-zA-Z0-9+.\-]*):').firstMatch(trimmed);
+    if (schemeMatch == null) {
+      return null;
+    }
+    final protocol = '${schemeMatch.group(1)!.toLowerCase()}:';
+    String backslashReplacement;
+    if (_specialSchemePorts.containsKey(protocol)) {
+      backslashReplacement = '/';
+    } else {
+      backslashReplacement = '\\';
+    }
+    var rest = trimmed.substring(schemeMatch.end).replaceAll('\\', backslashReplacement);
     // Tabs and newlines inside a URL are dropped, as browsers do.
     rest = rest.replaceAll(RegExp(r'[\t\n\r]'), '');
     String? fragment;
-    final hash = rest.indexOf('#');
-    if (hash != -1) {
-      fragment = rest.substring(hash + 1);
-      rest = rest.substring(0, hash);
+    final hashPosition = rest.indexOf('#');
+    if (hashPosition != -1) {
+      fragment = rest.substring(hashPosition + 1);
+      rest = rest.substring(0, hashPosition);
     }
     String? query;
-    if (!_special.containsKey(protocol)) {
+    if (!_specialSchemePorts.containsKey(protocol)) {
       // Not a web link (mailto:, javascript: ...): valid as a URL, kept whole.
-      final q = rest.indexOf('?');
-      if (q != -1) {
-        query = rest.substring(q + 1);
-        rest = rest.substring(0, q);
+      final questionPosition = rest.indexOf('?');
+      if (questionPosition != -1) {
+        query = rest.substring(questionPosition + 1);
+        rest = rest.substring(0, questionPosition);
       }
       return WhatwgUrl._(protocol, '', '', '', rest, query, fragment);
     }
     rest = rest.replaceFirst(RegExp(r'^/*'), '');
-    final pathAt = rest.indexOf(RegExp(r'[/?]'));
-    var authority = pathAt == -1 ? rest : rest.substring(0, pathAt);
-    var tail = pathAt == -1 ? '' : rest.substring(pathAt);
-    final q = tail.indexOf('?');
-    if (q != -1) {
-      query = tail.substring(q + 1);
-      tail = tail.substring(0, q);
+    final pathPosition = rest.indexOf(RegExp(r'[/?]'));
+    String authority;
+    String tail;
+    if (pathPosition == -1) {
+      authority = rest;
+      tail = '';
+    } else {
+      authority = rest.substring(0, pathPosition);
+      tail = rest.substring(pathPosition);
+    }
+    final questionPosition = tail.indexOf('?');
+    if (questionPosition != -1) {
+      query = tail.substring(questionPosition + 1);
+      tail = tail.substring(0, questionPosition);
     }
     var userinfo = '';
-    final at = authority.lastIndexOf('@');
-    if (at != -1) {
-      userinfo = authority.substring(0, at);
-      authority = authority.substring(at + 1);
+    final atPosition = authority.lastIndexOf('@');
+    if (atPosition != -1) {
+      userinfo = authority.substring(0, atPosition);
+      authority = authority.substring(atPosition + 1);
     }
     var host = authority;
     var port = '';
@@ -455,36 +644,74 @@ class WhatwgUrl {
       host = authority.substring(0, portMatch.start);
       port = portMatch.group(1)!;
     } else if (authority.startsWith('[')) {
-      final close = authority.indexOf(']');
-      if (close == -1) return null;
-      host = authority.substring(0, close + 1);
-      final after = authority.substring(close + 1);
-      if (after.startsWith(':')) port = after.substring(1);
+      final closePosition = authority.indexOf(']');
+      if (closePosition == -1) {
+        return null;
+      }
+      host = authority.substring(0, closePosition + 1);
+      final after = authority.substring(closePosition + 1);
+      if (after.startsWith(':')) {
+        port = after.substring(1);
+      }
     }
-    if (host.isEmpty) return null;
+    if (host.isEmpty) {
+      return null;
+    }
     host = _decodePercent(host).toLowerCase();
-    if (RegExp(r'[\x00-\x20#%/:<>?@\[\\\]^|]').hasMatch(host.replaceAll(RegExp(r'^\[|\]$'), '')) && !host.startsWith('[')) return null;
+    final hostWithoutBrackets = host.replaceAll(RegExp(r'^\[|\]$'), '');
+    if (RegExp(r'[\x00-\x20#%/:<>?@\[\\\]^|]').hasMatch(hostWithoutBrackets) && !host.startsWith('[')) {
+      return null;
+    }
     // An international domain name, as the browser shows it: Punycode.
-    if (host.runes.any((r) => r > 0x7f)) {
+    if (_hasNonAscii(host)) {
       final ascii = _toAscii(host);
-      if (ascii == null) return null;
+      if (ascii == null) {
+        return null;
+      }
       host = ascii;
     }
     if (port.isNotEmpty) {
-      final n = int.tryParse(port);
-      if (n == null || n > 65535) return null;
-      port = n.toString();
-      if (port == _special[protocol]) port = '';
+      final portNumber = int.tryParse(port);
+      if (portNumber == null || portNumber > 65535) {
+        return null;
+      }
+      port = portNumber.toString();
+      if (port == _specialSchemePorts[protocol]) {
+        port = '';
+      }
     }
-    final path = _normalisePath(tail.isEmpty ? '/' : tail);
-    return WhatwgUrl._(protocol, userinfo, host, port, path, query == null ? null : _encodeQuery(query, protocol), fragment == null ? null : _encodeFragment(fragment));
+    String path;
+    if (tail.isEmpty) {
+      path = _normalisePath('/');
+    } else {
+      path = _normalisePath(tail);
+    }
+    String? encodedQuery;
+    if (query != null) {
+      encodedQuery = _encodeQuery(query, protocol);
+    }
+    String? encodedFragment;
+    if (fragment != null) {
+      encodedFragment = _encodeFragment(fragment);
+    }
+    return WhatwgUrl._(protocol, userinfo, host, port, path, encodedQuery, encodedFragment);
   }
 
-  static String _decodePercent(String s) {
+  /// Whether the text has any character outside ASCII.
+  static bool _hasNonAscii(String text) {
+    for (final rune in text.runes) {
+      if (rune > 0x7f) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static String _decodePercent(String text) {
     try {
-      return Uri.decodeComponent(s);
+      return Uri.decodeComponent(text);
     } catch (_) {
-      return s;
+      return text;
     }
   }
 
@@ -492,161 +719,234 @@ class WhatwgUrl {
   static String? _toAscii(String host) {
     final labels = <String>[];
     for (final label in host.split('.')) {
-      if (!label.runes.any((r) => r > 0x7f)) {
+      if (!_hasNonAscii(label)) {
         labels.add(label);
         continue;
       }
       final code = _punycode(label.runes.toList());
-      if (code == null) return null;
+      if (code == null) {
+        return null;
+      }
       labels.add('xn--$code');
     }
     return labels.join('.');
   }
 
+  /// Punycode's encoding of one label (RFC 3492, section 6.3): its ASCII characters as they are,
+  /// a hyphen, then each other character as a variable-length number in base 36.
   static String? _punycode(List<int> input) {
-    const base = 36, tMin = 1, tMax = 26, skew = 38, damp = 700;
+    const base = 36, thresholdMinimum = 1, thresholdMaximum = 26, skew = 38, damp = 700;
+
+    // The bias adaptation function (RFC 3492, section 6.1).
     int adapt(int delta, int points, bool first) {
-      delta = first ? delta ~/ damp : delta >> 1;
-      delta += delta ~/ points;
-      var k = 0;
-      while (delta > ((base - tMin) * tMax) >> 1) {
-        delta ~/= base - tMin;
-        k += base;
+      if (first) {
+        delta = delta ~/ damp;
+      } else {
+        delta = delta >> 1;
       }
-      return k + (base - tMin + 1) * delta ~/ (delta + skew);
+      delta += delta ~/ points;
+      var baseMultiple = 0;
+      while (delta > ((base - thresholdMinimum) * thresholdMaximum) >> 1) {
+        delta ~/= base - thresholdMinimum;
+        baseMultiple += base;
+      }
+      return baseMultiple + (base - thresholdMinimum + 1) * delta ~/ (delta + skew);
     }
 
-    String digit(int d) => String.fromCharCode(d + 22 + 75 * (d < 26 ? 1 : 0));
-    final out = StringBuffer();
-    for (final c in input) {
-      if (c < 0x80) out.writeCharCode(c);
-    }
-    final basic = out.length;
-    var handled = basic;
-    if (basic > 0) out.write('-');
-    var n = 0x80, delta = 0, bias = 72;
-    while (handled < input.length) {
-      var m = 0x7fffffff;
-      for (final c in input) {
-        if (c >= n && c < m) m = c;
+    // A digit's character: 0-25 as a-z, 26-35 as 0-9.
+    String digit(int digitValue) {
+      var letterOffset = 0;
+      if (digitValue < 26) {
+        letterOffset = 1;
       }
-      delta += (m - n) * (handled + 1);
-      n = m;
-      for (final c in input) {
-        if (c < n) delta++;
-        if (c == n) {
-          var q = delta;
-          for (var k = base;; k += base) {
-            final t = k <= bias ? tMin : (k >= bias + tMax ? tMax : k - bias);
-            if (q < t) break;
-            out.write(digit(t + (q - t) % (base - t)));
-            q = (q - t) ~/ (base - t);
+      return String.fromCharCode(digitValue + 22 + 75 * letterOffset);
+    }
+
+    final output = StringBuffer();
+    for (final codePoint in input) {
+      if (codePoint < 0x80) {
+        output.writeCharCode(codePoint);
+      }
+    }
+    final basicCount = output.length;
+    var handled = basicCount;
+    if (basicCount > 0) {
+      output.write('-');
+    }
+    var nextCodePoint = 0x80, delta = 0, bias = 72;
+    while (handled < input.length) {
+      var smallest = 0x7fffffff;
+      for (final codePoint in input) {
+        if (codePoint >= nextCodePoint && codePoint < smallest) {
+          smallest = codePoint;
+        }
+      }
+      delta += (smallest - nextCodePoint) * (handled + 1);
+      nextCodePoint = smallest;
+      for (final codePoint in input) {
+        if (codePoint < nextCodePoint) {
+          delta++;
+        }
+        if (codePoint == nextCodePoint) {
+          var remaining = delta;
+          for (var step = base;; step += base) {
+            int threshold;
+            if (step <= bias) {
+              threshold = thresholdMinimum;
+            } else if (step >= bias + thresholdMaximum) {
+              threshold = thresholdMaximum;
+            } else {
+              threshold = step - bias;
+            }
+            if (remaining < threshold) {
+              break;
+            }
+            output.write(digit(threshold + (remaining - threshold) % (base - threshold)));
+            remaining = (remaining - threshold) ~/ (base - threshold);
           }
-          out.write(digit(q));
-          bias = adapt(delta, handled + 1, handled == basic);
+          output.write(digit(remaining));
+          bias = adapt(delta, handled + 1, handled == basicCount);
           delta = 0;
           handled++;
         }
       }
       delta++;
-      n++;
+      nextCodePoint++;
     }
-    return out.toString();
+    return output.toString();
   }
 
   // The path as a browser writes it: dot segments resolved, and what may not be in a path
   // percent-encoded (spaces, quotes, angle brackets, braces, backticks, and anything not ASCII).
   static String _normalisePath(String path) {
     final segments = path.split('/');
-    final out = <String>[];
-    for (var i = 0; i < segments.length; i++) {
-      final seg = segments[i];
-      final last = i == segments.length - 1;
-      final lower = seg.toLowerCase();
+    final output = <String>[];
+    for (var index = 0; index < segments.length; index++) {
+      final segment = segments[index];
+      final isLast = index == segments.length - 1;
+      final lower = segment.toLowerCase();
       if (lower == '.' || lower == '%2e') {
-        if (last) out.add('');
+        if (isLast) {
+          output.add('');
+        }
         continue;
       }
       if (lower == '..' || lower == '.%2e' || lower == '%2e.' || lower == '%2e%2e') {
-        if (out.length > 1) out.removeLast();
-        if (last) out.add('');
+        if (output.length > 1) {
+          output.removeLast();
+        }
+        if (isLast) {
+          output.add('');
+        }
         continue;
       }
-      out.add(seg);
+      output.add(segment);
     }
-    var joined = out.join('/');
-    if (!joined.startsWith('/')) joined = '/$joined';
+    var joined = output.join('/');
+    if (!joined.startsWith('/')) {
+      joined = '/$joined';
+    }
     return _encodeSet(joined, const {0x20, 0x22, 0x23, 0x3C, 0x3E, 0x3F, 0x60, 0x7B, 0x7D});
   }
 
-  static String _encodeQuery(String q, String protocol) =>
-      _encodeSet(q, {0x20, 0x22, 0x23, 0x3C, 0x3E, if (_special.containsKey(protocol)) 0x27});
+  static String _encodeQuery(String query, String protocol) {
+    return _encodeSet(query, {0x20, 0x22, 0x23, 0x3C, 0x3E, if (_specialSchemePorts.containsKey(protocol)) 0x27});
+  }
 
-  static String _encodeFragment(String f) => _encodeSet(f, const {0x20, 0x22, 0x3C, 0x3E, 0x60});
+  static String _encodeFragment(String fragment) {
+    return _encodeSet(fragment, const {0x20, 0x22, 0x3C, 0x3E, 0x60});
+  }
 
   // Percent-encodes C0 controls, anything above ASCII (as UTF-8), and the set given.
-  static String _encodeSet(String s, Set<int> set) {
-    final b = StringBuffer();
-    for (final rune in s.runes) {
-      if (rune < 0x20 || rune > 0x7e || set.contains(rune)) {
+  static String _encodeSet(String text, Set<int> encodeSet) {
+    final buffer = StringBuffer();
+    for (final rune in text.runes) {
+      if (rune < 0x20 || rune > 0x7e || encodeSet.contains(rune)) {
         for (final byte in _utf8(rune)) {
-          b.write('%${byte.toRadixString(16).toUpperCase().padLeft(2, '0')}');
+          buffer.write('%${byte.toRadixString(16).toUpperCase().padLeft(2, '0')}');
         }
       } else {
-        b.writeCharCode(rune);
+        buffer.writeCharCode(rune);
       }
     }
-    return b.toString();
+    return buffer.toString();
   }
 
   static List<int> _utf8(int rune) {
-    if (rune < 0x80) return [rune];
-    if (rune < 0x800) return [0xC0 | (rune >> 6), 0x80 | (rune & 0x3F)];
-    if (rune < 0x10000) return [0xE0 | (rune >> 12), 0x80 | ((rune >> 6) & 0x3F), 0x80 | (rune & 0x3F)];
+    if (rune < 0x80) {
+      return [rune];
+    }
+    if (rune < 0x800) {
+      return [0xC0 | (rune >> 6), 0x80 | (rune & 0x3F)];
+    }
+    if (rune < 0x10000) {
+      return [0xE0 | (rune >> 12), 0x80 | ((rune >> 6) & 0x3F), 0x80 | (rune & 0x3F)];
+    }
     return [0xF0 | (rune >> 18), 0x80 | ((rune >> 12) & 0x3F), 0x80 | ((rune >> 6) & 0x3F), 0x80 | (rune & 0x3F)];
   }
 
   // ---------- URLSearchParams ----------
 
-  List<MapEntry<String, String>> get _list => _params ??= _parseParams(_query ?? '');
-
-  static List<MapEntry<String, String>> _parseParams(String q) {
-    final out = <MapEntry<String, String>>[];
-    for (final part in q.split('&')) {
-      if (part.isEmpty) continue;
-      final eq = part.indexOf('=');
-      final k = eq == -1 ? part : part.substring(0, eq);
-      final v = eq == -1 ? '' : part.substring(eq + 1);
-      out.add(MapEntry(_formDecode(k), _formDecode(v)));
+  List<MapEntry<String, String>> get _parameterList {
+    final existing = _parameters;
+    if (existing != null) {
+      return existing;
     }
-    return out;
+    var query = '';
+    if (_query != null) {
+      query = _query!;
+    }
+    final parsed = _parseParameters(query);
+    _parameters = parsed;
+    return parsed;
+  }
+
+  static List<MapEntry<String, String>> _parseParameters(String query) {
+    final parameters = <MapEntry<String, String>>[];
+    for (final part in query.split('&')) {
+      if (part.isEmpty) {
+        continue;
+      }
+      final equalsPosition = part.indexOf('=');
+      String key;
+      String value;
+      if (equalsPosition == -1) {
+        key = part;
+        value = '';
+      } else {
+        key = part.substring(0, equalsPosition);
+        value = part.substring(equalsPosition + 1);
+      }
+      parameters.add(MapEntry(_formDecode(key), _formDecode(value)));
+    }
+    return parameters;
   }
 
   // application/x-www-form-urlencoded's decoding: + is a space, and %XX a byte, leniently.
-  static String _formDecode(String s) {
+  static String _formDecode(String text) {
     final bytes = <int>[];
-    final src = s.replaceAll('+', ' ');
-    final units = src.codeUnits;
-    for (var i = 0; i < units.length; i++) {
-      final c = units[i];
-      if (c == 0x25 && i + 2 < units.length) {
-        final pair = src.substring(i + 1, i + 3);
+    final source = text.replaceAll('+', ' ');
+    final units = source.codeUnits;
+    for (var index = 0; index < units.length; index++) {
+      final unit = units[index];
+      if (unit == 0x25 && index + 2 < units.length) {
+        final pair = source.substring(index + 1, index + 3);
         if (RegExp(r'^[0-9a-fA-F]{2}$').hasMatch(pair)) {
           bytes.add(int.parse(pair, radix: 16));
-          i += 2;
+          index += 2;
           continue;
         }
       }
-      if (c < 0x80) {
-        bytes.add(c);
+      if (unit < 0x80) {
+        bytes.add(unit);
       } else {
         // Not ASCII: its UTF-8, taking surrogate pairs whole.
-        var rune = c;
-        if (c >= 0xD800 && c <= 0xDBFF && i + 1 < units.length) {
-          final lo = units[i + 1];
-          if (lo >= 0xDC00 && lo <= 0xDFFF) {
-            rune = 0x10000 + ((c - 0xD800) << 10) + (lo - 0xDC00);
-            i++;
+        var rune = unit;
+        if (unit >= 0xD800 && unit <= 0xDBFF && index + 1 < units.length) {
+          final lowSurrogate = units[index + 1];
+          if (lowSurrogate >= 0xDC00 && lowSurrogate <= 0xDFFF) {
+            rune = 0x10000 + ((unit - 0xD800) << 10) + (lowSurrogate - 0xDC00);
+            index++;
           }
         }
         bytes.addAll(_utf8(rune));
@@ -664,119 +964,167 @@ class WhatwgUrl {
   }
 
   // URLSearchParams' serialising: everything but A-Z a-z 0-9 * - . _ encoded, spaces as +.
-  static String _formEncode(String s) {
-    final b = StringBuffer();
-    for (final rune in s.runes) {
+  static String _formEncode(String text) {
+    final buffer = StringBuffer();
+    for (final rune in text.runes) {
+      final isDigit = rune >= 0x30 && rune <= 0x39;
+      final isUpperLetter = rune >= 0x41 && rune <= 0x5A;
+      final isLowerLetter = rune >= 0x61 && rune <= 0x7A;
+      final isSafeMark = rune == 0x2A || rune == 0x2D || rune == 0x2E || rune == 0x5F;
       if (rune == 0x20) {
-        b.write('+');
-      } else if ((rune >= 0x30 && rune <= 0x39) || (rune >= 0x41 && rune <= 0x5A) || (rune >= 0x61 && rune <= 0x7A) || rune == 0x2A || rune == 0x2D || rune == 0x2E || rune == 0x5F) {
-        b.writeCharCode(rune);
+        buffer.write('+');
+      } else if (isDigit || isUpperLetter || isLowerLetter || isSafeMark) {
+        buffer.writeCharCode(rune);
       } else {
         for (final byte in _utf8(rune)) {
-          b.write('%${byte.toRadixString(16).toUpperCase().padLeft(2, '0')}');
+          buffer.write('%${byte.toRadixString(16).toUpperCase().padLeft(2, '0')}');
         }
       }
     }
-    return b.toString();
+    return buffer.toString();
   }
 
   void _rewrite() {
-    final list = _list;
-    _query = list.isEmpty ? null : list.map((e) => '${_formEncode(e.key)}=${_formEncode(e.value)}').join('&');
+    final list = _parameterList;
+    if (list.isEmpty) {
+      _query = null;
+      return;
+    }
+    final pairs = <String>[];
+    for (final parameter in list) {
+      pairs.add('${_formEncode(parameter.key)}=${_formEncode(parameter.value)}');
+    }
+    _query = pairs.join('&');
   }
 
   /// Every key, in order, repeats and all (URLSearchParams' iteration).
-  List<String> get paramKeys => [for (final e in _list) e.key];
+  List<String> get parameterKeys {
+    final keys = <String>[];
+    for (final parameter in _parameterList) {
+      keys.add(parameter.key);
+    }
+    return keys;
+  }
 
-  String? getParam(String key) {
-    for (final e in _list) {
-      if (e.key == key) return e.value;
+  String? getParameter(String key) {
+    for (final parameter in _parameterList) {
+      if (parameter.key == key) {
+        return parameter.value;
+      }
     }
     return null;
   }
 
-  void deleteParam(String key) {
-    _list.removeWhere((e) => e.key == key);
+  void deleteParameter(String key) {
+    _parameterList.removeWhere((parameter) {
+      return parameter.key == key;
+    });
     _rewrite();
   }
 
-  void setParam(String key, String value) {
-    final list = _list;
-    final i = list.indexWhere((e) => e.key == key);
-    if (i == -1) {
+  /// URLSearchParams' set: the first parameter with this key takes the value and any later ones
+  /// go, or it's added at the end.
+  void setParameter(String key, String value) {
+    final list = _parameterList;
+    final index = list.indexWhere((parameter) {
+      return parameter.key == key;
+    });
+    if (index == -1) {
       list.add(MapEntry(key, value));
     } else {
-      list[i] = MapEntry(key, value);
-      for (var j = list.length - 1; j > i; j--) {
-        if (list[j].key == key) list.removeAt(j);
+      list[index] = MapEntry(key, value);
+      for (var laterIndex = list.length - 1; laterIndex > index; laterIndex--) {
+        if (list[laterIndex].key == key) {
+          list.removeAt(laterIndex);
+        }
       }
     }
     _rewrite();
   }
 
-  String get host => _port.isEmpty ? hostname : '$hostname:$_port';
+  String get host {
+    if (_port.isEmpty) {
+      return hostname;
+    }
+    return '$hostname:$_port';
+  }
 
   String get href {
-    if (!_special.containsKey(protocol)) {
-      return '$protocol$pathname${_query == null ? '' : '?$_query'}${_fragment == null ? '' : '#$_fragment'}';
+    var querySuffix = '';
+    if (_query != null) {
+      querySuffix = '?$_query';
     }
-    final auth = _userinfo.isEmpty ? '' : '$_userinfo@';
-    return '$protocol//$auth$host$pathname${_query == null ? '' : '?$_query'}${_fragment == null ? '' : '#$_fragment'}';
+    var fragmentSuffix = '';
+    if (_fragment != null) {
+      fragmentSuffix = '#$_fragment';
+    }
+    if (!_specialSchemePorts.containsKey(protocol)) {
+      return '$protocol$pathname$querySuffix$fragmentSuffix';
+    }
+    var userinfoPrefix = '';
+    if (_userinfo.isNotEmpty) {
+      userinfoPrefix = '$_userinfo@';
+    }
+    return '$protocol//$userinfoPrefix$host$pathname$querySuffix$fragmentSuffix';
   }
 
   @override
-  String toString() => href;
+  String toString() {
+    return href;
+  }
 }
 
 /// UTF-8 that never throws: a bad sequence becomes U+FFFD, as browsers decode it.
 class Utf8Lenient {
   const Utf8Lenient();
+
+  /// The bytes as text, each malformed or cut-off sequence as one U+FFFD.
   String convert(List<int> bytes) {
-    final b = StringBuffer();
-    var i = 0;
-    while (i < bytes.length) {
-      final c = bytes[i];
-      int need, rune;
-      if (c < 0x80) {
-        b.writeCharCode(c);
-        i++;
+    final buffer = StringBuffer();
+    var index = 0;
+    while (index < bytes.length) {
+      final leadByte = bytes[index];
+      int continuationCount, rune;
+      if (leadByte < 0x80) {
+        buffer.writeCharCode(leadByte);
+        index++;
         continue;
-      } else if (c >= 0xC2 && c <= 0xDF) {
-        need = 1;
-        rune = c & 0x1F;
-      } else if (c >= 0xE0 && c <= 0xEF) {
-        need = 2;
-        rune = c & 0x0F;
-      } else if (c >= 0xF0 && c <= 0xF4) {
-        need = 3;
-        rune = c & 0x07;
+      } else if (leadByte >= 0xC2 && leadByte <= 0xDF) {
+        continuationCount = 1;
+        rune = leadByte & 0x1F;
+      } else if (leadByte >= 0xE0 && leadByte <= 0xEF) {
+        continuationCount = 2;
+        rune = leadByte & 0x0F;
+      } else if (leadByte >= 0xF0 && leadByte <= 0xF4) {
+        continuationCount = 3;
+        rune = leadByte & 0x07;
       } else {
-        b.writeCharCode(0xFFFD);
-        i++;
+        buffer.writeCharCode(0xFFFD);
+        index++;
         continue;
       }
-      if (i + need >= bytes.length) {
-        b.writeCharCode(0xFFFD);
-        i++;
+      if (index + continuationCount >= bytes.length) {
+        buffer.writeCharCode(0xFFFD);
+        index++;
         continue;
       }
-      var ok = true;
-      for (var k = 1; k <= need; k++) {
-        final n = bytes[i + k];
-        if (n & 0xC0 != 0x80) {
-          ok = false;
+      var valid = true;
+      for (var offset = 1; offset <= continuationCount; offset++) {
+        final continuationByte = bytes[index + offset];
+        if (continuationByte & 0xC0 != 0x80) {
+          valid = false;
           break;
         }
-        rune = (rune << 6) | (n & 0x3F);
+        rune = (rune << 6) | (continuationByte & 0x3F);
       }
-      if (!ok) {
-        b.writeCharCode(0xFFFD);
-        i++;
+      if (!valid) {
+        buffer.writeCharCode(0xFFFD);
+        index++;
         continue;
       }
-      b.writeCharCode(rune);
-      i += need + 1;
+      buffer.writeCharCode(rune);
+      index += continuationCount + 1;
     }
-    return b.toString();
+    return buffer.toString();
   }
 }

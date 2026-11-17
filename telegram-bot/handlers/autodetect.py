@@ -22,15 +22,17 @@ log = logging.getLogger('bot.autodetect')
 
 
 async def autodetect_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Fixes up to three links in a group message and replies with each
+    result, unless autodetect is off for the chat or a link was already clean."""
     message = update.effective_message
     chat = update.effective_chat
     if not message or not message.text:
         return
 
-    db_conn = context.bot_data['db']
-    await db.touch_chat(db_conn, chat.id, default_autodetect=config.AUTODETECT_DEFAULT)
+    db_connection = context.bot_data['db']
+    await db.touch_chat(db_connection, chat.id, default_autodetect=config.AUTODETECT_DEFAULT)
 
-    enabled = await db.get_autodetect_enabled(db_conn, chat.id, default_autodetect=config.AUTODETECT_DEFAULT)
+    enabled = await db.get_autodetect_enabled(db_connection, chat.id, default_autodetect=config.AUTODETECT_DEFAULT)
     if not enabled:
         return
 
@@ -45,14 +47,19 @@ async def autodetect_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
             continue
 
         # Only reply when the fix actually did something worth showing.
-        if all(c.type == 'clean' for c in result.changes):
+        only_already_clean = True
+        for change in result.changes:
+            if change.type != 'clean':
+                only_already_clean = False
+                break
+        if only_already_clean:
             continue
 
         fix_id = await db.add_fix_result(
-            db_conn, chat_id=chat.id, requester_id=update.effective_user.id,
+            db_connection, chat_id=chat.id, requester_id=update.effective_user.id,
             original_url=raw_link, cleaned_url=cleaned, platform=result.platform,
         )
-        await db.add_history(db_conn, user_id=update.effective_user.id, original_url=raw_link,
+        await db.add_history(db_connection, user_id=update.effective_user.id, original_url=raw_link,
                               cleaned_url=cleaned, platform=result.platform)
 
         rich = build_fix_view(raw_link, cleaned, result, title)

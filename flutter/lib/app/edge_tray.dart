@@ -38,6 +38,8 @@ const telegramUrl = 'https://t.me/uwuFix_bot';
 const discordUrl = 'https://discord.com/oauth2/authorize?client_id=1524465330091724880';
 const coffeeUrl = 'https://donate.stripe.com/28o2akeAr3hv0DK6oo';
 
+/// The Edge Tray itself: the arrow tab and the column of buttons beside it, sliding off the right
+/// edge when tucked away. Its statics are what the page needs to make room for it.
 class EdgeTray extends StatefulWidget {
   const EdgeTray({super.key});
 
@@ -55,33 +57,59 @@ class EdgeTray extends StatefulWidget {
   static const _gap = 8.0;
 
   /// The spec's --glass-btn: 44 px, 40 on a phone up to 480 px wide.
-  static double buttonSize(BuildContext context) => MediaQuery.sizeOf(context).width <= 480 ? 40 : 44;
+  static double buttonSize(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width <= 480) {
+      return 40;
+    }
+    return 44;
+  }
 
   /// The spec's --edge: 16 px from the right edge (10 on a phone), clear of a landscape notch.
   static double edge(BuildContext context) {
-    final inset = MediaQuery.sizeOf(context).width <= 480 ? 10.0 : 16.0;
+    double inset;
+    if (MediaQuery.sizeOf(context).width <= 480) {
+      inset = 10.0;
+    } else {
+      inset = 16.0;
+    }
     return math.max(inset, MediaQuery.paddingOf(context).right + inset);
   }
 
   /// Up to here the page's 680 px column would meet the tray (style.css's 840 px breakpoint).
-  static bool _narrow(BuildContext context) => MediaQuery.sizeOf(context).width <= 840;
+  static bool _isNarrow(BuildContext context) {
+    return MediaQuery.sizeOf(context).width <= 840;
+  }
 
   /// The page's whole right padding while the tray's out on a narrow screen: the buttons, their
   /// edge and a 12 px gap (style.css's body.tray-open .app). It stands in for the page's own
   /// padding, not on top of it. None when it's tucked away or the screen is wide.
-  static double roomFor(BuildContext context) => open.value && _narrow(context) ? buttonSize(context) + edge(context) + 12 : 0;
+  static double roomFor(BuildContext context) {
+    if (open.value && _isNarrow(context)) {
+      return buttonSize(context) + edge(context) + 12;
+    }
+    return 0;
+  }
 
   /// How much further in the brand line steps, past the page's right padding, so the tab (level
-  /// with it) covers neither the logo nor the name, with a 10 px gap. [pagePad] is the page's
+  /// with it) covers neither the logo nor the name, with a 10 px gap. [pagePadding] is the page's
   /// right padding. Out, the tab sits left of the buttons; tucked away, at the edge.
-  static double brandStepFor(BuildContext context, double pagePad) {
-    if (!_narrow(context)) return 0;
-    final tabLeft = open.value ? buttonSize(context) + edge(context) + _gap + _tabWidth : _tabWidth;
-    return math.max(0, tabLeft + 10 - pagePad);
+  static double brandStepFor(BuildContext context, double pagePadding) {
+    if (!_isNarrow(context)) {
+      return 0;
+    }
+    double tabLeft;
+    if (open.value) {
+      tabLeft = buttonSize(context) + edge(context) + _gap + _tabWidth;
+    } else {
+      tabLeft = _tabWidth;
+    }
+    return math.max(0, tabLeft + 10 - pagePadding);
   }
 
   @override
-  State<EdgeTray> createState() => _EdgeTrayState();
+  State<EdgeTray> createState() {
+    return _EdgeTrayState();
+  }
 }
 
 class _EdgeTrayState extends State<EdgeTray> {
@@ -91,93 +119,153 @@ class _EdgeTrayState extends State<EdgeTray> {
     EdgeTray.open.value = Store.I.get(EdgeTray.storeKey) != '0';
   }
 
-  bool get _open => EdgeTray.open.value;
+  bool get _isOpen {
+    return EdgeTray.open.value;
+  }
 
-  void _toggle() => setState(() {
-    EdgeTray.open.value = !_open;
-    Store.I.put(EdgeTray.storeKey, _open ? '1' : '0');
-  });
+  void _toggle() {
+    setState(() {
+      EdgeTray.open.value = !_isOpen;
+      String storedValue;
+      if (_isOpen) {
+        storedValue = '1';
+      } else {
+        storedValue = '0';
+      }
+      Store.I.put(EdgeTray.storeKey, storedValue);
+    });
+  }
 
+  /// The tab and the column of buttons, sliding together as the tray opens and closes.
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
-    final open = _open;
-    final time = MediaQuery.of(context).disableAnimations ? Duration.zero : EdgeTray.time;
+    final palette = context.fx;
+    final isOpen = _isOpen;
+    Duration time;
+    if (MediaQuery.of(context).disableAnimations) {
+      time = Duration.zero;
+    } else {
+      time = EdgeTray.time;
+    }
     final size = EdgeTray.buttonSize(context);
     final edge = EdgeTray.edge(context);
     // Far enough that the tab's right side lands on the edge, and 1 px more so its right border
     // goes past it: at the edge it's flat on that side, with no border there.
     final shift = size + EdgeTray._gap + edge + 1;
 
-    Widget button(Widget icon, String label, VoidCallback onPressed) => _Glass(width: size, height: size, label: label, lift: true, onTap: onPressed, child: icon);
+    Widget buildButton(Widget icon, String label, VoidCallback onPressed) {
+      return _Glass(width: size, height: size, label: label, lift: true, onTap: onPressed, child: icon);
+    }
+
+    IconData lookIcon;
+    if (Theme.of(context).brightness == Brightness.dark) {
+      lookIcon = Icons.dark_mode_outlined;
+    } else {
+      lookIcon = Icons.light_mode_outlined;
+    }
 
     final items = <Widget>[
-      button(const SvgIcon(telegramSvg, size: 22), 'Telegram Bot', () => openLink(telegramUrl)),
-      button(const SvgIcon(discordSvg, size: 22), 'Invite Discord Bot', () => openLink(discordUrl)),
-      button(const Icon(Icons.coffee_outlined), 'Buy me a coffee', () => openLink(coffeeUrl)),
+      buildButton(const SvgIcon(telegramSvg, size: 22), 'Telegram Bot', () {
+        openLink(telegramUrl);
+      }),
+      buildButton(const SvgIcon(discordSvg, size: 22), 'Invite Discord Bot', () {
+        openLink(discordUrl);
+      }),
+      buildButton(const Icon(Icons.coffee_outlined), 'Buy me a coffee', () {
+        openLink(coffeeUrl);
+      }),
       // Separates the links from the app's own actions.
-      Container(width: 24, height: 1, margin: const EdgeInsets.symmetric(vertical: 2), color: fx.ink.withValues(alpha: 0.25)),
-      if (Native.has('push')) button(const Icon(Icons.notifications_none), 'Notifications', () => showNotifySheet(context)),
-      if (Native.has('checkupdate')) button(const Icon(Icons.download_outlined), 'Check for app updates', () => AppUpdate.openPage()),
-      button(const Icon(Icons.bug_report_outlined), 'Report a bug', openBugReport),
-      TourTarget(id: 'tray.tour', child: button(const Icon(Icons.help_outline), 'Show me around', () => showTourPicker(context))),
-      button(Icon(Theme.of(context).brightness == Brightness.dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined), 'Look', () => AppNav.showPage('look')),
+      Container(width: 24, height: 1, margin: const EdgeInsets.symmetric(vertical: 2), color: palette.ink.withValues(alpha: 0.25)),
+      if (Native.has('push'))
+        buildButton(const Icon(Icons.notifications_none), 'Notifications', () {
+          showNotifySheet(context);
+        }),
+      if (Native.has('checkupdate'))
+        buildButton(const Icon(Icons.download_outlined), 'Check for app updates', () {
+          AppUpdate.openPage();
+        }),
+      buildButton(const Icon(Icons.bug_report_outlined), 'Report a bug', openBugReport),
+      TourTarget(
+        id: 'tray.tour',
+        child: buildButton(const Icon(Icons.help_outline), 'Show me around', () {
+          showTourPicker(context);
+        }),
+      ),
+      buildButton(Icon(lookIcon), 'Look', () {
+        AppNav.showPage('look');
+      }),
     ];
+
+    // Each item unrolls 18 ms after the one above it, with a gap between them.
+    final unrolledItems = <Widget>[];
+    for (var itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      if (itemIndex > 0) {
+        unrolledItems.add(const SizedBox(height: EdgeTray._gap));
+      }
+      unrolledItems.add(_Unroll(
+        open: isOpen,
+        delay: Duration(milliseconds: 18 * itemIndex),
+        time: time,
+        child: items[itemIndex],
+      ));
+    }
 
     // Tucked away, the buttons are inert: no focus, no taps, nothing for a screen reader.
     final column = Padding(
       padding: EdgeInsets.only(right: edge),
       child: ExcludeFocus(
-        excluding: !open,
+        excluding: !isOpen,
         child: IgnorePointer(
-          ignoring: !open,
+          ignoring: !isOpen,
           child: ExcludeSemantics(
-            excluding: !open,
+            excluding: !isOpen,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(height: EdgeTray._gap),
-                  _Unroll(
-                    open: open,
-                    delay: Duration(milliseconds: 18 * i),
-                    time: time,
-                    child: items[i],
-                  ),
-                ],
-              ],
+              children: unrolledItems,
             ),
           ),
         ),
       ),
     );
 
-    // k runs 0 (out) to 1 (tucked away): the slide, the tab's flat side and its chevron.
+    double tuckedTarget;
+    String tabLabel;
+    if (isOpen) {
+      tuckedTarget = 0;
+      tabLabel = 'Hide menu';
+    } else {
+      tuckedTarget = 1;
+      tabLabel = 'Show menu';
+    }
+
+    // tuckedAmount runs 0 (out) to 1 (tucked away): the slide, the tab's flat side and its chevron.
     return TweenAnimationBuilder<double>(
-      tween: Tween(end: open ? 0 : 1),
+      tween: Tween(end: tuckedTarget),
       duration: time,
       curve: EdgeTray.ease,
       child: column,
-      builder: (context, k, column) => Transform.translate(
-        offset: Offset(shift * k, 0),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Glass(
-              width: EdgeTray._tabWidth,
-              height: size,
-              radius: BorderRadius.horizontal(left: const Radius.circular(12), right: Radius.circular(12 * (1 - k))),
-              label: open ? 'Hide menu' : 'Show menu',
-              expanded: open,
-              onTap: _toggle,
-              child: Transform.rotate(angle: math.pi * k, child: const Icon(Icons.chevron_right, size: 16)),
-            ),
-            const SizedBox(width: EdgeTray._gap),
-            column!,
-          ],
-        ),
-      ),
+      builder: (context, tuckedAmount, column) {
+        return Transform.translate(
+          offset: Offset(shift * tuckedAmount, 0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Glass(
+                width: EdgeTray._tabWidth,
+                height: size,
+                radius: BorderRadius.horizontal(left: const Radius.circular(12), right: Radius.circular(12 * (1 - tuckedAmount))),
+                label: tabLabel,
+                expanded: isOpen,
+                onTap: _toggle,
+                child: Transform.rotate(angle: math.pi * tuckedAmount, child: const Icon(Icons.chevron_right, size: 16)),
+              ),
+              const SizedBox(width: EdgeTray._gap),
+              column!,
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -206,22 +294,65 @@ class _Glass extends StatefulWidget {
   final bool? expanded;
 
   @override
-  State<_Glass> createState() => _GlassState();
+  State<_Glass> createState() {
+    return _GlassState();
+  }
 }
 
 class _GlassState extends State<_Glass> {
-  bool _hover = false;
-  bool _focus = false;
+  bool _hovered = false;
+  bool _focused = false;
 
+  /// The piece's fill: UwU Apps has the site's glass; Material You its own flat containers.
+  Color _fillColor(Fx palette, ColorScheme scheme, bool hovered) {
+    if (palette.uwu) {
+      if (hovered) {
+        return palette.surfaceStrong;
+      }
+      return palette.surface;
+    }
+    if (hovered) {
+      return scheme.surfaceContainerHighest;
+    }
+    return scheme.surfaceContainerHigh;
+  }
+
+  /// A rounded glass square with its border, shadow, hover lift and keyboard focus outline.
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
+    final palette = context.fx;
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final hover = _hover && widget.lift;
-    // UwU Apps has the site's glass; Material You its own flat containers.
-    final color = fx.uwu ? (hover ? fx.surfaceStrong : fx.surface) : (hover ? scheme.surfaceContainerHighest : scheme.surfaceContainerHigh);
+    final hovered = _hovered && widget.lift;
+    final color = _fillColor(palette, scheme, hovered);
     final keyboard = FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+
+    double lift;
+    if (hovered) {
+      lift = -1;
+    } else {
+      lift = 0;
+    }
+
+    BoxDecoration? focusOutline;
+    if (_focused && keyboard) {
+      focusOutline = BoxDecoration(
+        borderRadius: widget.radius,
+        border: Border.all(color: palette.ink, width: 2, strokeAlign: 4),
+      );
+    }
+
+    BoxBorder? border;
+    List<BoxShadow>? shadows;
+    if (palette.uwu) {
+      border = Border.all(color: palette.border);
+      if (dark) {
+        shadows = [const BoxShadow(color: Color(0x80000000), blurRadius: 34, offset: Offset(0, 10))];
+      } else {
+        shadows = [const BoxShadow(color: Color(0x1A14281E), blurRadius: 30, offset: Offset(0, 10))];
+      }
+    }
+
     return Tooltip(
       message: widget.label,
       waitDuration: const Duration(milliseconds: 400),
@@ -231,36 +362,41 @@ class _GlassState extends State<_Glass> {
         expanded: widget.expanded,
         excludeSemantics: true,
         child: MouseRegion(
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
+          onEnter: (_) {
+            setState(() {
+              _hovered = true;
+            });
+          },
+          onExit: (_) {
+            setState(() {
+              _hovered = false;
+            });
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            transform: Matrix4.translationValues(0, hover ? -1 : 0, 0),
+            transform: Matrix4.translationValues(0, lift, 0),
             width: widget.width,
             height: widget.height,
-            foregroundDecoration: _focus && keyboard
-                ? BoxDecoration(
-                    borderRadius: widget.radius,
-                    border: Border.all(color: fx.ink, width: 2, strokeAlign: 4),
-                  )
-                : null,
+            foregroundDecoration: focusOutline,
             decoration: BoxDecoration(
               color: color,
               borderRadius: widget.radius,
-              border: fx.uwu ? Border.all(color: fx.border) : null,
-              boxShadow: fx.uwu
-                  ? [dark ? const BoxShadow(color: Color(0x80000000), blurRadius: 34, offset: Offset(0, 10)) : const BoxShadow(color: Color(0x1A14281E), blurRadius: 30, offset: Offset(0, 10))]
-                  : null,
+              border: border,
+              boxShadow: shadows,
             ),
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
                 borderRadius: widget.radius,
                 onTap: widget.onTap,
-                onFocusChange: (f) => setState(() => _focus = f),
+                onFocusChange: (focused) {
+                  setState(() {
+                    _focused = focused;
+                  });
+                },
                 child: Center(
                   child: IconTheme(
-                    data: IconThemeData(color: fx.ink, size: 22),
+                    data: IconThemeData(color: palette.ink, size: 22),
                     child: widget.child,
                   ),
                 ),
@@ -283,55 +419,78 @@ class _Unroll extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_Unroll> createState() => _UnrollState();
+  State<_Unroll> createState() {
+    return _UnrollState();
+  }
 }
 
 class _UnrollState extends State<_Unroll> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: widget.time, value: widget.open ? 1 : 0);
-  Timer? _wait;
+  late final _controller = AnimationController(vsync: this, duration: widget.time, value: _startValue());
+  Timer? _delayTimer;
+
+  double _startValue() {
+    if (widget.open) {
+      return 1;
+    }
+    return 0;
+  }
 
   @override
-  void didUpdateWidget(_Unroll old) {
-    super.didUpdateWidget(old);
-    _c.duration = widget.time;
-    if (widget.open == old.open) return;
-    _wait?.cancel();
+  void didUpdateWidget(_Unroll oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _controller.duration = widget.time;
+    if (widget.open == oldWidget.open) {
+      return;
+    }
+    _delayTimer?.cancel();
     if (!widget.open) {
-      _c.reverse();
+      _controller.reverse();
     } else if (widget.time == Duration.zero) {
-      _c.value = 1;
+      _controller.value = 1;
     } else {
-      _wait = Timer(widget.delay, _c.forward);
+      _delayTimer = Timer(widget.delay, _controller.forward);
     }
   }
 
   @override
   void dispose() {
-    _wait?.cancel();
-    _c.dispose();
+    _delayTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
+  /// The item faded, shifted and scaled by how far the animation has run, eased each way.
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _c,
-    child: widget.child,
-    builder: (context, child) {
-      final v = _c.value;
-      // Each way eases out from where it starts, as a CSS transition does.
-      final opening = _c.status == AnimationStatus.forward || _c.status == AnimationStatus.completed;
-      final move = opening ? EdgeTray.ease.transform(v) : 1 - EdgeTray.ease.transform(1 - v);
-      final fade = opening ? Curves.ease.transform(math.min(1, v / 0.8)) : 1 - Curves.ease.transform(math.min(1, (1 - v) / 0.8));
-      return Opacity(
-        opacity: fade,
-        child: Transform.translate(
-          offset: Offset(12 * (1 - move), 0),
-          child: Transform.scale(scale: 0.85 + 0.15 * move, child: child),
-        ),
-      );
-    },
-  );
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final value = _controller.value;
+        // Each way eases out from where it starts, as a CSS transition does.
+        final opening = _controller.status == AnimationStatus.forward || _controller.status == AnimationStatus.completed;
+        double move;
+        double fade;
+        if (opening) {
+          move = EdgeTray.ease.transform(value);
+          fade = Curves.ease.transform(math.min(1, value / 0.8));
+        } else {
+          move = 1 - EdgeTray.ease.transform(1 - value);
+          fade = 1 - Curves.ease.transform(math.min(1, (1 - value) / 0.8));
+        }
+        return Opacity(
+          opacity: fade,
+          child: Transform.translate(
+            offset: Offset(12 * (1 - move), 0),
+            child: Transform.scale(scale: 0.85 + 0.15 * move, child: child),
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// The Look page, as the tray opens it on a phone.
-Widget lookPage() => const LookPage();
+Widget lookPage() {
+  return const LookPage();
+}

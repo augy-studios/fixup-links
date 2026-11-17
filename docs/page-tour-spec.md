@@ -206,8 +206,8 @@ when it ends. Settings needs one container:
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* Drawn in over its own length; the script sets --len. */
-.tourLine { stroke-dasharray: var(--len, 600); stroke-dashoffset: var(--len, 600); animation: tour-draw 0.6s ease forwards; }
+/* Drawn in over its own length; the script sets --length. */
+.tourLine { stroke-dasharray: var(--length, 600); stroke-dashoffset: var(--length, 600); animation: tour-draw 0.6s ease forwards; }
 @keyframes tour-draw { to { stroke-dashoffset: 0; } }
 .tourSkip {
   position: fixed;
@@ -437,7 +437,7 @@ over a light or a dark page.
 
     root.querySelector('.tourArrow').setAttribute('viewBox', `0 0 ${vw} ${vh}`);
     line.setAttribute('d', `M${sx},${sy} Q${mx},${my} ${tx},${ty}`);
-    line.style.setProperty('--len', Math.ceil(line.getTotalLength()) + 10);
+    line.style.setProperty('--length', Math.ceil(line.getTotalLength()) + 10);
     const ang = Math.atan2(ty - my, tx - mx);
     const a1 = ang + Math.PI * 0.8, a2 = ang - Math.PI * 0.8, len = 14;
     head.setAttribute('d',

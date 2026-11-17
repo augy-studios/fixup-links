@@ -11,20 +11,31 @@ class Migrate {
   static const doneKey = 'uwufix.migrated';
 
   // The site's own keys (script.js, js/theme.js, js/tray.js, js/tour.js, js/sync.js).
-  static bool _ours(String k) => k == 'uwufix_history' || k.startsWith('uwufix.') || k.startsWith('tour.') || k == 'uwufix_theme';
+  static bool _ours(String key) {
+    return key == 'uwufix_history' || key.startsWith('uwufix.') || key.startsWith('tour.') || key == 'uwufix_theme';
+  }
 
   /// How many keys came across (0 when there was nothing, or it was done before).
   static Future<int> run() async {
     final store = Store.I;
-    if (store.has(doneKey) || !Native.available) return 0;
+    if (store.has(doneKey) || !Native.available) {
+      return 0;
+    }
     var count = 0;
     try {
-      final got = await Native.call('Migrate', 'read');
-      final items = (got?['items'] as Map?) ?? const {};
-      for (final e in items.entries) {
-        final k = '${e.key}', v = e.value;
-        if (!_ours(k) || v is! String || store.has(k)) continue;
-        store.put(k, v);
+      final answer = await Native.call('Migrate', 'read');
+      Map items = const {};
+      final answerItems = answer?['items'] as Map?;
+      if (answerItems != null) {
+        items = answerItems;
+      }
+      for (final item in items.entries) {
+        final key = '${item.key}';
+        final value = item.value;
+        if (!_ours(key) || value is! String || store.has(key)) {
+          continue;
+        }
+        store.put(key, value);
         count++;
       }
       await Native.call('Migrate', 'done');

@@ -34,35 +34,43 @@ async def do_fix(bot, original_url: str) -> tuple[linkfix.CleanResult, str, str 
     cleaned = result.cleaned
     title = None
 
-    meta = await linkfix.resolve_url(bot.http_session, cleaned)
-    final_url = meta.get('final_url')
+    metadata = await linkfix.resolve_url(bot.http_session, cleaned)
+    final_url = metadata.get('final_url')
     if final_url and final_url != cleaned:
         try:
             from urllib.parse import urlsplit
-            if (urlsplit(final_url).hostname or '') != (urlsplit(cleaned).hostname or ''):
-                reresolved = linkfix.clean_url(final_url)
-                cleaned = reresolved.cleaned
+            final_host = linkfix.hostname_of(urlsplit(final_url))
+            cleaned_host = linkfix.hostname_of(urlsplit(cleaned))
+            if final_host != cleaned_host:
+                redirect_result = linkfix.clean_url(final_url)
+                cleaned = redirect_result.cleaned
                 result.changes.append(linkfix.Change('redirect', f'Redirects to {urlsplit(cleaned).hostname}'))
         except Exception:
             pass
-    title = meta.get('title')
+    title = metadata.get('title')
 
     return result, cleaned, title
 
 
 def build_result_embed(original_url: str, cleaned_url: str, platform: str | None,
                        changes: str | None, title: str | None) -> discord.Embed:
+    """The full "Link fixed" embed shown by the details view."""
     embed = discord.Embed(title='Link fixed', color=discord.Color.green())
     if title:
         embed.description = title
     embed.add_field(name='Original', value=f'```{original_url[:1000]}```', inline=False)
     embed.add_field(name='Fixed', value=f'```{cleaned_url[:1000]}```', inline=False)
-    embed.add_field(name='Platform', value=platform or 'General', inline=True)
-    embed.add_field(name='Changes', value=changes or 'None', inline=True)
+    if not platform:
+        platform = 'General'
+    if not changes:
+        changes = 'None'
+    embed.add_field(name='Platform', value=platform, inline=True)
+    embed.add_field(name='Changes', value=changes, inline=True)
     return embed
 
 
 def build_link_view(fix_id: int) -> discord.ui.View:
+    """Buttons under the plain-link reply: Details and QR Code."""
     view = discord.ui.View(timeout=None)
     view.add_item(DetailsButton(fix_id))
     view.add_item(QrButton(fix_id))
@@ -70,6 +78,7 @@ def build_link_view(fix_id: int) -> discord.ui.View:
 
 
 def build_details_view(fix_id: int, cleaned_url: str) -> discord.ui.View:
+    """Buttons under the details embed: Open, Just the Link and QR Code."""
     view = discord.ui.View(timeout=None)
     view.add_item(discord.ui.Button(label='Open', style=discord.ButtonStyle.link, url=cleaned_url))
     view.add_item(JustLinkButton(fix_id))
@@ -86,6 +95,8 @@ async def _load_fix(interaction: discord.Interaction, fix_id: int):
 
 
 class DetailsButton(discord.ui.DynamicItem[discord.ui.Button], template=r'detailsbtn:(?P<id>[0-9]+)'):
+    """Swaps the plain-link reply for the full details embed."""
+
     def __init__(self, fix_id: int):
         super().__init__(
             discord.ui.Button(
@@ -115,6 +126,8 @@ class DetailsButton(discord.ui.DynamicItem[discord.ui.Button], template=r'detail
 
 
 class JustLinkButton(discord.ui.DynamicItem[discord.ui.Button], template=r'linkbtn:(?P<id>[0-9]+)'):
+    """Swaps the details embed back to just the fixed link as plain text."""
+
     def __init__(self, fix_id: int):
         super().__init__(
             discord.ui.Button(
@@ -168,6 +181,8 @@ class CopyButton(discord.ui.DynamicItem[discord.ui.Button], template=r'copybtn:(
 
 
 class QrButton(discord.ui.DynamicItem[discord.ui.Button], template=r'qrbtn:(?P<id>[0-9]+)'):
+    """Sends a private QR code image of the fixed link."""
+
     def __init__(self, fix_id: int):
         super().__init__(
             discord.ui.Button(
@@ -187,12 +202,12 @@ class QrButton(discord.ui.DynamicItem[discord.ui.Button], template=r'qrbtn:(?P<i
         row = await _load_fix(interaction, self.fix_id)
         if not row:
             return
-        img = qrcode.make(row['cleaned_url'])
-        buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        buf.seek(0)
+        image = qrcode.make(row['cleaned_url'])
+        buffer = io.BytesIO()
+        image.save(buffer, format='PNG')
+        buffer.seek(0)
         await interaction.response.send_message(
-            file=discord.File(buf, filename='qr.png'),
+            file=discord.File(buffer, filename='qr.png'),
             ephemeral=True,
         )
 
@@ -210,11 +225,14 @@ class FixCog(commands.Cog):
         await interaction.response.defer(thinking=True)
         try:
             result, cleaned, title = await do_fix(self.bot, link)
-        except linkfix.InvalidUrlError as e:
-            await interaction.followup.send(str(e), ephemeral=True)
+        except linkfix.InvalidUrlError as error:
+            await interaction.followup.send(str(error), ephemeral=True)
             return
 
-        changes = ', '.join(c.label for c in result.changes)
+        change_labels = []
+        for change in result.changes:
+            change_labels.append(change.label)
+        changes = ', '.join(change_labels)
         fix_id = await db.add_fix_result(self.bot.db, original_url=link, cleaned_url=cleaned,
                                          platform=result.platform, title=title, changes=changes)
         await db.add_history(self.bot.db, user_id=interaction.user.id, original_url=link,

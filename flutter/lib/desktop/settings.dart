@@ -11,46 +11,74 @@
 import 'dart:convert';
 import 'dart:io';
 
-class DeskSettings {
-  DeskSettings._();
+/// The settings file: read whole, and merged key by key on every write.
+class DesktopSettings {
+  DesktopSettings._();
 
+  /// The folder the settings file lives in, as each system keeps an app's settings.
   static String get folder {
-    final env = Platform.environment;
-    if (Platform.isWindows) return '${env['APPDATA'] ?? env['USERPROFILE']}\\uwuFix';
-    if (Platform.isMacOS) return '${env['HOME']}/Library/Application Support/uwuFix';
-    final config = env['XDG_CONFIG_HOME'] ?? '${env['HOME']}/.config';
+    final environment = Platform.environment;
+    if (Platform.isWindows) {
+      String? base;
+      if (environment['APPDATA'] != null) {
+        base = environment['APPDATA'];
+      } else {
+        base = environment['USERPROFILE'];
+      }
+      return '$base\\uwuFix';
+    }
+    if (Platform.isMacOS) {
+      return '${environment['HOME']}/Library/Application Support/uwuFix';
+    }
+    String config;
+    if (environment['XDG_CONFIG_HOME'] != null) {
+      config = environment['XDG_CONFIG_HOME']!;
+    } else {
+      config = '${environment['HOME']}/.config';
+    }
     return '$config/uwuFix';
   }
 
-  static File get _file => File('$folder${Platform.pathSeparator}settings.json');
+  static File get _file {
+    return File('$folder${Platform.pathSeparator}settings.json');
+  }
 
   static Map<String, dynamic> read() {
     try {
-      final v = jsonDecode(_file.readAsStringSync());
-      return v is Map ? Map<String, dynamic>.from(v) : {};
+      final decoded = jsonDecode(_file.readAsStringSync());
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return {};
     } catch (_) {
       return {};
     }
   }
 
-  static Object? get(String key) => read()[key];
+  static Object? get(String key) {
+    return read()[key];
+  }
 
-  static void set(String key, Object? value) => merge({key: value});
+  static void set(String key, Object? value) {
+    merge({key: value});
+  }
 
+  /// Writes [values] over what's in the file (null removes a key), through a temporary file
+  /// renamed over it so a half-written file is never left behind.
   static void merge(Map<String, Object?> values) {
     try {
       final all = read();
-      for (final e in values.entries) {
-        if (e.value == null) {
-          all.remove(e.key);
+      for (final entry in values.entries) {
+        if (entry.value == null) {
+          all.remove(entry.key);
         } else {
-          all[e.key] = e.value;
+          all[entry.key] = entry.value;
         }
       }
       Directory(folder).createSync(recursive: true);
-      final tmp = File('${_file.path}.tmp');
-      tmp.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(all));
-      tmp.renameSync(_file.path);
+      final temporaryFile = File('${_file.path}.tmp');
+      temporaryFile.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(all));
+      temporaryFile.renameSync(_file.path);
     } catch (_) {
       // Kept for this run only.
     }

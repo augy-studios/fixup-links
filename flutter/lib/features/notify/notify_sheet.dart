@@ -14,42 +14,88 @@ import '../../native/native_bridge.dart';
 import '../../theme/theme.dart';
 import '../update/update_bar.dart';
 
-const _denied = "Notifications are off for uwuFix in Android's settings. Turn them on there, then come back.";
-const _offline = "Couldn't reach Firebase. Check you're online, then try again.";
+const _deniedMessage = "Notifications are off for uwuFix in Android's settings. Turn them on there, then come back.";
+const _offlineMessage = "Couldn't reach Firebase. Check you're online, then try again.";
 
 /// Pushes that arrive while the app's in front: FCM leaves showing them to the app.
 void listenForPushes() {
-  if (!Native.has('push')) return;
-  Native.on('PushNotifications', 'pushNotificationReceived', (m) {
-    final data = Map<String, dynamic>.from((m['data'] as Map?) ?? const {});
-    final title = '${m['title'] ?? ''}';
+  if (!Native.has('push')) {
+    return;
+  }
+  Native.on('PushNotifications', 'pushNotificationReceived', (message) {
+    Map<dynamic, dynamic> rawData = const {};
+    final givenData = message['data'] as Map?;
+    if (givenData != null) {
+      rawData = givenData;
+    }
+    final data = Map<String, dynamic>.from(rawData);
+    String title = '';
+    final rawTitle = message['title'];
+    if (rawTitle != null) {
+      title = '$rawTitle';
+    }
     if (data['type'] == 'release' && Native.has('update')) {
+      String text;
+      if (title.isEmpty) {
+        text = 'A new version of uwuFix is out.';
+      } else {
+        text = title;
+      }
+      String version = '';
+      final rawVersion = data['version'];
+      if (rawVersion != null) {
+        version = '$rawVersion';
+      }
       AppNav.say(
-        title.isEmpty ? 'A new version of uwuFix is out.' : title,
+        text,
         action: 'Update',
-        onAction: () => AppUpdate.openPage(version: '${data['version'] ?? ''}'),
+        onAction: () {
+          AppUpdate.openPage(version: version);
+        },
       );
     } else if (title.isNotEmpty) {
-      AppNav.say(m['body'] == null ? title : '$title: ${m['body']}');
+      final body = message['body'];
+      if (body == null) {
+        AppNav.say(title);
+      } else {
+        AppNav.say('$title: $body');
+      }
     }
   });
 }
 
-Future<void> showNotifySheet(BuildContext context) =>
-    showModalBottomSheet<void>(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => const _NotifySheet());
+/// Opens the notifications sheet from the bottom of the screen.
+Future<void> showNotifySheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) {
+      return const _NotifySheet();
+    },
+  );
+}
 
+/// The sheet with the two notification switches.
 class _NotifySheet extends StatefulWidget {
   const _NotifySheet();
 
   @override
-  State<_NotifySheet> createState() => _NotifySheetState();
+  State<_NotifySheet> createState() {
+    return _NotifySheetState();
+  }
 }
 
 class _NotifySheetState extends State<_NotifySheet> with WidgetsBindingObserver {
-  Map<String, bool> _on = {'releases': false, 'news': false};
+  /// Which topics the phone has joined.
+  Map<String, bool> _enabled = {'releases': false, 'news': false};
+
+  /// Topics being turned on or off right now.
   final Set<String> _busy = {};
   String? _note;
-  bool _settings = false;
+
+  /// Whether to show the button that opens Android's settings.
+  bool _showSettingsButton = false;
 
   @override
   void initState() {
@@ -67,64 +113,98 @@ class _NotifySheetState extends State<_NotifySheet> with WidgetsBindingObserver 
   // Back from Android's settings with the sheet still open.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    if (state == AppLifecycleState.resumed) {
+      _refresh();
+    }
   }
 
+  /// Reads which topics are joined and whether notifications are allowed.
   Future<void> _refresh() async {
     try {
       final topics = await Native.call('Fixup', 'topics');
-      final perm = await Native.call('PushNotifications', 'checkPermissions');
-      if (!mounted) return;
+      final permissions = await Native.call('PushNotifications', 'checkPermissions');
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _on = {'releases': topics?['releases'] == true, 'news': topics?['news'] == true};
-        final off = (_on['releases']! || _on['news']!) && perm?['receive'] != 'granted';
-        _note = off ? _denied : null;
-        _settings = off;
+        _enabled = {'releases': topics?['releases'] == true, 'news': topics?['news'] == true};
+        final blocked = (_enabled['releases']! || _enabled['news']!) && permissions?['receive'] != 'granted';
+        if (blocked) {
+          _note = _deniedMessage;
+        } else {
+          _note = null;
+        }
+        _showSettingsButton = blocked;
       });
     } catch (_) {}
   }
 
+  /// Whether notifications are allowed, asking Android for them if it still can.
   Future<bool> _allowed() async {
-    final now = await Native.call('PushNotifications', 'checkPermissions');
-    if (now?['receive'] == 'granted') return true;
+    final currentPermissions = await Native.call('PushNotifications', 'checkPermissions');
+    if (currentPermissions?['receive'] == 'granted') {
+      return true;
+    }
     // Once refused for good, Android won't prompt again: its settings are the only way.
-    if (now?['receive'] == 'denied') return false;
-    final after = await Native.call('PushNotifications', 'requestPermissions', {
+    if (currentPermissions?['receive'] == 'denied') {
+      return false;
+    }
+    final answer = await Native.call('PushNotifications', 'requestPermissions', {
       'permissions': ['receive'],
     });
-    return after?['receive'] == 'granted';
+    return answer?['receive'] == 'granted';
   }
 
+  /// Joins or leaves [topic], asking for the permission first when turning it on.
   Future<void> _toggle(String topic, bool on) async {
     setState(() {
       _busy.add(topic);
-      _on[topic] = on;
+      _enabled[topic] = on;
       _note = null;
-      _settings = false;
+      _showSettingsButton = false;
     });
     try {
       if (on && !await _allowed()) {
         setState(() {
-          _on[topic] = false;
-          _note = _denied;
-          _settings = true;
+          _enabled[topic] = false;
+          _note = _deniedMessage;
+          _showSettingsButton = true;
         });
         return;
       }
       await Native.call('Fixup', 'setTopic', {'topic': topic, 'on': on});
-    } on NativeError catch (e) {
+    } on NativeError catch (error) {
       setState(() {
-        _on[topic] = !on;
-        _note = e.message.isEmpty ? _offline : e.message;
+        _enabled[topic] = !on;
+        if (error.message.isEmpty) {
+          _note = _offlineMessage;
+        } else {
+          _note = error.message;
+        }
       });
     } finally {
-      if (mounted) setState(() => _busy.remove(topic));
+      if (mounted) {
+        setState(() {
+          _busy.remove(topic);
+        });
+      }
     }
+  }
+
+  /// What a topic's switch does when flipped: nothing while it's busy.
+  ValueChanged<bool>? _onChangedFor(String topic) {
+    if (_busy.contains(topic)) {
+      return null;
+    }
+    return (value) {
+      _toggle(topic, value);
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final fx = context.fx;
+    final palette = context.fx;
+    final note = _note;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -140,22 +220,26 @@ class _NotifySheetState extends State<_NotifySheet> with WidgetsBindingObserver 
                 contentPadding: EdgeInsets.zero,
                 title: const Text('New versions of the app'),
                 subtitle: const Text('When an update is ready to install'),
-                value: _on['releases']!,
-                onChanged: _busy.contains('releases') ? null : (v) => _toggle('releases', v),
+                value: _enabled['releases']!,
+                onChanged: _onChangedFor('releases'),
               ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('News from uwuFix'),
               subtitle: const Text('Now and then: new sites it fixes, and other news'),
-              value: _on['news']!,
-              onChanged: _busy.contains('news') ? null : (v) => _toggle('news', v),
+              value: _enabled['news']!,
+              onChanged: _onChangedFor('news'),
             ),
-            if (_note != null) ...[const SizedBox(height: 8), Text(_note!, style: TextStyle(color: fx.error))],
-            if (_settings)
+            if (note != null) ...[const SizedBox(height: 8), Text(note, style: TextStyle(color: palette.error))],
+            if (_showSettingsButton)
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
-                  onPressed: () => Native.call('Fixup', 'openSettings', {'what': 'notifications'}).catchError((_) => null),
+                  onPressed: () {
+                    Native.call('Fixup', 'openSettings', {'what': 'notifications'}).catchError((_) {
+                      return null;
+                    });
+                  },
                   child: const Text("Open Android's settings"),
                 ),
               ),

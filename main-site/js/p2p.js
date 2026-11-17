@@ -32,39 +32,68 @@
 
   /* ---- codes ---- */
 
+  /** Makes a random six-character pairing code from CODE_ALPHABET, with every character equally likely. */
   function generateCode() {
     // Bytes at or above this would make some characters likelier than others.
     const limit = 256 - (256 % CODE_ALPHABET.length);
     let code = '';
     while (code.length < CODE_LENGTH) {
       const [byte] = crypto.getRandomValues(new Uint8Array(1));
-      if (byte < limit) code += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+      if (byte < limit) {
+        code += CODE_ALPHABET[byte % CODE_ALPHABET.length];
+      }
     }
     return code;
   }
 
+  /** Upper-cases what was typed, drops anything that isn't a letter or digit, and cuts it to code length. */
   function normaliseCode(input) {
-    return String(input || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
+    let text = '';
+    if (input) {
+      text = String(input);
+    }
+    return text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
   }
 
   function isValidCode(input) {
     const code = normaliseCode(input);
-    return code.length === CODE_LENGTH && [...code].every((c) => CODE_ALPHABET.includes(c));
+    if (code.length !== CODE_LENGTH) {
+      return false;
+    }
+    for (const character of code) {
+      if (!CODE_ALPHABET.includes(character)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /* ---- library ---- */
 
   let peerLibrary = null;
 
+  /** Loads PeerJS from the CDN the first time it's needed and resolves with its Peer class. */
   function loadPeerJs() {
-    if (peerLibrary) return Promise.resolve(peerLibrary);
-    if (window.Peer) return Promise.resolve((peerLibrary = window.Peer));
-    return new Promise((resolve, reject) => {
+    if (peerLibrary) {
+      return Promise.resolve(peerLibrary);
+    }
+    if (window.Peer) {
+      peerLibrary = window.Peer;
+      return Promise.resolve(peerLibrary);
+    }
+    return new Promise(function (resolve, reject) {
       const script = document.createElement('script');
       script.src = PEERJS_URL;
       script.async = true;
-      script.onload = () => (window.Peer ? resolve((peerLibrary = window.Peer)) : reject(new Error('PeerJS did not define Peer')));
-      script.onerror = () => {
+      script.onload = function () {
+        if (window.Peer) {
+          peerLibrary = window.Peer;
+          resolve(peerLibrary);
+        } else {
+          reject(new Error('PeerJS did not define Peer'));
+        }
+      };
+      script.onerror = function () {
         script.remove();
         reject(new Error('Could not load PeerJS'));
       };
@@ -104,12 +133,15 @@
       this.dispatchEvent(new CustomEvent('status', { detail: { status, ...detail } }));
     }
 
+    /** Wires up a PeerJS data connection: open, incoming messages, and closing (reported once). */
     bindLink(link) {
       // A link that closes without ever opening never reached the other device.
       let everOpened = false;
       let finished = false;
       const finish = () => {
-        if (finished) return;
+        if (finished) {
+          return;
+        }
         finished = true;
         this.onLinkClosed(link, everOpened);
       };
@@ -118,7 +150,9 @@
         this.onLinkOpen(link);
       });
       link.on('data', (message) => {
-        if (!message || typeof message !== 'object' || typeof message.type !== 'string') return;
+        if (!message || typeof message !== 'object' || typeof message.type !== 'string') {
+          return;
+        }
         this.dispatchEvent(new CustomEvent('message', { detail: { message, from: link.peer } }));
       });
       link.on('close', finish);
@@ -130,10 +164,14 @@
     watchBroker() {
       const peer = this.peer;
       let delay = 1000;
-      peer.on('open', () => { delay = 1000; });
+      peer.on('open', function () {
+        delay = 1000;
+      });
       peer.on('disconnected', () => {
         setTimeout(() => {
-          if (this.peer === peer && !peer.destroyed && peer.disconnected) peer.reconnect();
+          if (this.peer === peer && !peer.destroyed && peer.disconnected) {
+            peer.reconnect();
+          }
         }, delay);
         delay = Math.min(delay * 2, 30000);
       });
@@ -155,15 +193,20 @@
       this.links = new Map(); // guest peer id -> open link
     }
 
+    /** Registers with the broker under the code's peer id and waits for a guest to connect. */
     async start(code) {
       const Peer = await loadPeerJs();
       this.code = code;
       this.setStatus('connecting');
       this.peer = new Peer(PEER_PREFIX + code, PEER_OPTIONS);
       this.watchBroker();
-      this.peer.on('open', () => this.refreshStatus());
+      this.peer.on('open', () => {
+        this.refreshStatus();
+      });
       this.peer.on('connection', (link) => {
-        for (const old of [...this.links.values()]) this.drop(old);
+        for (const oldLink of [...this.links.values()]) {
+          this.drop(oldLink);
+        }
         this.bindLink(link);
       });
       this.peer.on('error', (error) => {
@@ -172,7 +215,9 @@
           return;
         }
         // A guest already attached doesn't need the broker.
-        if (this.links.size > 0 && BROKER_ERRORS.has(error?.type)) return;
+        if (this.links.size > 0 && BROKER_ERRORS.has(error?.type)) {
+          return;
+        }
         this.setStatus('error', { message: describePeerError(error) });
       });
     }
@@ -185,7 +230,9 @@
 
     onLinkClosed(link) {
       // Links this end dropped, and links that never opened, are not in the map.
-      if (this.links.get(link.peer) !== link) return;
+      if (this.links.get(link.peer) !== link) {
+        return;
+      }
       this.links.delete(link.peer);
       this.dispatchEvent(new CustomEvent('leave', { detail: { id: link.peer } }));
       this.refreshStatus();
@@ -193,7 +240,11 @@
 
     // A guest that dropped and one that never came look the same from here.
     refreshStatus() {
-      this.setStatus(this.links.size > 0 ? 'connected' : 'waiting');
+      if (this.links.size > 0) {
+        this.setStatus('connected');
+      } else {
+        this.setStatus('waiting');
+      }
     }
 
     // Removed before closing: close() emits "close" synchronously.
@@ -213,7 +264,9 @@
     }
 
     close() {
-      for (const link of [...this.links.values()]) this.drop(link);
+      for (const link of [...this.links.values()]) {
+        this.drop(link);
+      }
       this.destroyPeer();
       this.setStatus('idle');
     }
@@ -228,6 +281,7 @@
       this.timer = null;
     }
 
+    /** Joins the host with this code, giving up as unreachable after CONNECT_TIMEOUT_MS. */
     async connect(code) {
       const Peer = await loadPeerJs();
       this.setStatus('connecting');
@@ -235,7 +289,9 @@
       this.watchBroker();
       // Nothing errors when ICE cannot find a path; it just keeps trying.
       this.timer = setTimeout(() => {
-        if (this.status !== 'connecting') return;
+        if (this.status !== 'connecting') {
+          return;
+        }
         this.hangUp();
         this.setStatus('unreachable');
       }, CONNECT_TIMEOUT_MS);
@@ -245,26 +301,38 @@
         this.bindLink(this.link);
       });
       this.peer.on('error', (error) => {
-        if (this.status === 'connected' && BROKER_ERRORS.has(error?.type)) return;
+        if (this.status === 'connected' && BROKER_ERRORS.has(error?.type)) {
+          return;
+        }
         this.hangUp();
         this.setStatus('error', { message: describePeerError(error), type: error?.type });
       });
     }
 
     onLinkOpen(link) {
-      if (link !== this.link) return;
+      if (link !== this.link) {
+        return;
+      }
       clearTimeout(this.timer);
       this.setStatus('connected');
     }
 
     onLinkClosed(link, everOpened) {
-      if (link !== this.link) return;
+      if (link !== this.link) {
+        return;
+      }
       this.link = null;
-      this.setStatus(everOpened ? 'dropped' : 'unreachable');
+      if (everOpened) {
+        this.setStatus('dropped');
+      } else {
+        this.setStatus('unreachable');
+      }
     }
 
     send(message) {
-      if (!this.link?.open) return;
+      if (!this.link?.open) {
+        return;
+      }
       try {
         this.link.send(message);
       } catch {
@@ -281,7 +349,9 @@
       this.link = null;
       this.peer = null;
       link?.close({ flush: true });
-      setTimeout(() => peer?.destroy(), 1000);
+      setTimeout(function () {
+        peer?.destroy();
+      }, 1000);
       this.setStatus('idle');
     }
 
